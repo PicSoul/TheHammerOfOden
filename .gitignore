@@ -17,3 +17,6 @@ package/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# local safety copies
+_backup/

@@ -146,6 +146,8 @@ namespace TheHammerOfOden
             }
         }
 
+        private static bool _builtSeeThrough;
+
         internal static void Destroy()
         {
             if (_root != null)
@@ -180,19 +182,38 @@ namespace TheHammerOfOden
 
         private static bool EnsureRoot()
         {
+            // The material is baked into each LineRenderer when built, so a change of mind
+            // about see-through means rebuilding the pools.
+            if (_root != null && _builtSeeThrough != ModConfig.SnapPointsSeeThrough.Value)
+            {
+                Destroy();
+            }
+
             if (_root != null)
             {
                 return true;
             }
 
-            if (GizmoMaterial.Get() == null)
+            if (MarkerMaterial() == null)
             {
                 return false;
             }
 
             _root = new GameObject("HammerOfOden_SnapPoints");
             Object.DontDestroyOnLoad(_root);
+            _builtSeeThrough = ModConfig.SnapPointsSeeThrough.Value;
             return true;
+        }
+
+        /// <summary>
+        /// See-through by default: a snap point on the underside of a piece is invisible
+        /// exactly when you most need to know where it is.
+        /// </summary>
+        private static Material MarkerMaterial()
+        {
+            return ModConfig.SnapPointsSeeThrough.Value
+                ? GizmoMaterial.GetSeeThrough()
+                : GizmoMaterial.Get();
         }
 
         private static LineRenderer BuildMarker(string prefix, int index)
@@ -204,7 +225,7 @@ namespace TheHammerOfOden
             line.useWorldSpace = false;
             line.loop = true;
             line.positionCount = Segments;
-            line.material = GizmoMaterial.Get();
+            line.material = MarkerMaterial();
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
             line.alignment = LineAlignment.View;

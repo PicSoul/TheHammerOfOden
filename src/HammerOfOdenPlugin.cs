@@ -1,3 +1,4 @@
+using System.Reflection;
 using System;
 using BepInEx;
 using BepInEx.Logging;
@@ -21,19 +22,56 @@ namespace TheHammerOfOden
 
             ModConfig.Bind(Config);
 
-            try
+            _harmony = new Harmony(PluginGuid);
+            ApplyPatches();
+            WarnAboutKnownConflicts();
+        }
+
+        /// <summary>
+        /// Apply each patch class on its own, rather than with PatchAll.
+        /// </summary>
+        /// <remarks>
+        /// PatchAll is all-or-nothing: one bad patch target throws and nothing gets applied,
+        /// so a mistake in a minor feature silently disables rotation, snapping and
+        /// everything else. Patching class by class costs a few lines and means a failure
+        /// takes out only the feature it belongs to, and says which one.
+        /// </remarks>
+        private void ApplyPatches()
+        {
+            int applied = 0;
+            int failed = 0;
+
+            foreach (Type type in Assembly.GetExecutingAssembly().GetTypes())
             {
-                _harmony = new Harmony(PluginGuid);
-                _harmony.PatchAll();
-                Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
-                WarnAboutKnownConflicts();
+                if (type.GetCustomAttributes(typeof(HarmonyPatch), inherit: true).Length == 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    _harmony.CreateClassProcessor(type).Patch();
+                    applied++;
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    Logger.LogError(
+                        $"Patch '{type.Name}' could not be applied, so that feature is disabled. "
+                        + "The rest of the mod is unaffected.");
+                    Logger.LogError(ex.Message);
+                }
             }
-            catch (Exception ex)
+
+            if (failed == 0)
             {
-                try { _harmony?.UnpatchSelf(); } catch { }
-                _harmony = null;
-                Logger.LogError("Failed to apply Harmony patches; placement is unchanged.");
-                Logger.LogError(ex);
+                Logger.LogInfo($"{PluginName} {PluginVersion} loaded; {applied} patches applied.");
+            }
+            else
+            {
+                Logger.LogWarning(
+                    $"{PluginName} {PluginVersion} loaded with {applied} of {applied + failed} patches applied. "
+                    + "See the errors above for what is missing.");
             }
         }
 

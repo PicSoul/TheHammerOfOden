@@ -29,9 +29,27 @@ namespace TheHammerOfOden
             }
 
             FreePlacement.HandleInput(__instance);
+            HandleClippingToggle(__instance);
             HandleResets();
             HandleStandaloneCopyKey(__instance);
             HandleRotation();
+        }
+
+        private static void HandleClippingToggle(Player player)
+        {
+            if (!IsDown(ModConfig.ClippingToggleKey))
+            {
+                return;
+            }
+
+            ClippingMode mode = Clipping.Cycle();
+
+            if (player != null)
+            {
+                ((Character)player).Message(
+                    MessageHud.MessageType.TopLeft,
+                    "Clipping: " + Clipping.Describe(mode));
+            }
         }
 
         private static void HandleRotation()
@@ -247,6 +265,13 @@ namespace TheHammerOfOden
             int ___m_manualSnapPoint,
             List<Transform> ___m_tempSnapPoints1)
         {
+            // Before the markers, so they are drawn where the piece actually ends up.
+            TargetSnapping.Apply(
+                __instance,
+                ___m_placementGhost,
+                ___m_manualSnapPoint,
+                FreePlacement.IsActiveNow());
+
             RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
             SnapPointMarkers.Update(
                 ___m_placementGhost,
@@ -287,13 +312,43 @@ namespace TheHammerOfOden
     /// Appends our derived anchors to the placement ghost's snap points, so vanilla's own
     /// cycling and snapping pick them up without us reimplementing either.
     /// </summary>
-    [HarmonyPatch(typeof(Piece), nameof(Piece.GetSnapPoints))]
+    // Piece has two GetSnapPoints overloads - an instance one and a static radius search -
+    // so the argument types are required or Harmony cannot tell them apart.
+    [HarmonyPatch(typeof(Piece), nameof(Piece.GetSnapPoints), new[] { typeof(List<Transform>) })]
     internal static class PieceGetSnapPointsPatch
     {
         [HarmonyPostfix]
         private static void Postfix(Piece __instance, List<Transform> points)
         {
             DerivedSnapPoints.Append(__instance, points);
+        }
+    }
+
+    /// <summary>
+    /// Lets pieces be placed intersecting other objects.
+    /// </summary>
+    /// <remarks>
+    /// Vanilla marks a placement invalid when the ghost penetrates another collider by more
+    /// than 0.2m, but only for pieces whose prefab sets m_noClipping. Because the test
+    /// itself lives on Player rather than on the piece, overriding its result covers every
+    /// piece in the game, including ones added by other mods and ones that do not exist yet.
+    ///
+    /// Reporting "not clipping" rather than skipping the caller keeps the change to exactly
+    /// one decision: nothing else vanilla does with the result is affected.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), "TestGhostClipping")]
+    internal static class PlayerTestGhostClippingPatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(ref bool __result)
+        {
+            if (!Clipping.IsAllowed())
+            {
+                return true;
+            }
+
+            __result = false;
+            return false;
         }
     }
 

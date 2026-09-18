@@ -114,7 +114,7 @@ namespace TheHammerOfOden
                 $"Derived {Cached.Count} snap point(s) for '{ghost.name}' in mode {mode}.");
         }
 
-        private static IEnumerable<KeyValuePair<string, Vector3>> BuildAnchors(
+        internal static IEnumerable<KeyValuePair<string, Vector3>> BuildAnchors(
             Vector3 c, Vector3 e, DerivedSnapMode mode)
         {
             List<KeyValuePair<string, Vector3>> list = new List<KeyValuePair<string, Vector3>>();
@@ -164,7 +164,7 @@ namespace TheHammerOfOden
         /// Measure the piece in its own local space. Snap points first, because they mark
         /// where the piece is meant to meet other pieces; renderers only as a fallback.
         /// </summary>
-        private static bool TryMeasure(Piece piece, out Vector3 center, out Vector3 extents)
+        internal static bool TryMeasure(Piece piece, out Vector3 center, out Vector3 extents)
         {
             center = Vector3.zero;
             extents = Vector3.zero;

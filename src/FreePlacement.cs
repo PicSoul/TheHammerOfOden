@@ -37,6 +37,20 @@ namespace TheHammerOfOden
     {
         private static bool _toggledOn;
 
+        /// <summary>
+        /// Whether free placement is active, resolving the vanilla key state itself.
+        /// </summary>
+        /// <remarks>
+        /// For callers outside the patched method, which do not have vanilla's AltPlace
+        /// result to hand. Passing a hard-coded false here would silently report "not free"
+        /// whenever the mode is Vanilla.
+        /// </remarks>
+        internal static bool IsActiveNow()
+        {
+            bool altPlaceHeld = ZInput.GetButton("AltPlace");
+            return IsActive(altPlaceHeld);
+        }
+
         /// <summary>Whether free placement should apply right now.</summary>
         internal static bool IsActive(bool vanillaAltPlaceHeld)
         {

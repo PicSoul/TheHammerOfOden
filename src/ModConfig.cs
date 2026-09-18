@@ -34,11 +34,18 @@ namespace TheHammerOfOden
         internal static ConfigEntry<Color> SnapPointColor;
         internal static ConfigEntry<Color> SnapPointActiveColor;
 
+        internal static ConfigEntry<bool> SnapPointsSeeThrough;
         internal static ConfigEntry<bool> ShowTargetSnapPoints;
         internal static ConfigEntry<float> TargetSnapPointRange;
         internal static ConfigEntry<Color> TargetSnapPointColor;
 
         internal static ConfigEntry<DerivedSnapMode> DerivedSnaps;
+        internal static ConfigEntry<bool> SnapToDerivedTargets;
+        internal static ConfigEntry<float> DerivedTargetRange;
+        internal static ConfigEntry<float> DerivedSnapDistance;
+
+        internal static ConfigEntry<ClippingMode> Clipping;
+        internal static ConfigEntry<KeyboardShortcut> ClippingToggleKey;
 
         internal static ConfigEntry<bool> ResetOnPieceChange;
         internal static ConfigEntry<bool> DebugLogging;
@@ -148,6 +155,11 @@ namespace TheHammerOfOden
             SnapPointActiveColor = config.Bind("Snap Points", "ActiveColor", new Color(0.72f, 0.25f, 1f, 1f),
                 "Colour of the snap point currently selected with Q / E.");
 
+            SnapPointsSeeThrough = config.Bind("Snap Points", "SeeThrough", true,
+                "Draw snap point markers through solid objects, so a point on the far side or the "
+                + "underside of a piece is still visible. Applies to both the piece you are placing "
+                + "and the piece you are aiming at.");
+
             ShowTargetSnapPoints = config.Bind("Snap Points", "ShowTargetSnapPoints", true,
                 "Also mark the snap points on the piece you are aiming at, so you can see what is "
                 + "available to attach to.");
@@ -170,6 +182,35 @@ namespace TheHammerOfOden
                     + "Full: the above plus a midpoint between the centre and each of them (29 extra). "
                     + "Every extra anchor is another stop when cycling with Q and E, so higher settings "
                     + "trade convenience for a longer cycle."));
+
+            SnapToDerivedTargets = config.Bind("Snap Points", "SnapToDerivedTargets", false,
+                "Also snap to derived anchors on pieces already built, so you can line up with the "
+                + "centre of a wall rather than only its shipped snap points. Off by default: it adds "
+                + "snap targets that vanilla does not have, which changes how building feels.");
+
+            DerivedTargetRange = config.Bind("Snap Points", "DerivedTargetRange", 5f,
+                new ConfigDescription(
+                    "How far to look for nearby pieces when snapping to derived anchors.",
+                    new AcceptableValueRange<float>(1f, 15f)));
+
+            DerivedSnapDistance = config.Bind("Snap Points", "DerivedSnapDistance", 0.5f,
+                new ConfigDescription(
+                    "How close an anchor pair must be before it snaps. Vanilla uses 0.5m. Larger values "
+                    + "grab from further away but make precise free placement harder.",
+                    new AcceptableValueRange<float>(0.05f, 2f)));
+
+            Clipping = config.Bind("Clipping", "Mode", ClippingMode.WithFreePlacement,
+                new ConfigDescription(
+                    "Whether pieces may be placed intersecting other objects. Vanilla refuses when a "
+                    + "piece would penetrate something by more than 0.2m, which makes tight arrangements "
+                    + "and decorative overlaps impossible. Applies to every piece, including modded ones. "
+                    + "Never: vanilla behaviour. "
+                    + "WithFreePlacement: allowed only while free placement is on, since both express the "
+                    + "same intent. "
+                    + "Always: allowed at all times."));
+
+            ClippingToggleKey = config.Bind("Clipping", "ToggleKey", KeyboardShortcut.Empty,
+                "Optional key to step through the clipping modes while building. Leave empty to disable.");
 
             ResetOnPieceChange = config.Bind("Rotation", "ResetOnPieceChange", false,
                 "Zero all rotation when you select a different build piece. Off keeps your tilt "
