@@ -28,6 +28,11 @@ namespace TheHammerOfOden
         private static readonly List<Vector3> TargetAnchors = new List<Vector3>();
         private static readonly List<Transform> ScratchPoints = new List<Transform>();
         private static readonly HashSet<Piece> Seen = new HashSet<Piece>();
+        private static Vector3 _lastOffset = Vector3.positiveInfinity;
+
+        private static int _pieceMask = -1;
+        private static Vector3 _lastScanOrigin = Vector3.positiveInfinity;
+        private static float _lastScanTime;
 
         internal static void Apply(Player player, GameObject ghost, int manualSnapPoint, bool freePlacementActive)
         {
@@ -52,13 +57,29 @@ namespace TheHammerOfOden
                 return;
             }
 
-            CollectTargetAnchors(ghost.transform.position);
+            // Nearby geometry barely changes between frames, and every anchor in it is
+            // static, so a slightly stale set costs nothing and saves the whole scan.
+            Vector3 origin = ghost.transform.position;
+            bool moved = (origin - _lastScanOrigin).sqrMagnitude > 0.0625f;   // 0.25m
+            bool stale = Time.time - _lastScanTime > 0.25f;
+
+            if (moved || stale)
+            {
+                _lastScanOrigin = origin;
+                _lastScanTime = Time.time;
+                CollectTargetAnchors(origin, SearchRadius(origin));
+            }
+
             if (TargetAnchors.Count == 0)
             {
                 return;
             }
 
+            // Squared throughout: this is the inner loop over every source/target pair, and
+            // the square root per comparison buys nothing when only the ordering matters.
             float best = ModConfig.DerivedSnapDistance.Value;
+            best *= best;
+
             Vector3 bestOffset = Vector3.zero;
             bool found = false;
 
@@ -66,7 +87,7 @@ namespace TheHammerOfOden
             {
                 foreach (Vector3 target in TargetAnchors)
                 {
-                    float distance = Vector3.Distance(source, target);
+                    float distance = (target - source).sqrMagnitude;
                     if (distance < best)
                     {
                         best = distance;
@@ -83,11 +104,13 @@ namespace TheHammerOfOden
 
             ghost.transform.position += bestOffset;
 
-            if (ModConfig.DebugEnabled)
+            // This runs every frame while snapped, so only speak up when the answer changes.
+            if (ModConfig.DebugEnabled && (bestOffset - _lastOffset).sqrMagnitude > 0.0001f)
             {
+                _lastOffset = bestOffset;
                 HammerOfOdenPlugin.Debug(
-                    $"Derived snap: moved {bestOffset.magnitude:0.###}m onto a derived anchor "
-                    + $"({SourceAnchors.Count} source, {TargetAnchors.Count} target).");
+                    $"Derived snap: {bestOffset.magnitude:0.###}m "
+                    + $"({SourceAnchors.Count} source, {TargetAnchors.Count} target anchors).");
             }
         }
 
@@ -124,13 +147,55 @@ namespace TheHammerOfOden
         /// Anchors on nearby built pieces: their own snap points plus the derived ones,
         /// computed rather than instantiated.
         /// </summary>
-        private static void CollectTargetAnchors(Vector3 origin)
+        /// <summary>
+        /// How far to look for pieces, derived rather than guessed.
+        /// </summary>
+        /// <remarks>
+        /// The sphere is centred on the ghost's origin, but its anchors sit out at its
+        /// bounds - a 2x2 floor reaches about 1.4m - so the radius has to cover that spread
+        /// plus the snapping distance, or a large piece would never find anything.
+        ///
+        /// It does not need to cover the target piece's size as well: OverlapSphere tests
+        /// colliders, not origins, so a piece is found whenever any part of it is in range,
+        /// and its anchors lie within its own volume.
+        ///
+        /// Typical pieces land near 2m rather than the flat 5m this used to use, and sphere
+        /// cost grows with the cube of the radius.
+        /// </remarks>
+        private static float SearchRadius(Vector3 origin)
+        {
+            float spread = 0f;
+
+            foreach (Vector3 anchor in SourceAnchors)
+            {
+                float distance = (anchor - origin).sqrMagnitude;
+                if (distance > spread)
+                {
+                    spread = distance;
+                }
+            }
+
+            spread = Mathf.Sqrt(spread);
+
+            // A little slack for anchors that sit slightly proud of a piece's collider.
+            float needed = spread + ModConfig.DerivedSnapDistance.Value + 0.25f;
+
+            return Mathf.Min(needed, ModConfig.DerivedTargetRange.Value);
+        }
+
+        private static void CollectTargetAnchors(Vector3 origin, float radius)
         {
             TargetAnchors.Clear();
             Seen.Clear();
 
-            float radius = ModConfig.DerivedTargetRange.Value;
-            int count = Physics.OverlapSphereNonAlloc(origin, radius, Colliders);
+            if (_pieceMask < 0)
+            {
+                _pieceMask = LayerMask.GetMask("piece", "piece_nonsolid");
+            }
+
+            // Without a mask this returns terrain, water, characters and dropped items too,
+            // and GetComponentInParent then runs on every one of them to find no Piece at all.
+            int count = Physics.OverlapSphereNonAlloc(origin, radius, Colliders, _pieceMask);
 
             DerivedSnapMode mode = ModConfig.DerivedSnaps.Value;
 
@@ -148,30 +213,10 @@ namespace TheHammerOfOden
                     continue;
                 }
 
-                ScratchPoints.Clear();
-                piece.GetSnapPoints(ScratchPoints);
-                foreach (Transform point in ScratchPoints)
+                // One cached lookup covers the piece's own snap points and the derived ones.
+                foreach (Vector3 anchor in DerivedAnchorCache.Get(piece, mode))
                 {
-                    if (point != null)
-                    {
-                        TargetAnchors.Add(point.position);
-                    }
-                }
-
-                if (mode == DerivedSnapMode.Off)
-                {
-                    continue;
-                }
-
-                if (!DerivedSnapPoints.TryMeasure(piece, out Vector3 center, out Vector3 extents))
-                {
-                    continue;
-                }
-
-                Transform t = piece.transform;
-                foreach (KeyValuePair<string, Vector3> anchor in DerivedSnapPoints.BuildAnchors(center, extents, mode))
-                {
-                    TargetAnchors.Add(t.TransformPoint(anchor.Value));
+                    TargetAnchors.Add(anchor);
                 }
             }
         }

@@ -94,6 +94,20 @@ namespace TheHammerOfOden
 
         internal static float Yaw => _y;
 
+        /// <summary>Current angle on one axis, in degrees.</summary>
+        internal static float AngleOf(RotationAxis axis)
+        {
+            switch (axis)
+            {
+                case RotationAxis.X:
+                    return _x;
+                case RotationAxis.Z:
+                    return _z;
+                default:
+                    return _y;
+            }
+        }
+
         internal static float Pitch => _x;
 
         internal static float Roll => _z;

@@ -8,6 +8,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> Enabled;
 
         internal static ConfigEntry<int> SnapDivisions;
+        internal static ConfigEntry<KeyboardShortcut> SnapIncreaseKey;
+        internal static ConfigEntry<KeyboardShortcut> SnapDecreaseKey;
         internal static ConfigEntry<KeyboardShortcut> XAxisKey;
         internal static ConfigEntry<KeyboardShortcut> ZAxisKey;
         internal static ConfigEntry<KeyboardShortcut> ResetAxisKey;
@@ -24,6 +26,9 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> GizmoScale;
         internal static ConfigEntry<float> GizmoWidth;
         internal static ConfigEntry<float> GizmoInactiveOpacity;
+        internal static ConfigEntry<float> GizmoInactiveSaturation;
+        internal static ConfigEntry<bool> ShowAngleMarkers;
+        internal static ConfigEntry<float> AngleMarkerSize;
         internal static ConfigEntry<Color> GizmoColorX;
         internal static ConfigEntry<Color> GizmoColorY;
         internal static ConfigEntry<Color> GizmoColorZ;
@@ -34,16 +39,25 @@ namespace TheHammerOfOden
         internal static ConfigEntry<Color> SnapPointColor;
         internal static ConfigEntry<Color> SnapPointActiveColor;
 
+        internal static ConfigEntry<SnapPointDisplay> SnapDisplay;
         internal static ConfigEntry<bool> SnapPointsSeeThrough;
         internal static ConfigEntry<bool> ShowTargetSnapPoints;
         internal static ConfigEntry<float> TargetSnapPointRange;
+        internal static ConfigEntry<float> TargetPreviewReach;
         internal static ConfigEntry<Color> TargetSnapPointColor;
+
+        internal static ConfigEntry<bool> HoldToResetSnapPoint;
+        internal static ConfigEntry<float> SnapPointResetHold;
 
         internal static ConfigEntry<DerivedSnapMode> DerivedSnaps;
         internal static ConfigEntry<bool> SnapToDerivedTargets;
         internal static ConfigEntry<float> DerivedTargetRange;
         internal static ConfigEntry<float> DerivedSnapDistance;
 
+        internal static ConfigEntry<float> OffsetStep;
+        internal static ConfigEntry<float> OffsetLimit;
+
+        internal static ConfigEntry<PlacementFreedom> Freedom;
         internal static ConfigEntry<ClippingMode> Clipping;
         internal static ConfigEntry<KeyboardShortcut> ClippingToggleKey;
 
@@ -53,18 +67,34 @@ namespace TheHammerOfOden
         internal static bool IsEnabled => Enabled != null && Enabled.Value;
         internal static bool DebugEnabled => DebugLogging != null && DebugLogging.Value;
 
-        /// <summary>Degrees per rotation step. Matches Gizmo's "divisions per 180 degrees" convention.</summary>
-        internal static float StepDegrees => 180f / Mathf.Max(2, SnapDivisions.Value);
+        /// <summary>
+        /// Degrees per rotation step.
+        /// </summary>
+        /// <remarks>
+        /// Counted over a full turn, not a half turn. Vanilla already works this way -
+        /// m_placeRotation holds 16 positions of 22.5 degrees - so a whole circle is both
+        /// the more natural unit and the one the game itself uses.
+        /// </remarks>
+        internal static float StepDegrees => 360f / Mathf.Max(2, SnapDivisions.Value);
 
         internal static void Bind(ConfigFile config)
         {
             Enabled = config.Bind("General", "Enabled", true,
                 "Master switch. Turn off to leave placement entirely to the vanilla game.");
 
-            SnapDivisions = config.Bind("Rotation", "SnapDivisions", 16,
+            SnapDivisions = config.Bind("Rotation", "SnapAnglesPerTurn", 32,
                 new ConfigDescription(
-                    "Number of snap angles per 180 degrees. Vanilla uses 8 (22.5 degrees per step); 16 gives 11.25.",
-                    new AcceptableValueRange<int>(2, 256)));
+                    "Number of snap angles in a full 360 degree turn. Vanilla uses 16 (22.5 degrees per "
+                    + "step); 32 gives 11.25. Adjustable in game with the keys below.",
+                    new AcceptableValueRange<int>(2, 512)));
+
+            SnapIncreaseKey = config.Bind("Rotation", "SnapIncreaseKey",
+                new KeyboardShortcut(KeyCode.PageUp),
+                "Double the number of snap angles, for finer rotation.");
+
+            SnapDecreaseKey = config.Bind("Rotation", "SnapDecreaseKey",
+                new KeyboardShortcut(KeyCode.PageDown),
+                "Halve the number of snap angles, for coarser rotation.");
 
             XAxisKey = config.Bind("Rotation", "XAxisKey",
                 new KeyboardShortcut(KeyCode.LeftShift),
@@ -122,19 +152,34 @@ namespace TheHammerOfOden
                     "Ring line thickness. The active axis is drawn thicker than this automatically.",
                     new AcceptableValueRange<float>(0.005f, 0.2f)));
 
-            GizmoInactiveOpacity = config.Bind("Gizmo", "InactiveOpacity", 0.25f,
+            GizmoInactiveOpacity = config.Bind("Gizmo", "InactiveOpacity", 0.45f,
                 new ConfigDescription(
                     "How faint the two axes you are not rotating appear. Low values keep the display "
                     + "readable without hiding the piece underneath.",
                     new AcceptableValueRange<float>(0f, 1f)));
 
-            GizmoColorX = config.Bind("Gizmo", "ColorX", new Color(1f, 0.35f, 0.35f, 0.9f),
+            GizmoInactiveSaturation = config.Bind("Gizmo", "InactiveSaturation", 0.4f,
+                new ConfigDescription(
+                    "How much colour the two axes you are not rotating keep. Lower values wash them "
+                    + "towards grey, so the axis you are actually rotating stands out by being the only "
+                    + "vivid one rather than merely the brightest.",
+                    new AcceptableValueRange<float>(0f, 1f)));
+
+            ShowAngleMarkers = config.Bind("Gizmo", "ShowAngleMarkers", true,
+                "Put a small bead on each ring at the piece's current angle for that axis, so you can "
+                + "see how far it has been turned rather than only that it has been.");
+
+            AngleMarkerSize = config.Bind("Gizmo", "AngleMarkerSize", 0.07f,
+                new ConfigDescription("Radius of the angle beads, in metres.",
+                    new AcceptableValueRange<float>(0.02f, 0.4f)));
+
+            GizmoColorX = config.Bind("Gizmo", "ColorX", new Color(1f, 0.16f, 0.22f, 1f),
                 "Colour of the pitch (X) ring.");
 
-            GizmoColorY = config.Bind("Gizmo", "ColorY", new Color(0.15f, 1f, 0.35f, 0.9f),
+            GizmoColorY = config.Bind("Gizmo", "ColorY", new Color(0.18f, 1f, 0.33f, 1f),
                 "Colour of the yaw (Y) ring.");
 
-            GizmoColorZ = config.Bind("Gizmo", "ColorZ", new Color(0.4f, 0.65f, 1f, 0.9f),
+            GizmoColorZ = config.Bind("Gizmo", "ColorZ", new Color(0.2f, 0.62f, 1f, 1f),
                 "Colour of the roll (Z) ring.");
 
             ShowSnapPoints = config.Bind("Snap Points", "ShowSnapPoints", true,
@@ -155,6 +200,15 @@ namespace TheHammerOfOden
             SnapPointActiveColor = config.Bind("Snap Points", "ActiveColor", new Color(0.72f, 0.25f, 1f, 1f),
                 "Colour of the snap point currently selected with Q / E.");
 
+            SnapDisplay = config.Bind("Snap Points", "Display", SnapPointDisplay.Relevant,
+                new ConfigDescription(
+                    "How many snap point markers to draw. "
+                    + "All: every point on both pieces. Thorough, but a piece with many anchors "
+                    + "becomes a mass of overlapping rings. "
+                    + "Relevant: the point your piece is held by, plus the target points near enough "
+                    + "to actually snap to. "
+                    + "ActivePairOnly: just the two points currently snapping together."));
+
             SnapPointsSeeThrough = config.Bind("Snap Points", "SeeThrough", true,
                 "Draw snap point markers through solid objects, so a point on the far side or the "
                 + "underside of a piece is still visible. Applies to both the piece you are placing "
@@ -170,8 +224,24 @@ namespace TheHammerOfOden
                     + "Vanilla auto-snap only reaches 0.5m, so a large value mostly adds clutter.",
                     new AcceptableValueRange<float>(0.5f, 20f)));
 
+            TargetPreviewReach = config.Bind("Snap Points", "TargetPreviewReach", 1.15f,
+                new ConfigDescription(
+                    "How close a target snap point must be before it starts to appear. Markers fade in "
+                    + "from here and reach full strength at DerivedSnapDistance, so you can see what you "
+                    + "are approaching rather than having points appear only once already in range.",
+                    new AcceptableValueRange<float>(0.25f, 8f)));
+
             TargetSnapPointColor = config.Bind("Snap Points", "TargetColor", new Color(0.35f, 0.9f, 1f, 0.55f),
                 "Colour of snap points on the piece you are aiming at.");
+
+            HoldToResetSnapPoint = config.Bind("Snap Points", "HoldToResetSnapPoint", true,
+                "Hold either snap cycle key (Q or E) to jump straight back to automatic snapping, "
+                + "instead of cycling all the way around to reach it. Tapping still steps one at a time.");
+
+            SnapPointResetHold = config.Bind("Snap Points", "ResetHoldSeconds", 0.5f,
+                new ConfigDescription(
+                    "How long the cycle key must be held before snapping resets to automatic.",
+                    new AcceptableValueRange<float>(0.15f, 3f)));
 
             DerivedSnaps = config.Bind("Snap Points", "DerivedSnapPoints", DerivedSnapMode.Centers,
                 new ConfigDescription(
@@ -188,9 +258,12 @@ namespace TheHammerOfOden
                 + "centre of a wall rather than only its shipped snap points. Off by default: it adds "
                 + "snap targets that vanilla does not have, which changes how building feels.");
 
-            DerivedTargetRange = config.Bind("Snap Points", "DerivedTargetRange", 5f,
+            DerivedTargetRange = config.Bind("Snap Points", "DerivedTargetRangeCap", 5f,
                 new ConfigDescription(
-                    "How far to look for nearby pieces when snapping to derived anchors.",
+                    "Upper limit on how far to look for nearby pieces when snapping to derived anchors. "
+                    + "The search normally sizes itself to the piece you are holding - its anchor spread "
+                    + "plus the snap distance - so this only takes effect for unusually large pieces. "
+                    + "Lower it if building in a dense area costs frames.",
                     new AcceptableValueRange<float>(1f, 15f)));
 
             DerivedSnapDistance = config.Bind("Snap Points", "DerivedSnapDistance", 0.5f,
@@ -198,6 +271,29 @@ namespace TheHammerOfOden
                     "How close an anchor pair must be before it snaps. Vanilla uses 0.5m. Larger values "
                     + "grab from further away but make precise free placement harder.",
                     new AcceptableValueRange<float>(0.05f, 2f)));
+
+            OffsetStep = config.Bind("Placement Offset", "Step", 0.05f,
+                new ConfigDescription(
+                    "How far each scroll notch pushes the piece along your aim when both rotation "
+                    + "modifiers are held. Small values give the fine control needed to sink a piece "
+                    + "into another by just the right amount.",
+                    new AcceptableValueRange<float>(0.01f, 0.5f)));
+
+            OffsetLimit = config.Bind("Placement Offset", "Limit", 3f,
+                new ConfigDescription(
+                    "Maximum distance the piece can be pushed or pulled from where you are aiming.",
+                    new AcceptableValueRange<float>(0.5f, 20f)));
+
+            Freedom = config.Bind("Free Placement", "Freedom", PlacementFreedom.SurfacesAndSpacing,
+                new ConfigDescription(
+                    "Which vanilla placement rules free placement sets aside. "
+                    + "Vanilla: none, free placement only affects snapping. "
+                    + "Surfaces: what a piece may rest on - ground only, not on wood, tilting "
+                    + "surfaces, cultivated soil. "
+                    + "SurfacesAndSpacing: also the room a piece demands, such as forge extensions "
+                    + "refusing to sit near each other. "
+                    + "Everything: also biome, dungeon and weather restrictions. "
+                    + "Wards, no-build zones and other players are never bypassed at any setting."));
 
             Clipping = config.Bind("Clipping", "Mode", ClippingMode.WithFreePlacement,
                 new ConfigDescription(

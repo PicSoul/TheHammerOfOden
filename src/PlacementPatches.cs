@@ -15,7 +15,11 @@ namespace TheHammerOfOden
     internal static class PlayerUpdatePlacementPatch
     {
         [HarmonyPrefix]
-        private static void Prefix(Player __instance, bool takeInput, PieceTable ___m_buildPieces)
+        private static void Prefix(
+            Player __instance,
+            bool takeInput,
+            PieceTable ___m_buildPieces,
+            ref int ___m_manualSnapPoint)
         {
             if (!ModConfig.IsEnabled || !takeInput || ___m_buildPieces == null)
             {
@@ -28,11 +32,110 @@ namespace TheHammerOfOden
                 return;
             }
 
+            ActiveSnapPair.Clear();
             FreePlacement.HandleInput(__instance);
+            HandleSnapPointReset(__instance, ref ___m_manualSnapPoint);
             HandleClippingToggle(__instance);
+            HandleSnapDivisions(__instance);
             HandleResets();
             HandleStandaloneCopyKey(__instance);
             HandleRotation();
+        }
+
+        private static float _snapCycleHeldSince;
+        private static bool _snapResetFired;
+
+        /// <summary>
+        /// Hold either snap-cycle key to jump straight back to automatic snapping.
+        /// </summary>
+        /// <remarks>
+        /// Vanilla only steps one point at a time, so returning to auto from the middle of a
+        /// long list means cycling all the way around - and derived anchors make that list
+        /// much longer than vanilla ever intended.
+        ///
+        /// Vanilla cycles on key-down, so the first press still steps once before the hold
+        /// registers. Suppressing that would mean knowing a tap from a hold before the key
+        /// is released, which is not possible without delaying every tap.
+        /// </remarks>
+        private static void HandleSnapPointReset(Player player, ref int manualSnapPoint)
+        {
+            if (!ModConfig.HoldToResetSnapPoint.Value)
+            {
+                return;
+            }
+
+            bool held = ZInput.GetButton("TabLeft") || ZInput.GetButton("TabRight");
+
+            if (!held)
+            {
+                _snapCycleHeldSince = 0f;
+                _snapResetFired = false;
+                return;
+            }
+
+            if (_snapCycleHeldSince == 0f)
+            {
+                _snapCycleHeldSince = Time.time;
+                return;
+            }
+
+            if (_snapResetFired || Time.time - _snapCycleHeldSince < ModConfig.SnapPointResetHold.Value)
+            {
+                return;
+            }
+
+            // Fires once per press, whether or not there was anything to reset, so holding
+            // does not repeatedly announce itself.
+            _snapResetFired = true;
+
+            if (manualSnapPoint == -1)
+            {
+                return;
+            }
+
+            manualSnapPoint = -1;
+            HammerOfOdenPlugin.Debug("Snap point reset to auto by holding the cycle key.");
+
+            if (player != null)
+            {
+                // Vanilla only announces a change it makes itself, and it samples the value
+                // before we get here, so this one is ours to report.
+                // Vanilla passes these tokens to Message unlocalised and lets the HUD resolve
+                // them, so this reads identically to the game's own snapping message.
+                ((Character)player).Message(
+                    MessageHud.MessageType.Center,
+                    "$msg_snapping $msg_snapping_auto");
+            }
+        }
+
+        /// <summary>Double or halve the snap angles, so a few presses span the useful range.</summary>
+        private static void HandleSnapDivisions(Player player)
+        {
+            int current = ModConfig.SnapDivisions.Value;
+            int updated = current;
+
+            if (IsDown(ModConfig.SnapIncreaseKey))
+            {
+                updated = Mathf.Min(512, current * 2);
+            }
+            else if (IsDown(ModConfig.SnapDecreaseKey))
+            {
+                updated = Mathf.Max(2, current / 2);
+            }
+
+            if (updated == current)
+            {
+                return;
+            }
+
+            ModConfig.SnapDivisions.Value = updated;
+
+            if (player != null)
+            {
+                ((Character)player).Message(
+                    MessageHud.MessageType.TopLeft,
+                    $"Snap: {updated} per turn ({ModConfig.StepDegrees:0.##} deg)");
+            }
         }
 
         private static void HandleClippingToggle(Player player)
@@ -54,9 +157,20 @@ namespace TheHammerOfOden
 
         private static void HandleRotation()
         {
-            int sign = Mathf.RoundToInt(Mathf.Sign(ZInput.GetMouseScrollWheel()));
-            if (ZInput.GetMouseScrollWheel() == 0f)
+            float scroll = ZInput.GetMouseScrollWheel();
+            if (scroll == 0f)
             {
+                return;
+            }
+
+            int sign = Mathf.RoundToInt(Mathf.Sign(scroll));
+
+            // Both modifiers together means depth rather than rotation. Each is a single key
+            // on its own, so the combination was previously unused.
+            if (IsHeld(ModConfig.XAxisKey) && IsHeld(ModConfig.ZAxisKey))
+            {
+                PlacementOffset.Adjust(sign);
+                HammerOfOdenPlugin.Debug($"Placement depth {PlacementOffset.Depth:0.##}m.");
                 return;
             }
 
@@ -68,7 +182,8 @@ namespace TheHammerOfOden
             if (IsDown(ModConfig.ResetAllKey))
             {
                 RotationState.ResetAll();
-                HammerOfOdenPlugin.Debug("Reset all rotation axes.");
+                PlacementOffset.Reset();
+                HammerOfOdenPlugin.Debug("Reset all rotation axes and placement depth.");
                 return;
             }
 
@@ -272,6 +387,8 @@ namespace TheHammerOfOden
                 ___m_manualSnapPoint,
                 FreePlacement.IsActiveNow());
 
+            PlacementOffset.Apply(___m_placementGhost);
+
             RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
             SnapPointMarkers.Update(
                 ___m_placementGhost,
@@ -309,46 +426,47 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
-    /// Appends our derived anchors to the placement ghost's snap points, so vanilla's own
-    /// cycling and snapping pick them up without us reimplementing either.
+    /// Relaxes vanilla's placement verdict while free placement is active.
     /// </summary>
-    // Piece has two GetSnapPoints overloads - an instance one and a static radius search -
-    // so the argument types are required or Harmony cannot tell them apart.
-    [HarmonyPatch(typeof(Piece), nameof(Piece.GetSnapPoints), new[] { typeof(List<Transform>) })]
-    internal static class PieceGetSnapPointsPatch
+    /// <remarks>
+    /// Separate from the visual postfix so its ordering is independent: the verdict must be
+    /// settled before anything decides what to draw.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), "UpdatePlacementGhost")]
+    internal static class PlayerUpdatePlacementGhostRulesPatch
     {
         [HarmonyPostfix]
-        private static void Postfix(Piece __instance, List<Transform> points)
+        [HarmonyPriority(Priority.First)]
+        private static void Postfix(
+            Player __instance,
+            ref Player.PlacementStatus ___m_placementStatus,
+            GameObject ___m_placementGhost)
         {
-            DerivedSnapPoints.Append(__instance, points);
+            PlacementRules.Apply(__instance, ref ___m_placementStatus, ___m_placementGhost);
         }
     }
 
     /// <summary>
-    /// Lets pieces be placed intersecting other objects.
+    /// Notes the snap pair vanilla settles on, so the markers can highlight it.
     /// </summary>
     /// <remarks>
-    /// Vanilla marks a placement invalid when the ghost penetrates another collider by more
-    /// than 0.2m, but only for pieces whose prefab sets m_noClipping. Because the test
-    /// itself lives on Player rather than on the piece, overriding its result covers every
-    /// piece in the game, including ones added by other mods and ones that do not exist yet.
-    ///
-    /// Reporting "not clipping" rather than skipping the caller keeps the change to exactly
-    /// one decision: nothing else vanilla does with the result is affected.
+    /// Out parameters are declared ref here, which is how Harmony exposes them to a patch.
+    /// Read only: nothing is written back, so vanilla's decision stands untouched.
     /// </remarks>
-    [HarmonyPatch(typeof(Player), "TestGhostClipping")]
-    internal static class PlayerTestGhostClippingPatch
+    [HarmonyPatch(typeof(Player), "FindClosestSnapPoints")]
+    internal static class PlayerFindClosestSnapPointsPatch
     {
-        [HarmonyPrefix]
-        private static bool Prefix(ref bool __result)
+        [HarmonyPostfix]
+        private static void Postfix(bool __result, ref Transform a, ref Transform b)
         {
-            if (!Clipping.IsAllowed())
+            if (__result)
             {
-                return true;
+                ActiveSnapPair.Record(a, b);
             }
-
-            __result = false;
-            return false;
+            else
+            {
+                ActiveSnapPair.Clear();
+            }
         }
     }
 
@@ -364,18 +482,28 @@ namespace TheHammerOfOden
                 FreePlacement.Reset();
                 RotationGizmo.Hide();
                 SnapPointMarkers.Hide();
+                DerivedAnchorCache.Clear();
             }
         }
     }
 
-    /// <summary>Optionally zero rotation when the selected build piece changes.</summary>
+    /// <summary>
+    /// Rebuilds the derived anchors for a new ghost, and optionally zeroes rotation.
+    /// </summary>
+    /// <remarks>
+    /// The ghost is rebuilt whenever the selected piece changes, which is exactly when the
+    /// anchors need recreating for the new shape - and doing it here rather than from a
+    /// patch on GetSnapPoints keeps us out of a method vanilla calls dozens of times a frame.
+    /// </remarks>
     [HarmonyPatch(typeof(Player), "SetupPlacementGhost")]
     internal static class PlayerSetupPlacementGhostPatch
     {
         [HarmonyPostfix]
-        private static void Postfix()
+        private static void Postfix(GameObject ___m_placementGhost)
         {
-            DerivedSnapPoints.Invalidate();
+            DerivedSnapPoints.AttachTo(___m_placementGhost);
+
+            PlacementOffset.Reset();
 
             if (!ModConfig.IsEnabled || !ModConfig.ResetOnPieceChange.Value)
             {

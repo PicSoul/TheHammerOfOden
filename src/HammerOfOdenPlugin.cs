@@ -24,6 +24,7 @@ namespace TheHammerOfOden
 
             _harmony = new Harmony(PluginGuid);
             ApplyPatches();
+            LogActiveFeatures();
             WarnAboutKnownConflicts();
         }
 
@@ -73,6 +74,39 @@ namespace TheHammerOfOden
                     $"{PluginName} {PluginVersion} loaded with {applied} of {applied + failed} patches applied. "
                     + "See the errors above for what is missing.");
             }
+        }
+
+        /// <summary>
+        /// Print what is actually switched on, at Info level.
+        /// </summary>
+        /// <remarks>
+        /// A failed install leaves an older DLL in place, and the symptom is a feature that
+        /// "does not work" rather than anything obviously wrong. Stating the running
+        /// configuration outright turns that into a five second check, and gives anyone
+        /// reporting a bug something worth pasting.
+        /// </remarks>
+        private void LogActiveFeatures()
+        {
+            Logger.LogInfo(
+                $"  rotation: {ModConfig.SnapDivisions.Value} divisions per 180 deg, "
+                + $"pitch={ModConfig.XAxisKey.Value.MainKey}, roll={ModConfig.ZAxisKey.Value.MainKey}, "
+                + $"reset={ModConfig.ResetAxisKey.Value.MainKey}/{ModConfig.ResetAllKey.Value.MainKey}");
+
+            Logger.LogInfo(
+                $"  free placement: {ModConfig.FreePlacement.Value} on "
+                + $"{ModConfig.FreePlacementKey.Value.MainKey}, freedom={ModConfig.Freedom.Value}");
+
+            Logger.LogInfo($"  clipping: {ModConfig.Clipping.Value}");
+
+            Logger.LogInfo(
+                $"  snap points: display={ModConfig.SnapDisplay.Value}, "
+                + $"derived={ModConfig.DerivedSnaps.Value}, "
+                + $"snapToDerivedTargets={ModConfig.SnapToDerivedTargets.Value}, "
+                + $"seeThrough={ModConfig.SnapPointsSeeThrough.Value}");
+
+            Logger.LogInfo(
+                $"  gizmo: {(ModConfig.ShowGizmo.Value ? "on" : "off")}, "
+                + $"placement offset step={ModConfig.OffsetStep.Value}m");
         }
 
         private void OnDestroy()

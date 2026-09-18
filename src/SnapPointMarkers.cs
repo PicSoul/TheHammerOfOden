@@ -3,30 +3,47 @@ using UnityEngine;
 
 namespace TheHammerOfOden
 {
+    internal enum SnapPointDisplay
+    {
+        /// <summary>Every snap point on both pieces, all drawn through geometry.</summary>
+        All = 0,
+
+        /// <summary>
+        /// Only what is actually in play: the point your piece is snapping by, and the
+        /// points on the target that are close enough to snap to.
+        /// </summary>
+        Relevant = 1,
+
+        /// <summary>Only the pair currently snapping together.</summary>
+        ActivePairOnly = 2
+    }
+
     /// <summary>
-    /// Draws markers for the snap points on the piece being placed and on the piece being
-    /// aimed at, highlighting the one currently selected.
+    /// Draws markers for snap points on the piece being placed and the piece being aimed at.
     /// </summary>
     /// <remarks>
-    /// Vanilla names snap points after their prefab child objects and reuses those names,
-    /// so cycling with Q/E can show "Bottom 1" for two physically different points. The
-    /// label cannot disambiguate them; showing where they are can.
+    /// Drawing everything through geometry turns a 2x2 floor into a couple of dozen
+    /// overlapping rings, which is less readable than drawing nothing. Relevant mode instead
+    /// shows the one point your piece is held by - the manual pick, or whichever one vanilla
+    /// chose under automatic snapping - and, on the target, only the points near enough to
+    /// actually reach. A snap point you cannot currently snap to is not information.
     ///
-    /// Two separate pools, because the ghost's points and the target's points answer
-    /// different questions: "which part of my piece am I holding it by" versus "what can I
-    /// attach that to".
-    ///
-    /// Camera-facing rings rather than spheres, so a marker reads the same from any angle
-    /// and never occludes the piece behind it.
+    /// Only the points that matter are drawn through geometry. The rest use the normal
+    /// material, so they are still there for context when nothing is in the way but never
+    /// pile up on top of the piece.
     /// </remarks>
     internal static class SnapPointMarkers
     {
         private const int Segments = 20;
 
         private static GameObject _root;
-        private static readonly List<LineRenderer> GhostPool = new List<LineRenderer>();
-        private static readonly List<LineRenderer> TargetPool = new List<LineRenderer>();
+        private static readonly List<LineRenderer> SeeThroughPool = new List<LineRenderer>();
+        private static readonly List<LineRenderer> NormalPool = new List<LineRenderer>();
         private static readonly List<Transform> TargetPoints = new List<Transform>();
+        private static readonly List<Vector3> DerivedTargets = new List<Vector3>();
+
+        private static int _seeThroughUsed;
+        private static int _normalUsed;
 
         internal static void Update(
             GameObject ghost,
@@ -46,86 +63,227 @@ namespace TheHammerOfOden
             }
 
             _root.SetActive(true);
+            _seeThroughUsed = 0;
+            _normalUsed = 0;
 
-            Quaternion facing = (Camera.main != null) ? Camera.main.transform.rotation : Quaternion.identity;
+            Quaternion facing = MainCamera.Facing;
+            SnapPointDisplay display = ModConfig.SnapDisplay.Value;
 
-            DrawGhostPoints(ghostPoints, manualSnapPoint, facing);
-            DrawTargetPoints(ghost, hoveringPiece, facing);
+            DrawGhostPoints(ghostPoints, manualSnapPoint, facing, display);
+            DrawTargetPoints(ghost, hoveringPiece, ghostPoints, facing, display);
+
+            HideFrom(SeeThroughPool, _seeThroughUsed);
+            HideFrom(NormalPool, _normalUsed);
         }
 
-        private static void DrawGhostPoints(List<Transform> points, int manualSnapPoint, Quaternion facing)
+        private static void DrawGhostPoints(
+            List<Transform> points, int manualSnapPoint, Quaternion facing, SnapPointDisplay display)
         {
-            int drawn = 0;
-
-            if (points != null)
+            if (points == null)
             {
-                for (int i = 0; i < points.Count; i++)
+                return;
+            }
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                Transform point = points[i];
+                if (point == null)
                 {
-                    Transform point = points[i];
-                    if (point == null)
+                    continue;
+                }
+
+                // "Active" is the point you picked with Q/E, or the one vanilla settled on
+                // when snapping automatically.
+                bool isActive = (manualSnapPoint >= 0)
+                    ? i == manualSnapPoint
+                    : ActiveSnapPair.IsSource(point);
+
+                if (!isActive)
+                {
+                    if (display == SnapPointDisplay.ActivePairOnly
+                        || !ModConfig.ShowInactiveSnapPoints.Value)
+                    {
+                        continue;
+                    }
+                }
+
+                // Only the point in play is worth punching through the piece for.
+                bool seeThrough = isActive && ModConfig.SnapPointsSeeThrough.Value;
+
+                Draw(
+                    seeThrough,
+                    point.position,
+                    facing,
+                    ModConfig.SnapPointSize.Value * (isActive ? 2.1f : 1f),
+                    isActive ? ModConfig.SnapPointActiveColor.Value : ModConfig.SnapPointColor.Value,
+                    isActive ? 1.6f : 1f);
+            }
+        }
+
+        private static void DrawTargetPoints(
+            GameObject ghost,
+            Piece hoveringPiece,
+            List<Transform> ghostPoints,
+            Quaternion facing,
+            SnapPointDisplay display)
+        {
+            if (!ModConfig.ShowTargetSnapPoints.Value || hoveringPiece == null)
+            {
+                return;
+            }
+
+            // One cached array covers the piece's own snap points and any derived ones.
+            // Going through Piece.GetSnapPoints here would run our own patch every frame.
+            TargetPoints.Clear();
+
+            // Derived anchors on a world piece exist only as numbers - nothing is added to
+            // the piece itself - so they have to be drawn from the same maths that snaps to
+            // them, or they are invisible.
+            DerivedTargets.Clear();
+            DerivedTargets.AddRange(DerivedAnchorCache.Get(
+                hoveringPiece,
+                ModConfig.SnapToDerivedTargets.Value ? ModConfig.DerivedSnaps.Value : DerivedSnapMode.Off));
+
+            // Two distances, not one: the range a point can actually snap from, and the
+            // wider range over which it is worth previewing. Fading between them means a
+            // point announces itself as you approach rather than appearing fully formed.
+            float snapReach = ModConfig.DerivedSnapDistance.Value;
+            float previewReach = Mathf.Max(snapReach, ModConfig.TargetPreviewReach.Value);
+            float range = ModConfig.TargetSnapPointRange.Value;
+            Vector3 origin = ghost.transform.position;
+            bool relevantOnly = display != SnapPointDisplay.All;
+
+            Transform activeTarget = ActiveSnapPair.Target;
+            Vector3 activeTargetPos = (activeTarget != null) ? activeTarget.position : Vector3.positiveInfinity;
+
+            foreach (Transform point in TargetPoints)
+            {
+                if (point == null || Vector3.Distance(point.position, origin) > range)
+                {
+                    continue;
+                }
+
+                bool isActive = ActiveSnapPair.IsTarget(point);
+
+                if (display == SnapPointDisplay.ActivePairOnly && !isActive)
+                {
+                    continue;
+                }
+
+                float fade = 1f;
+
+                if (!isActive && relevantOnly)
+                {
+                    float nearest = NearestDistance(point.position, ghostPoints);
+                    if (nearest > previewReach)
                     {
                         continue;
                     }
 
-                    bool isActive = i == manualSnapPoint;
-                    if (!isActive && !ModConfig.ShowInactiveSnapPoints.Value)
+                    // Full strength once within snapping range, fading to nothing at the
+                    // edge of the preview range.
+                    fade = Mathf.InverseLerp(previewReach, snapReach, nearest);
+                    if (fade <= 0.01f)
+                    {
+                        continue;
+                    }
+                }
+
+                Color color = isActive
+                    ? ModConfig.SnapPointActiveColor.Value
+                    : ModConfig.TargetSnapPointColor.Value;
+                color.a *= fade;
+
+                Draw(
+                    ModConfig.SnapPointsSeeThrough.Value,
+                    point.position,
+                    facing,
+                    ModConfig.SnapPointSize.Value * (isActive ? 1.6f : 0.85f) * Mathf.Lerp(0.7f, 1f, fade),
+                    color,
+                    isActive ? 1.4f : 1f);
+            }
+
+            foreach (Vector3 position in DerivedTargets)
+            {
+                if (Vector3.Distance(position, origin) > range)
+                {
+                    continue;
+                }
+
+                bool isActive = (position - activeTargetPos).sqrMagnitude < 0.0001f;
+
+                float fade = 1f;
+
+                if (relevantOnly)
+                {
+                    float nearest = NearestDistance(position, ghostPoints);
+                    if (nearest > previewReach)
                     {
                         continue;
                     }
 
-                    Place(
-                        Take(GhostPool, drawn++),
-                        point.position,
-                        facing,
-                        ModConfig.SnapPointSize.Value * (isActive ? 2.1f : 1f),
-                        isActive ? ModConfig.SnapPointActiveColor.Value : ModConfig.SnapPointColor.Value,
-                        isActive ? 1.6f : 1f);
+                    fade = Mathf.InverseLerp(previewReach, snapReach, nearest);
+                    if (fade <= 0.01f)
+                    {
+                        continue;
+                    }
+                }
+
+                // Same colour family as the piece's own target points, drawn a little smaller
+                // so a derived anchor is not mistaken for one the piece actually ships with.
+                Color derived = isActive
+                    ? ModConfig.SnapPointActiveColor.Value
+                    : ModConfig.TargetSnapPointColor.Value;
+                derived.a *= fade * (isActive ? 1f : 0.85f);
+
+                Draw(
+                    ModConfig.SnapPointsSeeThrough.Value,
+                    position,
+                    facing,
+                    ModConfig.SnapPointSize.Value * (isActive ? 1.6f : 0.7f) * Mathf.Lerp(0.7f, 1f, fade),
+                    derived,
+                    isActive ? 1.4f : 0.9f);
+            }
+        }
+
+        /// <summary>Distance from a target point to the nearest anchor on the piece in hand.</summary>
+        private static float NearestDistance(Vector3 position, List<Transform> ghostPoints)
+        {
+            if (ghostPoints == null)
+            {
+                return float.MaxValue;
+            }
+
+            float nearest = float.MaxValue;
+
+            foreach (Transform point in ghostPoints)
+            {
+                if (point == null)
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(point.position, position);
+                if (distance < nearest)
+                {
+                    nearest = distance;
                 }
             }
 
-            HideFrom(GhostPool, drawn);
+            return nearest;
         }
 
-        /// <summary>
-        /// The snap points you could attach to. Only worth drawing while they are close
-        /// enough to matter: vanilla's auto-snap reaches 0.5m, so anything further away is
-        /// noise rather than information.
-        /// </summary>
-        private static void DrawTargetPoints(GameObject ghost, Piece hoveringPiece, Quaternion facing)
+        private static void Draw(bool seeThrough, Vector3 position, Quaternion facing, float size, Color color, float widthScale)
         {
-            int drawn = 0;
+            List<LineRenderer> pool = seeThrough ? SeeThroughPool : NormalPool;
+            int index = seeThrough ? _seeThroughUsed++ : _normalUsed++;
 
-            if (ModConfig.ShowTargetSnapPoints.Value && hoveringPiece != null)
+            while (pool.Count <= index)
             {
-                TargetPoints.Clear();
-                hoveringPiece.GetSnapPoints(TargetPoints);
-
-                float range = ModConfig.TargetSnapPointRange.Value;
-                Vector3 origin = ghost.transform.position;
-
-                for (int i = 0; i < TargetPoints.Count; i++)
-                {
-                    Transform point = TargetPoints[i];
-                    if (point == null || Vector3.Distance(point.position, origin) > range)
-                    {
-                        continue;
-                    }
-
-                    Place(
-                        Take(TargetPool, drawn++),
-                        point.position,
-                        facing,
-                        ModConfig.SnapPointSize.Value * 0.85f,
-                        ModConfig.TargetSnapPointColor.Value,
-                        1f);
-                }
+                pool.Add(BuildMarker(seeThrough, pool.Count));
             }
 
-            HideFrom(TargetPool, drawn);
-        }
-
-        private static void Place(LineRenderer ring, Vector3 position, Quaternion facing, float size, Color color, float widthScale)
-        {
+            LineRenderer ring = pool[index];
             ring.enabled = true;
 
             Transform t = ring.transform;
@@ -133,9 +291,7 @@ namespace TheHammerOfOden
             t.rotation = facing;
             t.localScale = Vector3.one * size;
 
-            ring.startColor = color;
-            ring.endColor = color;
-            ring.widthMultiplier = ModConfig.GizmoWidth.Value * widthScale;
+            LineStyle.Apply(ring, color, ModConfig.GizmoWidth.Value * widthScale);
         }
 
         internal static void Hide()
@@ -146,16 +302,15 @@ namespace TheHammerOfOden
             }
         }
 
-        private static bool _builtSeeThrough;
-
         internal static void Destroy()
         {
             if (_root != null)
             {
                 Object.Destroy(_root);
                 _root = null;
-                GhostPool.Clear();
-                TargetPool.Clear();
+                SeeThroughPool.Clear();
+                NormalPool.Clear();
+                LineStyle.Clear();
             }
         }
 
@@ -170,62 +325,33 @@ namespace TheHammerOfOden
             }
         }
 
-        private static LineRenderer Take(List<LineRenderer> pool, int index)
-        {
-            while (pool.Count <= index)
-            {
-                pool.Add(BuildMarker(pool == GhostPool ? "Ghost" : "Target", pool.Count));
-            }
-
-            return pool[index];
-        }
-
         private static bool EnsureRoot()
         {
-            // The material is baked into each LineRenderer when built, so a change of mind
-            // about see-through means rebuilding the pools.
-            if (_root != null && _builtSeeThrough != ModConfig.SnapPointsSeeThrough.Value)
-            {
-                Destroy();
-            }
-
             if (_root != null)
             {
                 return true;
             }
 
-            if (MarkerMaterial() == null)
+            if (GizmoMaterial.Get() == null)
             {
                 return false;
             }
 
             _root = new GameObject("HammerOfOden_SnapPoints");
             Object.DontDestroyOnLoad(_root);
-            _builtSeeThrough = ModConfig.SnapPointsSeeThrough.Value;
             return true;
         }
 
-        /// <summary>
-        /// See-through by default: a snap point on the underside of a piece is invisible
-        /// exactly when you most need to know where it is.
-        /// </summary>
-        private static Material MarkerMaterial()
+        private static LineRenderer BuildMarker(bool seeThrough, int index)
         {
-            return ModConfig.SnapPointsSeeThrough.Value
-                ? GizmoMaterial.GetSeeThrough()
-                : GizmoMaterial.Get();
-        }
-
-        private static LineRenderer BuildMarker(string prefix, int index)
-        {
-            GameObject go = new GameObject($"{prefix}Snap{index}");
+            GameObject go = new GameObject($"{(seeThrough ? "Through" : "Normal")}Snap{index}");
             go.transform.SetParent(_root.transform, worldPositionStays: false);
 
             LineRenderer line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = false;
             line.loop = true;
             line.positionCount = Segments;
-            line.material = MarkerMaterial();
+            line.material = seeThrough ? GizmoMaterial.GetSeeThrough() : GizmoMaterial.Get();
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
             line.alignment = LineAlignment.View;

@@ -27,9 +27,19 @@ namespace TheHammerOfOden
     /// Restricting it to the ghost means we never mutate the world: no accumulating child
     /// objects on pooled pieces, and nothing for another mod's snap logic to trip over.
     ///
-    /// The anchors are ordinary child GameObjects that are deliberately NOT tagged
-    /// "snappoint". Vanilla's GetSnapPoints only collects tagged children, so tagging them
-    /// would make it find them too and we would append duplicates.
+    /// The anchors are real children of the ghost, tagged "snappoint" so vanilla's own
+    /// GetSnapPoints collects them. An earlier version appended them from a Harmony postfix
+    /// on that method instead, which was a mistake: vanilla calls GetSnapPoints on every
+    /// piece within 10m every frame while a ghost exists, so the patch put a detour in one
+    /// of the game's hottest loops purely to do nothing for all but one piece. Tagging the
+    /// children needs no patch at all.
+    ///
+    /// Our own anchors carry a marker component so measuring can skip them. A name prefix
+    /// was tried first and was a poor choice: vanilla puts the snap point's name on screen
+    /// when cycling, so the marker leaked into the interface. A component identifies them
+    /// without being visible, and survives the frame between Destroy being called and Unity
+    /// actually removing the object - which matters, because a ghost is remeasured while its
+    /// previous anchors are still attached.
     ///
     /// The box is measured from the piece's own snap points where it has them, because
     /// those describe its logical footprint. Renderer bounds include decorative overhang -
@@ -40,41 +50,39 @@ namespace TheHammerOfOden
         private static GameObject _cachedFor;
         private static DerivedSnapMode _cachedMode;
         private static readonly List<Transform> Cached = new List<Transform>();
-        private static GameObject _holder;
 
-        internal static void Append(Piece piece, List<Transform> points)
+        /// <summary>Attach derived anchors to a freshly built placement ghost.</summary>
+        internal static void AttachTo(GameObject ghost)
         {
-            if (!ModConfig.IsEnabled || ModConfig.DerivedSnaps.Value == DerivedSnapMode.Off)
+            Invalidate();
+
+            if (!ModConfig.IsEnabled || ModConfig.DerivedSnaps.Value == DerivedSnapMode.Off || ghost == null)
             {
                 return;
             }
 
+            Piece piece = ghost.GetComponent<Piece>();
             if (piece == null)
             {
                 return;
             }
 
-            // Ghost only. Everything else in the world keeps exactly the snap points it shipped with.
-            GameObject ghost = piece.gameObject;
-            if (!Player.IsPlacementGhost(ghost))
-            {
-                return;
-            }
-
             Rebuild(piece, ghost);
-            points.AddRange(Cached);
         }
 
         internal static void Invalidate()
         {
             _cachedFor = null;
-            Cached.Clear();
 
-            if (_holder != null)
+            foreach (Transform anchor in Cached)
             {
-                Object.Destroy(_holder);
-                _holder = null;
+                if (anchor != null)
+                {
+                    Object.Destroy(anchor.gameObject);
+                }
             }
+
+            Cached.Clear();
         }
 
         private static void Rebuild(Piece piece, GameObject ghost)
@@ -93,15 +101,13 @@ namespace TheHammerOfOden
                 return;
             }
 
-            _holder = new GameObject("HammerOfOden_DerivedSnaps");
-            _holder.transform.SetParent(ghost.transform, worldPositionStays: false);
-            _holder.transform.localPosition = Vector3.zero;
-            _holder.transform.localRotation = Quaternion.identity;
-
+            // Direct children, because vanilla only looks one level down for the tag.
             foreach (KeyValuePair<string, Vector3> anchor in BuildAnchors(center, extents, mode))
             {
                 GameObject go = new GameObject(anchor.Key);
-                go.transform.SetParent(_holder.transform, worldPositionStays: false);
+                go.tag = "snappoint";
+                go.AddComponent<DerivedAnchorMarker>();
+                go.transform.SetParent(ghost.transform, worldPositionStays: false);
                 go.transform.localPosition = anchor.Value;
                 go.transform.localRotation = Quaternion.identity;
                 Cached.Add(go.transform);
@@ -112,6 +118,49 @@ namespace TheHammerOfOden
 
             HammerOfOdenPlugin.Debug(
                 $"Derived {Cached.Count} snap point(s) for '{ghost.name}' in mode {mode}.");
+        }
+
+        /// <summary>
+        /// Anchor offsets only, into a caller-owned list.
+        /// </summary>
+        /// <remarks>
+        /// The named version below allocates a list of string-keyed pairs, which is fine for
+        /// the ghost because it is built once per piece. The target side runs over every
+        /// nearby piece, so it needs a path that allocates nothing and never touches a string.
+        /// </remarks>
+        internal static void BuildLocalAnchors(Vector3 c, Vector3 e, DerivedSnapMode mode, List<Vector3> into)
+        {
+            into.Add(c);
+
+            into.Add(c + new Vector3(0f, e.y, 0f));
+            into.Add(c + new Vector3(0f, -e.y, 0f));
+            into.Add(c + new Vector3(-e.x, 0f, 0f));
+            into.Add(c + new Vector3(e.x, 0f, 0f));
+            into.Add(c + new Vector3(0f, 0f, e.z));
+            into.Add(c + new Vector3(0f, 0f, -e.z));
+
+            if (mode >= DerivedSnapMode.CentersAndCorners)
+            {
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    for (int sy = -1; sy <= 1; sy += 2)
+                    {
+                        for (int sz = -1; sz <= 1; sz += 2)
+                        {
+                            into.Add(c + new Vector3(sx * e.x, sy * e.y, sz * e.z));
+                        }
+                    }
+                }
+            }
+
+            if (mode >= DerivedSnapMode.Full)
+            {
+                int derived = into.Count;
+                for (int i = 1; i < derived; i++)
+                {
+                    into.Add(c + (into[i] - c) * 0.5f);
+                }
+            }
         }
 
         internal static IEnumerable<KeyValuePair<string, Vector3>> BuildAnchors(
@@ -179,7 +228,8 @@ namespace TheHammerOfOden
             for (int i = 0; i < root.childCount; i++)
             {
                 Transform child = root.GetChild(i);
-                if (!child.CompareTag("snappoint"))
+                // Skip anchors we added ourselves, or the box would grow from its own output.
+                if (!child.CompareTag("snappoint") || child.GetComponent<DerivedAnchorMarker>() != null)
                 {
                     continue;
                 }
