@@ -42,8 +42,10 @@ namespace TheHammerOfOden
                 return;
             }
 
-            MeasureGhost(ghost, out Vector3 center, out float localRadius);
-            float radius = localRadius * ModConfig.GizmoScale.Value;
+            GhostBounds.Measure(ghost, out Vector3 center, out float localRadius);
+            // A scaled piece needs rings to match; the gizmo root is not parented to the
+            // ghost, so it does not inherit the scale on its own.
+            float radius = localRadius * ModConfig.GizmoScale.Value * ScaleState.LargestAxis;
 
             _root.SetActive(true);
             _root.transform.position = center;
@@ -99,7 +101,7 @@ namespace TheHammerOfOden
             }
 
             _pitchMark = _yawMark = _rollMark = null;
-            _measuredGhost = null;
+            GhostBounds.Invalidate();
             LineStyle.Clear();
             AngleBeads.Destroy();
 
@@ -200,49 +202,6 @@ namespace TheHammerOfOden
             }
 
             LineStyle.Apply(ring, tinted, ModConfig.GizmoWidth.Value * (isActive ? 1.8f : 1f));
-        }
-
-        private static GameObject _measuredGhost;
-        private static Vector3 _localCenter;
-        private static float _localRadius;
-
-        /// <summary>
-        /// Fit the rings to the piece, measuring it only when the piece changes.
-        /// </summary>
-        /// <remarks>
-        /// The size of a ghost is a property of the prefab, not of the frame. Walking its
-        /// renderers every frame allocated an array and re-derived the same numbers a hundred
-        /// times a second; measuring in local space means rotation and movement need no
-        /// remeasurement at all.
-        /// </remarks>
-        private static void MeasureGhost(GameObject ghost, out Vector3 center, out float radius)
-        {
-            if (_measuredGhost != ghost)
-            {
-                _measuredGhost = ghost;
-                _localCenter = Vector3.zero;
-                _localRadius = 0.5f;
-
-                Renderer[] renderers = ghost.GetComponentsInChildren<Renderer>();
-                if (renderers.Length > 0)
-                {
-                    Transform root = ghost.transform;
-                    Bounds bounds = new Bounds(root.InverseTransformPoint(renderers[0].bounds.center), Vector3.zero);
-
-                    foreach (Renderer renderer in renderers)
-                    {
-                        Bounds b = renderer.bounds;
-                        bounds.Encapsulate(root.InverseTransformPoint(b.min));
-                        bounds.Encapsulate(root.InverseTransformPoint(b.max));
-                    }
-
-                    _localCenter = bounds.center;
-                    _localRadius = Mathf.Max(bounds.extents.magnitude, 0.5f);
-                }
-            }
-
-            center = ghost.transform.TransformPoint(_localCenter);
-            radius = _localRadius;
         }
 
         private static bool EnsureBuilt()

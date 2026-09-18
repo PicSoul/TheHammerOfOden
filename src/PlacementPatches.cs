@@ -19,7 +19,8 @@ namespace TheHammerOfOden
             Player __instance,
             bool takeInput,
             PieceTable ___m_buildPieces,
-            ref int ___m_manualSnapPoint)
+            ref int ___m_manualSnapPoint,
+            GameObject ___m_placementGhost)
         {
             if (!ModConfig.IsEnabled || !takeInput || ___m_buildPieces == null)
             {
@@ -37,6 +38,8 @@ namespace TheHammerOfOden
             HandleSnapPointReset(__instance, ref ___m_manualSnapPoint);
             HandleClippingToggle(__instance);
             HandleSnapDivisions(__instance);
+            HandleDerivedModeCycle(__instance, ___m_placementGhost);
+            HandleScaling(__instance, ___m_placementGhost);
             HandleResets();
             HandleStandaloneCopyKey(__instance);
             HandleRotation();
@@ -130,12 +133,136 @@ namespace TheHammerOfOden
 
             ModConfig.SnapDivisions.Value = updated;
 
-            if (player != null)
+            Notify.Show(player, $"Snap: {updated} per turn ({ModConfig.StepDegrees:0.##} deg)");
+        }
+
+        /// <summary>Step through the derived anchor modes, wrapping back to Off.</summary>
+        private static void HandleDerivedModeCycle(Player player, GameObject ghost)
+        {
+            if (!IsDown(ModConfig.CycleDerivedSnapPointsKey))
             {
-                ((Character)player).Message(
-                    MessageHud.MessageType.TopLeft,
-                    $"Snap: {updated} per turn ({ModConfig.StepDegrees:0.##} deg)");
+                return;
             }
+
+            DerivedSnapMode next = ModConfig.DerivedSnaps.Value + 1;
+            if (next > DerivedSnapMode.Full)
+            {
+                next = DerivedSnapMode.Off;
+            }
+
+            ModConfig.DerivedSnaps.Value = next;
+
+            // The ghost carries anchors built for the previous mode, and every cached piece
+            // was measured against it, so both have to go.
+            DerivedSnapPoints.AttachTo(ghost);
+            DerivedAnchorCache.Clear();
+
+            Notify.Show(player, "Anchors: " + Describe(next));
+        }
+
+        private static string Describe(DerivedSnapMode mode)
+        {
+            switch (mode)
+            {
+                case DerivedSnapMode.Centers:
+                    return "centres";
+                case DerivedSnapMode.CentersAndCorners:
+                    return "centres + corners";
+                case DerivedSnapMode.CentersCornersAndEdges:
+                    return "centres + corners + edges";
+                case DerivedSnapMode.Full:
+                    return "full";
+                default:
+                    return "off (piece defaults only)";
+            }
+        }
+
+        /// <summary>Stretch, compress and reset the piece's size.</summary>
+        private static void HandleScaling(Player player, GameObject ghost)
+        {
+            if (!IsHeld(ModConfig.ScaleModifierKey))
+            {
+                return;
+            }
+
+            if (!Scalable.Allows(ghost))
+            {
+                // Say so once rather than silently ignoring the keypress, or it reads as the
+                // feature being broken.
+                if (AnyScaleKeyDown())
+                {
+                    Notify.Show(player, "This piece cannot be resized");
+                }
+
+                return;
+            }
+
+            bool changed = false;
+
+            if (ScaleRepeat(ModConfig.ScaleWiderKey)) { ScaleState.Stretch(0, 1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleNarrowerKey)) { ScaleState.Stretch(0, -1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleTallerKey)) { ScaleState.Stretch(1, 1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleShorterKey)) { ScaleState.Stretch(1, -1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleDeeperKey)) { ScaleState.Stretch(2, 1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleShallowerKey)) { ScaleState.Stretch(2, -1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleUpKey)) { ScaleState.Uniform(1); changed = true; }
+            else if (ScaleRepeat(ModConfig.ScaleDownKey)) { ScaleState.Uniform(-1); changed = true; }
+            else if (IsDown(ModConfig.ScaleResetKey)) { ScaleState.Reset(); changed = true; }
+
+            if (!changed || player == null)
+            {
+                return;
+            }
+
+            Vector3 s = ScaleState.Multiplier;
+            Notify.Show(player, $"Scale  {s.x:0.00} x  {s.y:0.00} y  {s.z:0.00} z");
+        }
+
+        private static bool AnyScaleKeyDown()
+        {
+            return IsDown(ModConfig.ScaleWiderKey)
+                || IsDown(ModConfig.ScaleNarrowerKey)
+                || IsDown(ModConfig.ScaleTallerKey)
+                || IsDown(ModConfig.ScaleShorterKey)
+                || IsDown(ModConfig.ScaleDeeperKey)
+                || IsDown(ModConfig.ScaleShallowerKey)
+                || IsDown(ModConfig.ScaleUpKey)
+                || IsDown(ModConfig.ScaleDownKey)
+                || IsDown(ModConfig.ScaleResetKey);
+        }
+
+        private static float _scaleHeldSince;
+        private static float _scaleNextRepeat;
+
+        /// <summary>
+        /// True on the first press, then again at a steady rate while the key is held.
+        /// </summary>
+        /// <remarks>
+        /// Scaling is inherently repetitive - twenty presses to reach double size at the
+        /// default step - so holding the key has to work or the feature is tiring to use.
+        /// The initial pause is what keeps a single tap from being read as a hold.
+        /// </remarks>
+        private static bool ScaleRepeat(ConfigEntry<KeyboardShortcut> key)
+        {
+            if (IsDown(key))
+            {
+                _scaleHeldSince = Time.time;
+                _scaleNextRepeat = Time.time + ModConfig.ScaleRepeatDelay.Value;
+                return true;
+            }
+
+            if (!IsHeld(key))
+            {
+                return false;
+            }
+
+            if (Time.time < _scaleNextRepeat)
+            {
+                return false;
+            }
+
+            _scaleNextRepeat = Time.time + ModConfig.ScaleRepeatRate.Value;
+            return true;
         }
 
         private static void HandleClippingToggle(Player player)
@@ -147,12 +274,7 @@ namespace TheHammerOfOden
 
             ClippingMode mode = Clipping.Cycle();
 
-            if (player != null)
-            {
-                ((Character)player).Message(
-                    MessageHud.MessageType.TopLeft,
-                    "Clipping: " + Clipping.Describe(mode));
-            }
+            Notify.Show(player, "Clipping: " + Clipping.Describe(mode));
         }
 
         private static void HandleRotation()
@@ -387,6 +509,10 @@ namespace TheHammerOfOden
                 ___m_manualSnapPoint,
                 FreePlacement.IsActiveNow());
 
+            if (Scalable.Allows(___m_placementGhost))
+            {
+                ScaleState.ApplyTo(___m_placementGhost);
+            }
             PlacementOffset.Apply(___m_placementGhost);
 
             RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
@@ -421,6 +547,8 @@ namespace TheHammerOfOden
             }
 
             RotationState.MatchPiece(hovering);
+            ScaleState.MatchPiece(hovering);
+            SnapPointRecall.Record(hovering);
             HammerOfOdenPlugin.Debug($"Copied full rotation from '{hovering.name}' on piece copy.");
         }
     }
@@ -470,6 +598,51 @@ namespace TheHammerOfOden
         }
     }
 
+    /// <summary>
+    /// Carries the placing scale onto the piece that actually gets built.
+    /// </summary>
+    /// <remarks>
+    /// PlacePiece instantiates the real object from the prefab rather than from the ghost,
+    /// so the ghost's scale is not inherited and has to be applied to the new instance.
+    /// SetCreator is the first thing called on it, which makes this the earliest point the
+    /// finished piece can be reached - and it runs before WearNTear.OnPlaced, so support is
+    /// evaluated against the size it will actually be.
+    /// </remarks>
+    [HarmonyPatch(typeof(Piece), nameof(Piece.SetCreator))]
+    internal static class PieceSetCreatorPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(Piece __instance)
+        {
+            if (ModConfig.IsEnabled)
+            {
+                ScaleState.ApplyToPlaced(__instance);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reapplies a stored scale as objects come into the world.
+    /// </summary>
+    /// <remarks>
+    /// Vanilla only reads the stored scale when the prefab opted into scale syncing, which
+    /// build pieces do not. Without this a scaled piece is correct until the zone unloads and
+    /// then returns at its original size - including on walking away and back, not only on
+    /// teleporting.
+    /// </remarks>
+    [HarmonyPatch(typeof(ZNetView), "Awake")]
+    internal static class ZNetViewAwakePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ZNetView __instance)
+        {
+            if (ModConfig.IsEnabled)
+            {
+                ScalePersistence.Restore(__instance);
+            }
+        }
+    }
+
     /// <summary>Clear the free-placement toggle when leaving build mode.</summary>
     [HarmonyPatch(typeof(Player), "SetPlaceMode")]
     internal static class PlayerSetPlaceModePatch
@@ -483,6 +656,8 @@ namespace TheHammerOfOden
                 RotationGizmo.Hide();
                 SnapPointMarkers.Hide();
                 DerivedAnchorCache.Clear();
+                ScaleState.Reset();
+                PlayerSetupPlacementGhostPatch.ForgetPiece();
             }
         }
     }
@@ -498,12 +673,47 @@ namespace TheHammerOfOden
     [HarmonyPatch(typeof(Player), "SetupPlacementGhost")]
     internal static class PlayerSetupPlacementGhostPatch
     {
-        [HarmonyPostfix]
-        private static void Postfix(GameObject ___m_placementGhost)
+        private static string _lastGhostPrefab;
+
+        /// <summary>Forget the current piece, so the next one selected starts at normal size.</summary>
+        internal static void ForgetPiece()
         {
+            _lastGhostPrefab = null;
+        }
+
+        [HarmonyPostfix]
+        private static void Postfix(GameObject ___m_placementGhost, ref int ___m_manualSnapPoint)
+        {
+            // Rename first: the ordering below sorts on the new names, and AttachTo
+            // measures positions rather than names so it is unaffected either way.
+            SnapPointNaming.Apply(___m_placementGhost);
+
             DerivedSnapPoints.AttachTo(___m_placementGhost);
 
+            // AttachTo orders them itself when it adds anchors; with derived anchors off
+            // it returns early, and the piece's own points still deserve sorting.
+            SnapPointOrder.Apply(___m_placementGhost);
+
+            // After AttachTo: the anchor we are looking for may be one we just created.
+            SnapPointRecall.ApplyTo(___m_placementGhost, ref ___m_manualSnapPoint);
+
             PlacementOffset.Reset();
+            ScaleState.ForgetGhost();
+            Scalable.Forget();
+
+            // The ghost is rebuilt after every placement as well as on changing piece, so
+            // resetting here unconditionally threw the scale away the moment it was used.
+            // Only a genuinely different piece should clear it.
+            string prefab = (___m_placementGhost != null)
+                ? Utils.GetPrefabName(___m_placementGhost)
+                : null;
+
+            if (ModConfig.ResetScaleOnPieceChange.Value && prefab != _lastGhostPrefab)
+            {
+                ScaleState.Reset();
+            }
+
+            _lastGhostPrefab = prefab;
 
             if (!ModConfig.IsEnabled || !ModConfig.ResetOnPieceChange.Value)
             {

@@ -17,6 +17,8 @@ namespace TheHammerOfOden
 
         internal static ConfigEntry<bool> CopyRotationOnPieceCopy;
         internal static ConfigEntry<KeyboardShortcut> CopyRotationKey;
+        internal static ConfigEntry<bool> RecallSnapPoint;
+        internal static ConfigEntry<bool> CopyScaleOnPieceCopy;
 
         internal static ConfigEntry<FreePlacementMode> FreePlacement;
         internal static ConfigEntry<KeyboardShortcut> FreePlacementKey;
@@ -36,6 +38,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> ShowSnapPoints;
         internal static ConfigEntry<bool> ShowInactiveSnapPoints;
         internal static ConfigEntry<float> SnapPointSize;
+        internal static ConfigEntry<float> MarkerStroke;
         internal static ConfigEntry<Color> SnapPointColor;
         internal static ConfigEntry<Color> SnapPointActiveColor;
 
@@ -50,9 +53,33 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> SnapPointResetHold;
 
         internal static ConfigEntry<DerivedSnapMode> DerivedSnaps;
+        internal static ConfigEntry<KeyboardShortcut> CycleDerivedSnapPointsKey;
+        internal static ConfigEntry<bool> ScaleSnapPointsWithPiece;
+        internal static ConfigEntry<bool> SortSnapPoints;
+        internal static ConfigEntry<bool> RenameSnapPoints;
         internal static ConfigEntry<bool> SnapToDerivedTargets;
         internal static ConfigEntry<float> DerivedTargetRange;
         internal static ConfigEntry<float> DerivedSnapDistance;
+
+        internal static ConfigEntry<KeyboardShortcut> ScaleModifierKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleWiderKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleNarrowerKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleTallerKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleShorterKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleDeeperKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleShallowerKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleUpKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleDownKey;
+        internal static ConfigEntry<KeyboardShortcut> ScaleResetKey;
+        internal static ConfigEntry<float> ScaleStep;
+        internal static ConfigEntry<float> ScaleMin;
+        internal static ConfigEntry<float> ScaleMax;
+        internal static ConfigEntry<bool> ResetScaleOnPieceChange;
+        internal static ConfigEntry<ScaleRestriction> ScaleRestrictions;
+        internal static ConfigEntry<float> ScaleMaxWithParticles;
+        internal static ConfigEntry<float> ScaleRepeatDelay;
+        internal static ConfigEntry<float> ScaleRepeatRate;
+        internal static ConfigEntry<bool> ScaleParticles;
 
         internal static ConfigEntry<float> OffsetStep;
         internal static ConfigEntry<float> OffsetLimit;
@@ -63,6 +90,7 @@ namespace TheHammerOfOden
 
         internal static ConfigEntry<bool> ResetOnPieceChange;
         internal static ConfigEntry<bool> DebugLogging;
+        internal static ConfigEntry<bool> DebugParticles;
 
         internal static bool IsEnabled => Enabled != null && Enabled.Value;
         internal static bool DebugEnabled => DebugLogging != null && DebugLogging.Value;
@@ -121,6 +149,18 @@ namespace TheHammerOfOden
                 KeyboardShortcut.Empty,
                 "Optional separate key to copy the rotation of the piece you are looking at, without "
                 + "also switching to that piece. Leave empty to disable.");
+
+            CopyScaleOnPieceCopy = config.Bind("Copy", "CopyScaleOnPieceCopy", true,
+                "When you copy a placed piece, also adopt the size it was built at. Pieces that cannot "
+                + "be resized reset the scale to normal instead, so copying a chest does not leave a "
+                + "stretched wall waiting behind it.");
+
+            RecallSnapPoint = config.Bind("Copy", "RecallSnapPoint", true,
+                "When copying a piece that has been pitched or rolled, also select the anchor it was "
+                + "snapped by. Nothing records that choice, so it is inferred by finding which of the "
+                + "piece's anchors sits on a neighbour's - reliable for tilted pieces, which usually "
+                + "meet their surroundings at a single point. Only attempted for tilted pieces, and "
+                + "your current selection is left alone whenever the answer is ambiguous.");
 
             FreePlacement = config.Bind("Free Placement", "Mode", FreePlacementMode.Toggle,
                 new ConfigDescription(
@@ -194,6 +234,13 @@ namespace TheHammerOfOden
                 new ConfigDescription("Marker radius in metres. The selected point is drawn larger automatically.",
                     new AcceptableValueRange<float>(0.02f, 0.5f)));
 
+            MarkerStroke = config.Bind("Snap Points", "MarkerStroke", 0.22f,
+                new ConfigDescription(
+                    "Outline thickness as a fraction of a marker's size. Proportional rather than fixed, "
+                    + "so a marker scaled down for a small piece keeps its shape instead of thickening "
+                    + "into a blob.",
+                    new AcceptableValueRange<float>(0.05f, 0.6f)));
+
             SnapPointColor = config.Bind("Snap Points", "Color", new Color(1f, 1f, 1f, 0.35f),
                 "Colour of unselected snap point markers.");
 
@@ -246,12 +293,34 @@ namespace TheHammerOfOden
             DerivedSnaps = config.Bind("Snap Points", "DerivedSnapPoints", DerivedSnapMode.Centers,
                 new ConfigDescription(
                     "Extra anchors added to the piece you are placing, on top of the ones it ships with. "
+                    + "Anchors landing on a snap point the piece already has are dropped. "
                     + "Off: none. "
-                    + "Centers: piece centre and the centre of each face (7 extra). "
-                    + "CentersAndCorners: the above plus the eight corners (15 extra). "
-                    + "Full: the above plus a midpoint between the centre and each of them (29 extra). "
-                    + "Every extra anchor is another stop when cycling with Q and E, so higher settings "
-                    + "trade convenience for a longer cycle."));
+                    + "Centers: piece centre and the centre of each face. "
+                    + "CentersAndCorners: also the eight corners, which mainly helps pieces that "
+                    + "have no corner snap points of their own. "
+                    + "CentersCornersAndEdges: also the midpoint of each of the twelve edges. "
+                    + "Full: also a midpoint between the centre and every anchor above. "
+                    + "Every extra anchor is another stop when cycling with Q and E."));
+
+            CycleDerivedSnapPointsKey = config.Bind("Snap Points", "CycleDerivedSnapPointsKey",
+                new KeyboardShortcut(KeyCode.Insert),
+                "Step through the derived anchor modes while building, rather than editing this file.");
+
+            ScaleSnapPointsWithPiece = config.Bind("Snap Points", "ScaleWithPiece", true,
+                "Size the markers relative to the piece being placed, and shrink them further in the "
+                + "denser modes. A fixed size either swamps a small piece or disappears on a large one.");
+
+            RenameSnapPoints = config.Bind("Snap Points", "RenameSnapPoints", true,
+                "Rename the piece's own snap points after where they sit, so \"Top 1\" becomes "
+                + "\"Top Front\" or \"Top Right\". Valheim's names are bare ordinals that say nothing "
+                + "about position and are reused for points in different places. Only the piece you "
+                + "are holding is renamed, and only while you hold it.");
+
+            SortSnapPoints = config.Bind("Snap Points", "SortSnapPoints", true,
+                "Put snap points into a predictable order for cycling with Q and E. Vanilla presents "
+                + "them in whatever order the prefab happens to list them, so a piece can run "
+                + "\"Bottom 1, Bottom 2, Top 3, Top 1\". Sorted, the piece's own points come first in "
+                + "natural order, then derived anchors grouped centre, faces, corners, edges.");
 
             SnapToDerivedTargets = config.Bind("Snap Points", "SnapToDerivedTargets", false,
                 "Also snap to derived anchors on pieces already built, so you can line up with the "
@@ -271,6 +340,92 @@ namespace TheHammerOfOden
                     "How close an anchor pair must be before it snaps. Vanilla uses 0.5m. Larger values "
                     + "grab from further away but make precise free placement harder.",
                     new AcceptableValueRange<float>(0.05f, 2f)));
+
+            ScaleModifierKey = config.Bind("Scale", "ModifierKey",
+                new KeyboardShortcut(KeyCode.LeftShift),
+                "Hold this while pressing the scale keys below. Shared with the pitch modifier, which "
+                + "is harmless: pitch responds to the scroll wheel and scaling to the numpad.");
+
+            ScaleWiderKey = config.Bind("Scale", "WiderKey", new KeyboardShortcut(KeyCode.Keypad6),
+                "Stretch the piece along its left-right axis.");
+
+            ScaleNarrowerKey = config.Bind("Scale", "NarrowerKey", new KeyboardShortcut(KeyCode.Keypad4),
+                "Compress the piece along its left-right axis.");
+
+            ScaleTallerKey = config.Bind("Scale", "TallerKey", new KeyboardShortcut(KeyCode.Keypad8),
+                "Stretch the piece vertically.");
+
+            ScaleShorterKey = config.Bind("Scale", "ShorterKey", new KeyboardShortcut(KeyCode.Keypad2),
+                "Compress the piece vertically.");
+
+            ScaleDeeperKey = config.Bind("Scale", "DeeperKey", new KeyboardShortcut(KeyCode.Keypad9),
+                "Stretch the piece along its front-back axis.");
+
+            ScaleShallowerKey = config.Bind("Scale", "ShallowerKey", new KeyboardShortcut(KeyCode.Keypad7),
+                "Compress the piece along its front-back axis.");
+
+            ScaleUpKey = config.Bind("Scale", "UniformUpKey", new KeyboardShortcut(KeyCode.KeypadPlus),
+                "Grow the piece on every axis at once.");
+
+            ScaleDownKey = config.Bind("Scale", "UniformDownKey", new KeyboardShortcut(KeyCode.KeypadMinus),
+                "Shrink the piece on every axis at once.");
+
+            ScaleResetKey = config.Bind("Scale", "ResetKey", new KeyboardShortcut(KeyCode.Keypad5),
+                "Return the piece to its normal size.");
+
+            ScaleRestrictions = config.Bind("Scale", "Restrictions", ScaleRestriction.ProductionStations,
+                new ConfigDescription(
+                    "Which pieces are left out of resizing. "
+                    + "ProductionStations: crafting stations, smelters, kilns, cooking stations, "
+                    + "fermenters and beehives, whose behaviour is tied to where parts of the model "
+                    + "are - build radii, ore and output points, the slots food sits on. Everything "
+                    + "else, including chests, doors, portals, torches and station add-ons, can be "
+                    + "resized. "
+                    + "AnythingInteractive: also leaves out anything you can use at all. "
+                    + "Nothing: no restriction."));
+
+            ScaleMaxWithParticles = config.Bind("Scale", "MaximumWithParticles", 2f,
+                new ConfigDescription(
+                    "A lower ceiling for pieces that carry particle effects, such as portals and "
+                    + "torches. Valheim's effects are authored for one size and their culling bounds "
+                    + "do not keep pace when scaled, so past roughly double they start to disappear "
+                    + "when you stand near them. Raise it if you would rather have the size than the "
+                    + "effect.",
+                    new AcceptableValueRange<float>(1f, 20f)));
+
+            ScaleRepeatDelay = config.Bind("Scale", "RepeatDelay", 0.35f,
+                new ConfigDescription(
+                    "How long a scale key must be held before it starts repeating. Long enough that a "
+                    + "single tap is never read as a hold.",
+                    new AcceptableValueRange<float>(0.1f, 1f)));
+
+            ScaleRepeatRate = config.Bind("Scale", "RepeatRate", 0.06f,
+                new ConfigDescription("Seconds between steps while a scale key is held.",
+                    new AcceptableValueRange<float>(0.01f, 0.5f)));
+
+            ScaleParticles = config.Bind("Scale", "ScaleParticles", true,
+                "Draw a piece's particle effects larger along with its geometry. Only the particle "
+                + "size changes; the space they move through is deliberately left alone, because "
+                + "scaling that too throws them metres past the piece and the effect appears to "
+                + "vanish when you stand near it.");
+
+            ScaleStep = config.Bind("Scale", "Step", 0.05f,
+                new ConfigDescription(
+                    "Fraction changed per keypress. Applied multiplicatively, so growing and then "
+                    + "shrinking returns to where you started.",
+                    new AcceptableValueRange<float>(0.01f, 0.5f)));
+
+            ScaleMin = config.Bind("Scale", "Minimum", 0.2f,
+                new ConfigDescription("Smallest multiple of a piece's normal size.",
+                    new AcceptableValueRange<float>(0.05f, 1f)));
+
+            ScaleMax = config.Bind("Scale", "Maximum", 5f,
+                new ConfigDescription("Largest multiple of a piece's normal size.",
+                    new AcceptableValueRange<float>(1f, 20f)));
+
+            ResetScaleOnPieceChange = config.Bind("Scale", "ResetOnPieceChange", true,
+                "Return to normal size when you select a different piece. Off keeps your scale across "
+                + "pieces, which is useful when building a set to match.");
 
             OffsetStep = config.Bind("Placement Offset", "Step", 0.05f,
                 new ConfigDescription(
@@ -311,6 +466,11 @@ namespace TheHammerOfOden
             ResetOnPieceChange = config.Bind("Rotation", "ResetOnPieceChange", false,
                 "Zero all rotation when you select a different build piece. Off keeps your tilt "
                 + "while you switch pieces, which is usually what you want mid-build.");
+
+            DebugParticles = config.Bind("Debug", "DebugParticles", false,
+                "Report what a scaled piece's particle effects are doing - visibility, particle count "
+                + "and renderer bounds - so the cause of effects disappearing on large pieces can be "
+                + "identified rather than guessed at. Noisy; switch on only while investigating.");
 
             DebugLogging = config.Bind("Debug", "DebugLogging", false,
                 "Write placement diagnostics to the BepInEx log.");

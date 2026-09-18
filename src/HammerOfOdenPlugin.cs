@@ -143,6 +143,12 @@ namespace TheHammerOfOden
                 + $"will give unpredictable placement. Disable one of them.");
         }
 
+        /// <summary>Unconditional info, for diagnostics that have their own switch.</summary>
+        internal static void Info(string message)
+        {
+            _logger.LogInfo(message);
+        }
+
         internal static void Error(string message)
         {
             _logger.LogError(message);

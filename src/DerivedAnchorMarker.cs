@@ -3,14 +3,14 @@ using UnityEngine;
 namespace TheHammerOfOden
 {
     /// <summary>
-    /// Identifies an anchor this mod added to a placement ghost.
+    /// Identifies an anchor this mod added to a placement ghost, and what sort it is.
     /// </summary>
     /// <remarks>
-    /// Carries no data and does nothing. It exists so the bounds measurement can tell our
-    /// anchors from the piece's own without inspecting names - vanilla shows a snap point's
-    /// name on screen when cycling, so anything encoded there is user-visible.
+    /// The kind is held here rather than encoded in the name, because vanilla puts a snap
+    /// point's name on screen when cycling - anything stored there is user-visible.
     /// </remarks>
     internal sealed class DerivedAnchorMarker : MonoBehaviour
     {
+        internal AnchorKind Kind = AnchorKind.Vanilla;
     }
 }

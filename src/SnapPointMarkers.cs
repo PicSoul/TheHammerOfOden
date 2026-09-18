@@ -5,12 +5,12 @@ namespace TheHammerOfOden
 {
     internal enum SnapPointDisplay
     {
-        /// <summary>Every snap point on both pieces, all drawn through geometry.</summary>
+        /// <summary>Every anchor on both pieces.</summary>
         All = 0,
 
         /// <summary>
-        /// Only what is actually in play: the point your piece is snapping by, and the
-        /// points on the target that are close enough to snap to.
+        /// Only what is in play: the anchor your piece is held by, and the target anchors
+        /// close enough to snap to.
         /// </summary>
         Relevant = 1,
 
@@ -19,31 +19,28 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
-    /// Draws markers for snap points on the piece being placed and the piece being aimed at.
+    /// Draws markers for the anchors on the piece being placed and the piece being aimed at.
     /// </summary>
     /// <remarks>
-    /// Drawing everything through geometry turns a 2x2 floor into a couple of dozen
-    /// overlapping rings, which is less readable than drawing nothing. Relevant mode instead
-    /// shows the one point your piece is held by - the manual pick, or whichever one vanilla
-    /// chose under automatic snapping - and, on the target, only the points near enough to
-    /// actually reach. A snap point you cannot currently snap to is not information.
+    /// Each kind of anchor gets its own outline - see MarkerShapes - so a corner, an edge
+    /// point and the piece centre are distinguishable at a glance. Colour is already spoken
+    /// for, showing which anchor is selected and which piece it belongs to, so shape carries
+    /// the rest.
     ///
-    /// Only the points that matter are drawn through geometry. The rest use the normal
-    /// material, so they are still there for context when nothing is in the way but never
-    /// pile up on top of the piece.
+    /// Markers draw through geometry by default. The denser modes place anchors on faces
+    /// that are turned away from you, and occluding those hides exactly the ones that are
+    /// awkward to reach by eye; clutter is handled by Display, ShowInactiveSnapPoints, and
+    /// scaling markers down as the anchor count rises.
     /// </remarks>
     internal static class SnapPointMarkers
     {
-        private const int Segments = 20;
-
         private static GameObject _root;
         private static readonly List<LineRenderer> SeeThroughPool = new List<LineRenderer>();
         private static readonly List<LineRenderer> NormalPool = new List<LineRenderer>();
-        private static readonly List<Transform> TargetPoints = new List<Transform>();
-        private static readonly List<Vector3> DerivedTargets = new List<Vector3>();
 
         private static int _seeThroughUsed;
         private static int _normalUsed;
+        private static float _sizeScale = 1f;
 
         internal static void Update(
             GameObject ghost,
@@ -65,24 +62,27 @@ namespace TheHammerOfOden
             _root.SetActive(true);
             _seeThroughUsed = 0;
             _normalUsed = 0;
+            _sizeScale = MarkerScale(ghost);
 
             Quaternion facing = MainCamera.Facing;
             SnapPointDisplay display = ModConfig.SnapDisplay.Value;
 
-            DrawGhostPoints(ghostPoints, manualSnapPoint, facing, display);
-            DrawTargetPoints(ghost, hoveringPiece, ghostPoints, facing, display);
+            DrawGhostAnchors(ghostPoints, manualSnapPoint, facing, display);
+            DrawTargetAnchors(ghost, hoveringPiece, ghostPoints, facing, display);
 
             HideFrom(SeeThroughPool, _seeThroughUsed);
             HideFrom(NormalPool, _normalUsed);
         }
 
-        private static void DrawGhostPoints(
+        private static void DrawGhostAnchors(
             List<Transform> points, int manualSnapPoint, Quaternion facing, SnapPointDisplay display)
         {
             if (points == null)
             {
                 return;
             }
+
+            bool seeThrough = ModConfig.SnapPointsSeeThrough.Value;
 
             for (int i = 0; i < points.Count; i++)
             {
@@ -92,35 +92,34 @@ namespace TheHammerOfOden
                     continue;
                 }
 
-                // "Active" is the point you picked with Q/E, or the one vanilla settled on
+                // "Active" is the anchor you picked with Q/E, or the one vanilla settled on
                 // when snapping automatically.
                 bool isActive = (manualSnapPoint >= 0)
                     ? i == manualSnapPoint
                     : ActiveSnapPair.IsSource(point);
 
-                if (!isActive)
+                if (!isActive
+                    && (display == SnapPointDisplay.ActivePairOnly || !ModConfig.ShowInactiveSnapPoints.Value))
                 {
-                    if (display == SnapPointDisplay.ActivePairOnly
-                        || !ModConfig.ShowInactiveSnapPoints.Value)
-                    {
-                        continue;
-                    }
+                    continue;
                 }
 
-                // Only the point in play is worth punching through the piece for.
-                bool seeThrough = isActive && ModConfig.SnapPointsSeeThrough.Value;
+                // Anchors we added carry their kind; anything else is one the piece shipped with.
+                DerivedAnchorMarker marker = point.GetComponent<DerivedAnchorMarker>();
+                AnchorKind kind = (marker != null) ? marker.Kind : AnchorKind.Vanilla;
 
                 Draw(
                     seeThrough,
                     point.position,
                     facing,
+                    kind,
                     ModConfig.SnapPointSize.Value * (isActive ? 2.1f : 1f),
                     isActive ? ModConfig.SnapPointActiveColor.Value : ModConfig.SnapPointColor.Value,
                     isActive ? 1.6f : 1f);
             }
         }
 
-        private static void DrawTargetPoints(
+        private static void DrawTargetAnchors(
             GameObject ghost,
             Piece hoveringPiece,
             List<Transform> ghostPoints,
@@ -132,38 +131,38 @@ namespace TheHammerOfOden
                 return;
             }
 
-            // One cached array covers the piece's own snap points and any derived ones.
-            // Going through Piece.GetSnapPoints here would run our own patch every frame.
-            TargetPoints.Clear();
+            // Derived anchors on a world piece exist only as numbers - nothing is added to the
+            // piece itself - so they are drawn from the same cache that snaps to them.
+            DerivedSnapMode mode = ModConfig.SnapToDerivedTargets.Value
+                ? ModConfig.DerivedSnaps.Value
+                : DerivedSnapMode.Off;
 
-            // Derived anchors on a world piece exist only as numbers - nothing is added to
-            // the piece itself - so they have to be drawn from the same maths that snaps to
-            // them, or they are invisible.
-            DerivedTargets.Clear();
-            DerivedTargets.AddRange(DerivedAnchorCache.Get(
-                hoveringPiece,
-                ModConfig.SnapToDerivedTargets.Value ? ModConfig.DerivedSnaps.Value : DerivedSnapMode.Off));
+            Vector3[] anchors = DerivedAnchorCache.Get(hoveringPiece, mode);
+            AnchorKind[] kinds = DerivedAnchorCache.KindsFor(hoveringPiece, mode);
 
-            // Two distances, not one: the range a point can actually snap from, and the
-            // wider range over which it is worth previewing. Fading between them means a
-            // point announces itself as you approach rather than appearing fully formed.
+            // Two distances, not one: the range an anchor can actually snap from, and the
+            // wider range over which it is worth previewing. Fading between them means an
+            // anchor announces itself as you approach rather than appearing fully formed.
             float snapReach = ModConfig.DerivedSnapDistance.Value;
             float previewReach = Mathf.Max(snapReach, ModConfig.TargetPreviewReach.Value);
             float range = ModConfig.TargetSnapPointRange.Value;
             Vector3 origin = ghost.transform.position;
             bool relevantOnly = display != SnapPointDisplay.All;
+            bool seeThrough = ModConfig.SnapPointsSeeThrough.Value;
 
             Transform activeTarget = ActiveSnapPair.Target;
-            Vector3 activeTargetPos = (activeTarget != null) ? activeTarget.position : Vector3.positiveInfinity;
+            Vector3 activePos = (activeTarget != null) ? activeTarget.position : Vector3.positiveInfinity;
 
-            foreach (Transform point in TargetPoints)
+            for (int i = 0; i < anchors.Length; i++)
             {
-                if (point == null || Vector3.Distance(point.position, origin) > range)
+                Vector3 position = anchors[i];
+
+                if (Vector3.Distance(position, origin) > range)
                 {
                     continue;
                 }
 
-                bool isActive = ActiveSnapPair.IsTarget(point);
+                bool isActive = (position - activePos).sqrMagnitude < 0.0001f;
 
                 if (display == SnapPointDisplay.ActivePairOnly && !isActive)
                 {
@@ -173,48 +172,6 @@ namespace TheHammerOfOden
                 float fade = 1f;
 
                 if (!isActive && relevantOnly)
-                {
-                    float nearest = NearestDistance(point.position, ghostPoints);
-                    if (nearest > previewReach)
-                    {
-                        continue;
-                    }
-
-                    // Full strength once within snapping range, fading to nothing at the
-                    // edge of the preview range.
-                    fade = Mathf.InverseLerp(previewReach, snapReach, nearest);
-                    if (fade <= 0.01f)
-                    {
-                        continue;
-                    }
-                }
-
-                Color color = isActive
-                    ? ModConfig.SnapPointActiveColor.Value
-                    : ModConfig.TargetSnapPointColor.Value;
-                color.a *= fade;
-
-                Draw(
-                    ModConfig.SnapPointsSeeThrough.Value,
-                    point.position,
-                    facing,
-                    ModConfig.SnapPointSize.Value * (isActive ? 1.6f : 0.85f) * Mathf.Lerp(0.7f, 1f, fade),
-                    color,
-                    isActive ? 1.4f : 1f);
-            }
-
-            foreach (Vector3 position in DerivedTargets)
-            {
-                if (Vector3.Distance(position, origin) > range)
-                {
-                    continue;
-                }
-
-                bool isActive = (position - activeTargetPos).sqrMagnitude < 0.0001f;
-
-                float fade = 1f;
-
-                if (relevantOnly)
                 {
                     float nearest = NearestDistance(position, ghostPoints);
                     if (nearest > previewReach)
@@ -229,24 +186,23 @@ namespace TheHammerOfOden
                     }
                 }
 
-                // Same colour family as the piece's own target points, drawn a little smaller
-                // so a derived anchor is not mistaken for one the piece actually ships with.
-                Color derived = isActive
+                Color color = isActive
                     ? ModConfig.SnapPointActiveColor.Value
                     : ModConfig.TargetSnapPointColor.Value;
-                derived.a *= fade * (isActive ? 1f : 0.85f);
+                color.a *= fade * (isActive ? 1f : 0.85f);
 
                 Draw(
-                    ModConfig.SnapPointsSeeThrough.Value,
+                    seeThrough,
                     position,
                     facing,
-                    ModConfig.SnapPointSize.Value * (isActive ? 1.6f : 0.7f) * Mathf.Lerp(0.7f, 1f, fade),
-                    derived,
+                    (i < kinds.Length) ? kinds[i] : AnchorKind.Vanilla,
+                    ModConfig.SnapPointSize.Value * (isActive ? 1.6f : 0.8f) * Mathf.Lerp(0.7f, 1f, fade),
+                    color,
                     isActive ? 1.4f : 0.9f);
             }
         }
 
-        /// <summary>Distance from a target point to the nearest anchor on the piece in hand.</summary>
+        /// <summary>Distance from a position to the nearest anchor on the piece in hand.</summary>
         private static float NearestDistance(Vector3 position, List<Transform> ghostPoints)
         {
             if (ghostPoints == null)
@@ -273,7 +229,44 @@ namespace TheHammerOfOden
             return nearest;
         }
 
-        private static void Draw(bool seeThrough, Vector3 position, Quaternion facing, float size, Color color, float widthScale)
+        /// <summary>
+        /// How large markers should be for this piece and anchor density.
+        /// </summary>
+        /// <remarks>
+        /// A fixed size suits neither a torch nor a longhouse: on a small piece the markers
+        /// swamp the thing they describe, and on a large one they vanish. Denser modes shrink
+        /// them further, because the whole problem with showing fifty anchors is how much of
+        /// the piece they cover.
+        /// </remarks>
+        private static float MarkerScale(GameObject ghost)
+        {
+            float scale = 1f;
+
+            if (ModConfig.ScaleSnapPointsWithPiece.Value && ghost != null)
+            {
+                // A piece of roughly 1.5m radius is treated as the reference size.
+                scale = Mathf.Clamp(GhostBounds.RadiusOf(ghost) / 1.5f, 0.45f, 1.6f);
+            }
+
+            switch (ModConfig.DerivedSnaps.Value)
+            {
+                case DerivedSnapMode.CentersAndCorners:
+                    scale *= 0.88f;
+                    break;
+                case DerivedSnapMode.CentersCornersAndEdges:
+                    scale *= 0.76f;
+                    break;
+                case DerivedSnapMode.Full:
+                    scale *= 0.62f;
+                    break;
+            }
+
+            return scale;
+        }
+
+        private static void Draw(
+            bool seeThrough, Vector3 position, Quaternion facing, AnchorKind kind,
+            float size, Color color, float widthScale)
         {
             List<LineRenderer> pool = seeThrough ? SeeThroughPool : NormalPool;
             int index = seeThrough ? _seeThroughUsed++ : _normalUsed++;
@@ -286,12 +279,18 @@ namespace TheHammerOfOden
             LineRenderer ring = pool[index];
             ring.enabled = true;
 
+            MarkerShapes.Apply(ring, kind);
+
+            float finalSize = size * _sizeScale * MarkerShapes.SizeFor(kind);
+
             Transform t = ring.transform;
             t.position = position;
             t.rotation = facing;
-            t.localScale = Vector3.one * size;
+            t.localScale = Vector3.one * finalSize;
 
-            LineStyle.Apply(ring, color, ModConfig.GizmoWidth.Value * widthScale);
+            // Stroke proportional to the shape rather than fixed, or a marker shrunk for a
+            // small piece keeps a full-width outline and the corners disappear into it.
+            LineStyle.Apply(ring, color, finalSize * ModConfig.MarkerStroke.Value * widthScale);
         }
 
         internal static void Hide()
@@ -311,6 +310,7 @@ namespace TheHammerOfOden
                 SeeThroughPool.Clear();
                 NormalPool.Clear();
                 LineStyle.Clear();
+                MarkerShapes.Clear();
             }
         }
 
@@ -344,25 +344,25 @@ namespace TheHammerOfOden
 
         private static LineRenderer BuildMarker(bool seeThrough, int index)
         {
-            GameObject go = new GameObject($"{(seeThrough ? "Through" : "Normal")}Snap{index}");
+            GameObject go = new GameObject($"{(seeThrough ? "Through" : "Normal")}Marker{index}");
             go.transform.SetParent(_root.transform, worldPositionStays: false);
 
             LineRenderer line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = false;
             line.loop = true;
-            line.positionCount = Segments;
             line.material = seeThrough ? GizmoMaterial.GetSeeThrough() : GizmoMaterial.Get();
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
             line.alignment = LineAlignment.View;
             line.numCapVertices = 0;
-            line.numCornerVertices = 2;
 
-            for (int i = 0; i < Segments; i++)
-            {
-                float angle = (i / (float)Segments) * Mathf.PI * 2f;
-                line.SetPosition(i, new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f));
-            }
+            // Sharp joints: rounding blunts a triangle's points into a blob, and the
+            // shape is the whole reason these are drawn differently from each other.
+            line.numCornerVertices = 0;
+
+            // The outline itself is set per frame by MarkerShapes, which only rewrites it
+            // when the kind of anchor in this slot changes.
+            MarkerShapes.Apply(line, AnchorKind.Vanilla);
 
             return line;
         }

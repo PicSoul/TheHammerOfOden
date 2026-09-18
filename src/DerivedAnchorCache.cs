@@ -12,10 +12,9 @@ namespace TheHammerOfOden
     /// for every piece in range is what made derived target snapping expensive.
     ///
     /// The piece's real snap points are read straight from its tagged children rather than
-    /// through Piece.GetSnapPoints, on purpose: we patch that method, so calling it here
-    /// would put a Harmony wrapper and a placement-ghost test in the middle of the hot loop
-    /// for every nearby piece, every frame. Reading the children directly is the same five
-    /// lines vanilla uses, without the detour through our own patch.
+    /// through Piece.GetSnapPoints, on purpose: calling that here would walk a Harmony
+    /// wrapper for every nearby piece every frame, which is the mistake this cache exists to
+    /// undo.
     ///
     /// Entries are validated against the piece's transform so a piece that does move is
     /// still handled, and the whole cache is dropped when build mode ends.
@@ -25,21 +24,39 @@ namespace TheHammerOfOden
         private sealed class Entry
         {
             internal Vector3[] World;
+            internal AnchorKind[] Kinds;
             internal Vector3 Position;
             internal Quaternion Rotation;
             internal DerivedSnapMode Mode;
         }
 
         private static readonly Dictionary<int, Entry> Cache = new Dictionary<int, Entry>();
-        private static readonly List<Vector3> Scratch = new List<Vector3>();
-        private static readonly Vector3[] Empty = new Vector3[0];
+
+        private static readonly List<Vector3> Local = new List<Vector3>();
+        private static readonly List<AnchorKind> Kinds = new List<AnchorKind>();
+        private static readonly List<Vector3> RealPoints = new List<Vector3>();
+        private static readonly List<DerivedSnapPoints.Anchor> Derived = new List<DerivedSnapPoints.Anchor>();
+
+        private static readonly Vector3[] NoPoints = new Vector3[0];
+        private static readonly AnchorKind[] NoKinds = new AnchorKind[0];
 
         /// <summary>Every anchor on the piece: its own snap points plus the derived ones.</summary>
         internal static Vector3[] Get(Piece piece, DerivedSnapMode mode)
         {
+            return GetEntry(piece, mode)?.World ?? NoPoints;
+        }
+
+        /// <summary>Kinds lining up one-for-one with the array returned by Get.</summary>
+        internal static AnchorKind[] KindsFor(Piece piece, DerivedSnapMode mode)
+        {
+            return GetEntry(piece, mode)?.Kinds ?? NoKinds;
+        }
+
+        private static Entry GetEntry(Piece piece, DerivedSnapMode mode)
+        {
             if (piece == null)
             {
-                return Empty;
+                return null;
             }
 
             Transform t = piece.transform;
@@ -50,42 +67,64 @@ namespace TheHammerOfOden
                 && entry.Position == t.position
                 && entry.Rotation == t.rotation)
             {
-                return entry.World;
+                return entry;
             }
 
-            Scratch.Clear();
+            Local.Clear();
+            Kinds.Clear();
+            RealPoints.Clear();
 
             // The piece's own snap points, read without going through our patched method.
             for (int i = 0; i < t.childCount; i++)
             {
                 Transform child = t.GetChild(i);
-                if (child.CompareTag("snappoint"))
+                if (!child.CompareTag("snappoint"))
                 {
-                    Scratch.Add(child.localPosition);
+                    continue;
                 }
+
+                Local.Add(child.localPosition);
+                Kinds.Add(AnchorKind.Vanilla);
+                RealPoints.Add(child.localPosition);
             }
 
             if (mode != DerivedSnapMode.Off
                 && DerivedSnapPoints.TryMeasure(piece, out Vector3 center, out Vector3 extents))
             {
-                DerivedSnapPoints.BuildLocalAnchors(center, extents, mode, Scratch);
+                Derived.Clear();
+                DerivedSnapPoints.Build(center, extents, mode, Derived);
+
+                foreach (DerivedSnapPoints.Anchor anchor in Derived)
+                {
+                    // An anchor landing on a snap point the piece already has would be the
+                    // same position stored twice.
+                    if (DerivedSnapPoints.IsDuplicate(anchor.Local, RealPoints))
+                    {
+                        continue;
+                    }
+
+                    Local.Add(anchor.Local);
+                    Kinds.Add(anchor.Kind);
+                }
             }
 
-            Vector3[] world = (Scratch.Count == 0) ? Empty : new Vector3[Scratch.Count];
-            for (int i = 0; i < Scratch.Count; i++)
+            Vector3[] world = (Local.Count == 0) ? NoPoints : new Vector3[Local.Count];
+            for (int i = 0; i < Local.Count; i++)
             {
-                world[i] = t.TransformPoint(Scratch[i]);
+                world[i] = t.TransformPoint(Local[i]);
             }
 
-            Cache[id] = new Entry
+            entry = new Entry
             {
                 World = world,
+                Kinds = (Kinds.Count == 0) ? NoKinds : Kinds.ToArray(),
                 Position = t.position,
                 Rotation = t.rotation,
                 Mode = mode
             };
 
-            return world;
+            Cache[id] = entry;
+            return entry;
         }
 
         internal static void Clear()

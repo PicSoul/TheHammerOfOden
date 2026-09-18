@@ -86,12 +86,7 @@ namespace TheHammerOfOden
             _toggledOn = !_toggledOn;
             HammerOfOdenPlugin.Debug($"Free placement toggled {(_toggledOn ? "on" : "off")}.");
 
-            if (player != null)
-            {
-                ((Character)player).Message(
-                    MessageHud.MessageType.TopLeft,
-                    "Free placement: " + (_toggledOn ? "on" : "off"));
-            }
+            Notify.Show(player, "Free placement: " + (_toggledOn ? "on" : "off"));
         }
 
         /// <summary>Drop the toggle when leaving build mode, so it never surprises you later.</summary>
