@@ -1,137 +1,183 @@
 # The Hammer of Oden
 
-**Free-axis rotation and precise placement for Valheim building.**
+**Free-axis rotation, precise snapping and resizable pieces for Valheim building.**
 
-Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, copy the exact angle off something you already built, and keep snapping while you do it.
+Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, sink it into another piece, stretch it, copy the exact angle off something you already built, and see precisely what it is going to snap to.
 
-> **Status: 0.1.0 — early.** Rotation and rotation-copying work. Surface placement and the extended snapping tools are not built yet. See [Roadmap](#roadmap).
+> **Status: early.** Everything below works and is in daily use, but this has not been released yet. Surface placement — putting pieces on walls, ceilings and slopes — is not built.
 
 ## Controls
 
-Everything below is rebindable in the config file.
+Everything is rebindable in the config file.
 
-| Action | Control | Config key |
-|---|---|---|
-| Rotate **yaw** (turn on the flat) | Scroll wheel | — |
-| Rotate **pitch** (tip forward/back) | **Left Shift** + scroll | `XAxisKey` |
-| Rotate **roll** (tip left/right) | **Left Alt** + scroll | `ZAxisKey` |
-| Reset the axis you're holding | **J** | `ResetAxisKey` |
-| Reset **all** axes at once | **U** | `ResetAllKey` |
-| Copy a placed piece **with its full rotation** | **Left Shift + middle-click** | `CopyRotationOnPieceCopy` |
-| Copy only the rotation, keep your current piece | *unbound* | `CopyRotationKey` |
-| Toggle **free placement** | **O** | `FreePlacementKey` |
+### Rotating
 
-### Notes on the controls
-
-**Reset is axis-aware.** `J` on its own zeroes the yaw. **Shift + J** zeroes the pitch, **Alt + J** zeroes the roll — the same modifier that selects an axis to rotate also selects which one to reset. `U` flattens everything at once.
-
-If it helps them stick: **J** for *just this axis*, **U** for *undo all*.
-
-**Shift + middle-click is the vanilla copy shortcut**, not something this mod invents. Vanilla already copies the piece and its yaw; this mod extends it to carry the pitch and roll as well. Plain middle-click is still vanilla *remove* and is unaffected.
-
-**Rotation persists between pieces** by default, so you can tilt a wall, then switch to a beam and keep the same angle. Set `ResetOnPieceChange = true` if you would rather start flat each time you pick a new piece.
-
-### Free placement
-
-In vanilla, holding Left Shift ("AltPlace") while building does two things:
-
-1. **Turns off snap attraction.** Snapping only reaches 0.5m in the first place, so this matters only when you are already close enough to snap and do not want to.
-2. **Frees terrain pieces from ground height.** For pieces like paths and level-ground, vanilla forces the height to the ground under your character. Holding Shift places at the height you are actually aiming at instead.
-
-The problem is that Left Shift is also the natural pitch modifier, so tilting a piece silently turned snapping off at the same time.
-
-This mod takes that decision over, so the two live on separate keys. **Press `O`** to toggle free placement on and off; a message in the corner tells you which state you are in, and it clears itself when you leave build mode.
-
-| `Mode` | Behaviour |
+| Action | Control |
 |---|---|
-| `Toggle` *(default)* | Tap `FreePlacementKey` to switch it on and off |
-| `Hold` | Hold `FreePlacementKey`, closer to vanilla's feel |
-| `Vanilla` | Leave it to Valheim on Left Shift. Use this if you rebind `XAxisKey` off Left Shift |
+| Yaw (turn on the flat) | Scroll wheel |
+| Pitch (tip forward/back) | **Left Shift** + scroll |
+| Roll (tip left/right) | **Left Alt** + scroll |
+| Push the piece along your aim | **Left Shift + Left Alt** + scroll |
+| Reset the axis you're holding | **J** — *just this axis* |
+| Reset everything | **U** — *undo all* |
+| Finer / coarser angles | **Page Up** / **Page Down** |
 
-Vanilla's *other* uses of Left Shift are untouched: **Shift + middle-click** still copies a piece, and **Shift + E** still alt-interacts.
+Angles are counted per full turn, defaulting to 32 steps (11.25°). Vanilla uses 16 (22.5°).
 
-### Keybind conflicts
+### Snapping
 
-The defaults follow the convention most Valheim builders already have in their fingers, which means they can collide with other mods that use the same modifiers.
+| Action | Control |
+|---|---|
+| Cycle snap points | **Q** / **E** (vanilla) |
+| Jump straight back to automatic | **hold Q or E** |
+| Cycle anchor density | **Insert** |
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| "No Crafting Station Nearby" while rolling | **StationRangePlus** uses Alt + scroll to adjust station range, and answers to *both* Alt keys | Change its `HoldKey`, or change this mod's `ZAxisKey` |
-| Character crouches while rolling | `ZAxisKey` set to Left Ctrl, which is vanilla Crouch | Pick a different key |
-| Snapping stops while pitching | Left Shift is vanilla AltPlace | Fixed by default — free placement now lives on `O`. Set `Mode = Vanilla` to get the old behaviour back |
+### Placement
 
-Both keys are rebindable, so whichever mod you use more often should keep the key.
+| Action | Control |
+|---|---|
+| Free placement on/off | **O** |
+| Copy a piece with its full rotation, size and anchor | **Left Shift + middle-click** (vanilla copy) |
+
+### Resizing (hold **Left Shift**)
+
+| Action | Control |
+|---|---|
+| Narrower / wider | Numpad **4** / **6** |
+| Shorter / taller | Numpad **2** / **8** |
+| Shallower / deeper | Numpad **7** / **9** |
+| Uniform shrink / grow | Numpad **−** / **+** |
+| Back to normal size | Numpad **5** |
+
+Hold any of these to repeat. Size is kept as you place a run of pieces and resets when you pick a different one.
+
+## What it does
+
+### Rotation on every axis
+
+Pitch and roll as well as yaw, with snapping intact — tilt a beam and it still snaps to what you put it against.
+
+A gizmo of coloured rings shows each axis, with a bead riding the ring at the current angle. The rings follow the rotation: only yaw is world-aligned, while pitch follows the yaw and roll follows both, because that is what the scroll wheel actually turns the piece about.
+
+### Snap points you can see
+
+Markers show the anchors on the piece you are holding and on the piece you are aiming at, drawn through geometry so a point on the far side is not hidden. The pair currently snapping is highlighted.
+
+Each kind of anchor has its own outline, following AutoCAD's object-snap conventions:
+
+| Anchor | Marker |
+|---|---|
+| The piece's own snap point | circle |
+| Piece centre | circle with a cross, largest |
+| Face centre | hexagon |
+| Corner | square |
+| Edge midpoint | triangle |
+| Edge quarter point | diamond |
+
+### Anchors vanilla does not have
+
+Beyond a piece's own snap points, the mod derives more from its shape — **Insert** cycles through how many:
+
+| Mode | Adds |
+|---|---|
+| `Off` | nothing |
+| `Centers` | the piece centre and the centre of each face |
+| `CentersAndCorners` | the eight corners |
+| `CentersCornersAndEdges` | the midpoint of each of the twelve edges |
+| `Full` | quarter points along every edge |
+
+Anchors that land on a snap point the piece already has are dropped, so `CentersAndCorners` adds nothing to a floor whose corners are already snap points — and the debug log says how many it skipped.
+
+With `SnapToDerivedTargets` on, these work on pieces already built too, so you can line up with the centre of a wall.
+
+### Snap points that make sense
+
+Vanilla names snap points with bare ordinals — "Top 1", "Bottom 3" — that say nothing about position and get reused for points in quite different places. The mod renames them after where they actually sit (`Top Front`, `Centre Bottom`) and sorts them into a predictable order: the piece's own points first, then centre, faces, corners, edges.
+
+**Hold Q or E** to jump straight back to automatic snapping instead of cycling all the way around.
+
+### Free placement, on its own key
+
+In vanilla, holding Left Shift turns off snap attraction *and* frees terrain pieces from ground height. That is useful, but Left Shift is also the natural pitch modifier, so tilting a piece silently turned snapping off.
+
+Free placement now lives on **O**. It also relaxes vanilla's placement rules while active — stone on a wood floor, a forge extension crowding its neighbour — and allows pieces to clip into each other.
+
+Wards, no-build zones and occupied ground are never bypassed at any setting.
+
+### Resizing
+
+Stretch, compress or uniformly scale a piece before placing it. Size persists through saves, zone reloads and to other players.
+
+**Crafting and production stations are excluded** — workbenches, forges, smelters, kilns, cooking stations, fermenters, beehives — because their behaviour is tied to where parts of the model are. Everything else resizes: chests, doors, gates, portals, torches, beds, item stands, and station add-ons like the forge cooler.
+
+Particle effects are drawn larger to match, though not spread into the space around the piece.
+
+### Copying
+
+Vanilla's copy shortcut already takes a piece's yaw. This extends it to the full 3-axis rotation, the size it was built at, and — for tilted pieces — the anchor it was snapped by, inferred by finding which of its anchors sits on a neighbour's.
 
 ## Configuration
 
 `BepInEx/config/com.pics0ul.valheim.thehammerofoden.cfg`
 
-| Setting | Default | What it does |
-|---|---|---|
-| `Enabled` | `true` | Master switch. Off returns placement entirely to vanilla. |
-| `SnapDivisions` | `16` | Rotation steps per 180°. `16` = 11.25° per notch. Vanilla is `8` (22.5°). Range 2–256. |
-| `XAxisKey` | `LeftShift` | Hold to rotate pitch. |
-| `ZAxisKey` | `LeftAlt` | Hold to rotate roll. |
-| `ResetAxisKey` | `J` | Zero the currently selected axis. |
-| `ResetAllKey` | `U` | Zero every axis, returning the piece to flat. |
-| `CopyRotationOnPieceCopy` | `true` | Extend vanilla's copy-piece to carry full 3-axis rotation. |
-| `CopyRotationKey` | *empty* | Copy rotation from the piece you're looking at, without switching to it. |
-| `ResetOnPieceChange` | `false` | Flatten rotation when you select a different build piece. |
-| `Mode` (Free Placement) | `Toggle` | Who owns free placement: `Toggle`, `Hold` or `Vanilla`. |
-| `FreePlacementKey` | `O` | Key for the Toggle and Hold modes. |
-| `DebugLogging` | `false` | Write placement diagnostics to the BepInEx log. |
+Around forty settings across `Rotation`, `Snap Points`, `Gizmo`, `Free Placement`, `Clipping`, `Scale`, `Placement Offset` and `Debug`. Each carries a description in the file. The ones worth knowing:
 
-Finer steps aren't always better: `SnapDivisions = 16` is a good default, but for pieces that are meant to line up flush, `8` matches vanilla's grid and makes structures easier to keep square.
+| Setting | Default | Why you might change it |
+|---|---|---|
+| `SnapAnglesPerTurn` | `32` | `16` matches vanilla's 22.5° steps |
+| `Display` | `Relevant` | `All` shows every anchor; `ActivePairOnly` shows just the snapping pair |
+| `DerivedSnapPoints` | `Centers` | denser modes mean more stops when cycling |
+| `SnapToDerivedTargets` | `false` | adds snap targets vanilla does not have |
+| `Restrictions` | `ProductionStations` | what is excluded from resizing |
+| `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
+| `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |
 
 ## Requirements and compatibility
 
-Requires BepInEx. Nothing else.
-
-**Client-side only.** No server install, and it doesn't matter what other players have.
+Requires BepInEx. Nothing else. **Client-side only** — no server install, and it does not matter what other players have.
 
 ### Do not run alongside
 
-This mod owns the placement pipeline. Running another mod that rotates or repositions the build ghost gives unpredictable results, because both are writing the same values every frame.
+This mod owns the placement pipeline.
 
 | Mod | Why |
 |---|---|
-| **ComfyGizmo** / **Gizmo** | Also rotates the placement ghost |
-| **Flip It** | Also rotates the ghost and adjusts snapping |
-| **Snapheim** | Also adjusts the ghost's final position |
-| **Valheim Plus** (build module) | Overlapping placement features |
+| **ComfyGizmo** / **Gizmo** | also rotates the placement ghost |
+| **Flip It** | also rotates the ghost and adjusts snapping |
+| **Snapheim** | also adjusts the ghost's position |
+| **Valheim Plus** (build module) | overlapping placement features |
 
-The mod checks for ComfyGizmo and Snapheim at startup and logs a warning if either is present. It can't stop them, so disable them yourself.
+ComfyGizmo and Snapheim are detected at startup and warned about.
 
-**Known to be fine:** Jotunn, PlantEverything, AdvancedPortals, XPortal, and other content mods that add pieces without touching how the ghost is positioned.
+**Known fine:** Jotunn, PlantEverything, AdvancedPortals, XPortal, and other content mods that add pieces without changing how the ghost is positioned.
 
 ## Troubleshooting
 
-Set `DebugLogging = true` and look in `BepInEx/LogOutput.log`. A healthy start looks like:
+The startup log states what is actually running:
 
 ```text
-[Info : The Hammer of Oden] The Hammer of Oden 0.1.0 loaded.
+[Info : The Hammer of Oden] The Hammer of Oden 0.1.0 loaded; 13 patches applied.
+  rotation: 32 divisions per turn, pitch=LeftShift, roll=LeftAlt, reset=J/U
+  free placement: Toggle on O, freedom=SurfacesAndSpacing
+  clipping: WithFreePlacement
+  snap points: display=Relevant, derived=Centers, ...
 ```
 
-**"Snapping is off" / pieces land beside where they should.** Almost always another placement mod still installed. Check the log for a conflict warning.
+Check that first — a feature that appears to do nothing is usually a stale DLL rather than a bug.
 
-**Nothing rotates.** Look for an error about the vanilla rotation call not being found. That means a Valheim update moved what this mod hooks; it disables its rotation handling rather than guess, so building still works normally. Please report it.
+Patches are applied one at a time, so a Valheim update that moves something breaks that one feature and names it, rather than silently disabling the whole mod.
 
-**Scroll changes the build piece instead of rotating.** The build menu is open — close it first.
+**Debug settings.** `DebugLogging` reports placement decisions. `DebugParticles` reports what a scaled piece's effects are doing — visibility, particle counts, renderer bounds — which is how the particle scaling was diagnosed rather than guessed at.
 
-## Roadmap
+## Building from source
 
-- [x] Free 3-axis rotation with configurable snap divisions
-- [x] Copy full rotation from a placed piece
-- [ ] Surface placement — put pieces on walls, ceilings and slopes
-- [ ] Extended snap points — centers, halves, seams, depth
-- [ ] Snap point previews
-- [ ] Per-piece rotation memory
+See `BUILDING.md`. Copy `Local.props.example` to `Local.props`, point it at your Valheim install, and run `.\build.ps1`.
 
 ## Credits
 
-Built from scratch. No code from other mods is included.
+Built from scratch; no code from other mods is included.
 
-Design owes a debt to the mods that solved these problems first: **ComfyGizmo** (ComfyMods), **Snapheim** (Heimlife), and **Flip It** (cdjensen99).
+Design owes a debt to the mods that solved these problems first: **ComfyGizmo** (ComfyMods), **Snapheim** (Heimlife) and **Flip It** (cdjensen99). The marker shapes follow AutoCAD's object snap conventions.
 
 ## License
 
