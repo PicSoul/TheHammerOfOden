@@ -4,7 +4,7 @@
 
 Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, sink it into another piece, stretch it, copy the exact angle off something you already built, and see precisely what it is going to snap to.
 
-> **Status: early.** Everything below works and is in daily use, but this has not been released yet. Surface placement — putting pieces on walls, ceilings and slopes — is not built.
+> **Status: early.** Everything below works and is in daily use, but this has not been released yet.
 
 ## Controls
 
@@ -37,6 +37,7 @@ Angles are counted per full turn, defaulting to 32 steps (11.25°). Vanilla uses
 | Action | Control |
 |---|---|
 | Free placement on/off | **O** |
+| Surface placement on/off | **P** |
 | Copy a piece with its full rotation, size and anchor | **Left Shift + middle-click** (vanilla copy) |
 
 ### Resizing (hold **Left Shift**)
@@ -106,6 +107,20 @@ Free placement now lives on **O**. It also relaxes vanilla's placement rules whi
 
 Wards, no-build zones and occupied ground are never bypassed at any setting.
 
+### Surface placement
+
+Lay a piece flat against whatever you are looking at — a wall, a ceiling, the underside of a roof, the side of a rock — instead of standing it upright on the ground. **P** turns it on.
+
+The piece is positioned by its own geometry rather than its pivot, so a torch meets the wall at its base and a rug lies flat, without you having to know where the artist put the origin. Your own rotation still applies, now measured from the surface rather than from the world, so you can tilt and turn a piece that is already lying against something.
+
+The spin around the surface is taken from the up-slope direction, which depends only on the surface itself. A piece on a wall therefore stays put while you walk past it — deriving that spin from where you are standing is the obvious approach and makes pieces rotate as you move.
+
+By default this applies to everything except the hammer's **Build** and **Heavy Build** tabs. Walls and floors already meet each other through snap points, which is more precise than any surface normal, and aligning them to one fights that. `Applies To` opens it up to structural pieces if you want to build against terrain.
+
+Three modes beyond off: hold the key, toggle it, or `WhenTilted` — active whenever the piece is already pitched or rolled, which is how Flip It does it and costs no key.
+
+Wards, no-build zones and occupied ground are never bypassed, the same as free placement.
+
 ### Resizing
 
 Stretch, compress or uniformly scale a piece before placing it. Size persists through saves, zone reloads and to other players.
@@ -133,6 +148,8 @@ Around forty settings across `Rotation`, `Snap Points`, `Gizmo`, `Free Placement
 | `DerivedSnapPoints` | `Centers` | denser modes mean more stops when cycling |
 | `SnapToDerivedTargets` | `false` | adds snap targets vanilla does not have |
 | `RememberSnapPoint` | `true` | off means every piece starts on automatic snapping |
+| `Applies To` | `NonStructural` | `Everything` lets walls and floors lie against surfaces too |
+| `AlignToSurface` | `true` | off moves the piece to the surface but keeps your own rotation |
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |

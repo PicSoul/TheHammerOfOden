@@ -54,7 +54,7 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 |---|---|
 | Rotation | `RotationState`, `RotationGizmo`, `AngleBeads`, `MarkerShapes` |
 | Snapping | `DerivedSnapPoints`, `DerivedAnchorCache`, `TargetSnapping`, `SnapPointMarkers`, `SnapPointOrder`, `SnapPointNaming`, `ActiveSnapPair`, `SnapPointMemory` |
-| Placement | `FreePlacement`, `PlacementRules`, `PlacementOffset`, `Clipping` |
+| Placement | `FreePlacement`, `SurfacePlacement`, `PlacementRules`, `PlacementOffset`, `Clipping` |
 | Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
 | Shared | `ModConfig`, `GhostBounds`, `MainCamera`, `GizmoMaterial`, `LineStyle`, `Notify` |
 
@@ -79,6 +79,10 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 `DebugParticles` exists because the three above cost several wrong guesses between them, and dumping the instance's configuration next to the prefab's is what finally separated them.
 
 **Snap point choices are stored as local positions, never indices.** An index depends on child order and on how many anchors the current `DerivedSnapPoints` mode adds, so one recorded under `Centers` points somewhere else under `Full`. `SnapPointMemory` carries a position and matches within a centimetre.
+
+**Aligning to a surface needs two vectors, not one.** `Quaternion.FromToRotation(Vector3.up, normal)` is the obvious way and gives the minimal arc, which leaves the twist about the normal unspecified — a piece on a wall then spins as the player strafes. `SurfacePlacement` and `RotationGizmo` both build the basis from a second, independent direction for this reason.
+
+**Private signatures are checked against the assembly, not guessed.** `Player.PlacePiece` takes five arguments, not one, and a patch naming a signature that does not exist throws — which costs that feature silently, since a feature that never runs does not announce itself. `MetadataLoadContext` over `assembly_valheim.dll` will print the truth in a few lines.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 

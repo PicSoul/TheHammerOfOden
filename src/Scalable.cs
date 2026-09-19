@@ -43,14 +43,18 @@ namespace TheHammerOfOden
         }
 
         /// <summary>
-        /// Whether this piece carries particle effects, which do not survive being scaled far.
+        /// Whether this piece carries particle effects, so a separate size ceiling can apply.
         /// </summary>
         /// <remarks>
-        /// Valheim's effects are authored for one size. Scaling the system makes the particles
-        /// larger, but the renderer's culling bounds do not keep pace, so past roughly double
-        /// the effect starts to vanish when the camera is near it and by five times it has
-        /// gone entirely. Nothing on ParticleSystemRenderer corrects that from outside, so the
-        /// size is capped short of where it breaks instead.
+        /// This existed because scaled effects appeared to break past roughly double. They did
+        /// not: the emission volume was being squared, and a portal gates its effect on a
+        /// proximity range that scaling does not touch. Both are fixed, and
+        /// MaximumWithParticles matches Maximum by default, so nothing is capped.
+        ///
+        /// It stays because the second of those is a pattern rather than a single bug. Any
+        /// piece, a modded one especially, can gate its own effects on a distance this mod
+        /// knows nothing about, and a ceiling is the one lever that works without knowing
+        /// which distance it is.
         /// </remarks>
         internal static bool HasParticles(GameObject piece)
         {

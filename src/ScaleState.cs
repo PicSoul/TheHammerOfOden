@@ -121,7 +121,7 @@ namespace TheHammerOfOden
         /// </summary>
         internal static void ApplyTo(GameObject ghost)
         {
-            if (ghost == null)
+            if (!ModConfig.IsEnabled || ghost == null)
             {
                 return;
             }

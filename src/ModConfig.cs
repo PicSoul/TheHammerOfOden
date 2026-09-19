@@ -22,6 +22,12 @@ namespace TheHammerOfOden
         internal static ConfigEntry<FreePlacementMode> FreePlacement;
         internal static ConfigEntry<KeyboardShortcut> FreePlacementKey;
 
+        internal static ConfigEntry<SurfacePlacementMode> SurfaceMode;
+        internal static ConfigEntry<KeyboardShortcut> SurfacePlacementKey;
+        internal static ConfigEntry<SurfaceTargets> SurfaceTarget;
+        internal static ConfigEntry<bool> AlignToSurface;
+        internal static ConfigEntry<float> SurfaceGap;
+
         internal static ConfigEntry<bool> ShowGizmo;
         internal static ConfigEntry<bool> GizmoActiveAxisOnly;
         internal static ConfigEntry<float> GizmoScale;
@@ -167,6 +173,40 @@ namespace TheHammerOfOden
             FreePlacementKey = config.Bind("Free Placement", "FreePlacementKey",
                 new KeyboardShortcut(KeyCode.O),
                 "Key used by the Hold and Toggle modes. Ignored in Vanilla mode.");
+
+            SurfaceMode = config.Bind("Surface Placement", "Mode", SurfacePlacementMode.Toggle,
+                new ConfigDescription(
+                    "Lay a piece flat against whatever you are looking at - a wall, a ceiling, the "
+                    + "side of a rock - instead of standing it upright on the ground.\n"
+                    + "Off: never.\n"
+                    + "Hold: while SurfacePlacementKey is held.\n"
+                    + "Toggle: tap SurfacePlacementKey to turn it on and off.\n"
+                    + "WhenTilted: whenever the piece is already pitched or rolled, with no key of "
+                    + "its own. This is how Flip It does it, and costs you the ability to lay an "
+                    + "untilted piece against a wall."));
+
+            SurfacePlacementKey = config.Bind("Surface Placement", "SurfacePlacementKey",
+                new KeyboardShortcut(KeyCode.P),
+                "Key used by the Hold and Toggle modes. Ignored otherwise.");
+
+            SurfaceTarget = config.Bind("Surface Placement", "Applies To", SurfaceTargets.NonStructural,
+                new ConfigDescription(
+                    "Which pieces may be laid against a surface.\n"
+                    + "NonStructural: everything except the hammer's Build and Heavy Build tabs. "
+                    + "Walls and floors already meet each other through snap points, which is more "
+                    + "precise than a surface normal, and aligning them to one fights that.\n"
+                    + "Everything: structural pieces too, for building against terrain."));
+
+            AlignToSurface = config.Bind("Surface Placement", "AlignToSurface", true,
+                "Turn the piece to match the surface, so its base lies flat against it. With this "
+                + "off the piece still moves onto the surface but keeps the rotation you set by "
+                + "hand, which is what you want when aiming a piece yourself.");
+
+            SurfaceGap = config.Bind("Surface Placement", "SurfaceGap", 0f,
+                new ConfigDescription(
+                    "Distance to hold the piece off the surface, in metres. Raise it slightly if a "
+                    + "flat piece flickers against what it is resting on.",
+                    new AcceptableValueRange<float>(0f, 0.5f)));
 
             ShowGizmo = config.Bind("Gizmo", "ShowGizmo", true,
                 "Draw rotation rings around the piece you are placing.");

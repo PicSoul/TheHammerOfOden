@@ -37,7 +37,7 @@ namespace TheHammerOfOden
 
         internal static void Apply(GameObject ghost)
         {
-            if (ghost == null || !ModConfig.RenameSnapPoints.Value)
+            if (!ModConfig.IsEnabled || ghost == null || !ModConfig.RenameSnapPoints.Value)
             {
                 return;
             }

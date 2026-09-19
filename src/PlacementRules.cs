@@ -51,31 +51,34 @@ namespace TheHammerOfOden
         private static readonly MethodInfo SetGhostValid =
             AccessTools.Method(typeof(Player), "SetPlacementGhostValid", new[] { typeof(bool) });
 
-        internal static void Apply(Player player, ref Player.PlacementStatus status, GameObject ghost)
+        internal static void Apply(
+            Player player,
+            ref Player.PlacementStatus status,
+            GameObject ghost,
+            bool onSurface)
         {
             if (!ModConfig.IsEnabled || status == Player.PlacementStatus.Valid)
             {
                 return;
             }
 
-            if (ModConfig.Freedom.Value == PlacementFreedom.Vanilla)
-            {
-                return;
-            }
-
             // Tied to free placement for the same reason clipping is: it is the one moment
-            // the player has explicitly said they know better than the game.
-            if (!FreePlacement.IsActiveNow())
+            // the player has explicitly said they know better than the game. Surface
+            // placement is the same statement made a different way.
+            if (!onSurface && !FreePlacement.IsActiveNow())
             {
                 return;
             }
 
-            if (!CanBypass(status, ModConfig.Freedom.Value))
+            PlacementFreedom freedom = FreedomFor(onSurface);
+
+            if (freedom == PlacementFreedom.Vanilla || !CanBypass(status, freedom))
             {
                 return;
             }
 
-            HammerOfOdenPlugin.Debug($"Free placement overrode '{status}'.");
+            HammerOfOdenPlugin.Debug(
+                $"{(onSurface ? "Surface placement" : "Free placement")} overrode '{status}'.");
 
             status = Player.PlacementStatus.Valid;
 
@@ -86,6 +89,29 @@ namespace TheHammerOfOden
             }
 
             SetGhostValid?.Invoke(player, new object[] { true });
+        }
+
+        /// <summary>
+        /// How much to set aside, given who is asking.
+        /// </summary>
+        /// <remarks>
+        /// Surface placement needs at least Surfaces to work at all: vanilla's verdict on a
+        /// piece held against a wall is Invalid, because resting on a wall is exactly what
+        /// the surface rules forbid. Leaving it to the Freedom setting would mean the whole
+        /// feature does nothing for anyone who has set that to Vanilla, with no clue as to
+        /// why. It never raises the ceiling beyond that, and nothing here reaches the three
+        /// statuses that are never bypassable.
+        /// </remarks>
+        private static PlacementFreedom FreedomFor(bool onSurface)
+        {
+            PlacementFreedom configured = ModConfig.Freedom.Value;
+
+            if (onSurface && configured < PlacementFreedom.Surfaces)
+            {
+                return PlacementFreedom.Surfaces;
+            }
+
+            return configured;
         }
 
         private static bool CanBypass(Player.PlacementStatus status, PlacementFreedom freedom)

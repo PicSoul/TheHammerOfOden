@@ -28,7 +28,7 @@ namespace TheHammerOfOden
 
         internal static void Apply(GameObject ghost)
         {
-            if (ghost == null || !ModConfig.SortSnapPoints.Value)
+            if (!ModConfig.IsEnabled || ghost == null || !ModConfig.SortSnapPoints.Value)
             {
                 return;
             }

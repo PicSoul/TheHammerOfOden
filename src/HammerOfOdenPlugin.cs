@@ -96,6 +96,11 @@ namespace TheHammerOfOden
                 $"  free placement: {ModConfig.FreePlacement.Value} on "
                 + $"{ModConfig.FreePlacementKey.Value.MainKey}, freedom={ModConfig.Freedom.Value}");
 
+            Logger.LogInfo(
+                $"  surface placement: {ModConfig.SurfaceMode.Value} on "
+                + $"{ModConfig.SurfacePlacementKey.Value.MainKey}, applies to "
+                + $"{ModConfig.SurfaceTarget.Value}, align={ModConfig.AlignToSurface.Value}");
+
             Logger.LogInfo($"  clipping: {ModConfig.Clipping.Value}");
 
             Logger.LogInfo(

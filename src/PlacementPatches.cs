@@ -35,6 +35,7 @@ namespace TheHammerOfOden
 
             ActiveSnapPair.Clear();
             FreePlacement.HandleInput(__instance);
+            SurfacePlacement.HandleInput(__instance);
             HandleSnapPointReset(__instance, ref ___m_manualSnapPoint);
             HandleClippingToggle(__instance);
             HandleSnapDivisions(__instance);
@@ -502,18 +503,30 @@ namespace TheHammerOfOden
             int ___m_manualSnapPoint,
             List<Transform> ___m_tempSnapPoints1)
         {
-            // Before the markers, so they are drawn where the piece actually ends up.
-            TargetSnapping.Apply(
-                __instance,
-                ___m_placementGhost,
-                ___m_manualSnapPoint,
-                FreePlacement.IsActiveNow());
+            // Snapping and the depth offset both move the ghost, which would undo the
+            // surface placement decided moments ago in the rules postfix. On a surface the
+            // aimed-at point is the answer, so neither gets a say.
+            bool onSurface = SurfacePlacement.AppliedThisFrame;
+
+            if (!onSurface)
+            {
+                // Before the markers, so they are drawn where the piece actually ends up.
+                TargetSnapping.Apply(
+                    __instance,
+                    ___m_placementGhost,
+                    ___m_manualSnapPoint,
+                    FreePlacement.IsActiveNow());
+            }
 
             if (Scalable.Allows(___m_placementGhost))
             {
                 ScaleState.ApplyTo(___m_placementGhost);
             }
-            PlacementOffset.Apply(___m_placementGhost);
+
+            if (!onSurface)
+            {
+                PlacementOffset.Apply(___m_placementGhost);
+            }
 
             RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
             SnapPointMarkers.Update(
@@ -553,11 +566,15 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
-    /// Relaxes vanilla's placement verdict while free placement is active.
+    /// Lays the piece against a surface, then settles what the placement verdict should be.
     /// </summary>
     /// <remarks>
     /// Separate from the visual postfix so its ordering is independent: the verdict must be
     /// settled before anything decides what to draw.
+    ///
+    /// Both live here rather than in two patches because their order matters and Harmony
+    /// does not promise one between patches of equal priority. Surface placement moves the
+    /// ghost; the verdict then has to account for it.
     /// </remarks>
     [HarmonyPatch(typeof(Player), "UpdatePlacementGhost")]
     internal static class PlayerUpdatePlacementGhostRulesPatch
@@ -569,7 +586,9 @@ namespace TheHammerOfOden
             ref Player.PlacementStatus ___m_placementStatus,
             GameObject ___m_placementGhost)
         {
-            PlacementRules.Apply(__instance, ref ___m_placementStatus, ___m_placementGhost);
+            bool onSurface = SurfacePlacement.Apply(__instance, ___m_placementGhost);
+
+            PlacementRules.Apply(__instance, ref ___m_placementStatus, ___m_placementGhost, onSurface);
         }
     }
 
@@ -608,8 +627,16 @@ namespace TheHammerOfOden
     /// A prefix rather than a postfix because the return value is not interesting here. A
     /// refused placement - no room, no materials - still tells us how you intended to hold
     /// the piece, and the ghost is rebuilt either way.
+    ///
+    /// The argument types are spelled out because Player has one PlacePiece and it is not
+    /// the one you would guess: it takes the position and rotation as well as the piece.
+    /// Naming a signature that does not exist makes Harmony throw, which costs this feature
+    /// silently - it does not announce itself when it never runs.
     /// </remarks>
-    [HarmonyPatch(typeof(Player), "PlacePiece", new[] { typeof(Piece) })]
+    [HarmonyPatch(typeof(Player), "PlacePiece", new[]
+    {
+        typeof(Piece), typeof(Vector3), typeof(Quaternion), typeof(bool), typeof(bool)
+    })]
     internal static class PlayerPlacePiecePatch
     {
         [HarmonyPrefix]
@@ -677,6 +704,7 @@ namespace TheHammerOfOden
             if (buildPieces == null)
             {
                 FreePlacement.Reset();
+                SurfacePlacement.Reset();
                 RotationGizmo.Hide();
                 SnapPointMarkers.Hide();
                 DerivedAnchorCache.Clear();

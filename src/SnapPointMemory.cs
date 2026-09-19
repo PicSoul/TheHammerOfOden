@@ -45,7 +45,7 @@ namespace TheHammerOfOden
 
         internal static void Remember(GameObject ghost, int manualSnapPoint)
         {
-            if (!ModConfig.RememberSnapPoint.Value || ghost == null)
+            if (!ModConfig.IsEnabled || !ModConfig.RememberSnapPoint.Value || ghost == null)
             {
                 return;
             }
@@ -101,7 +101,7 @@ namespace TheHammerOfOden
 
         internal static void Restore(GameObject ghost, ref int manualSnapPoint)
         {
-            if (!ModConfig.RememberSnapPoint.Value || ghost == null)
+            if (!ModConfig.IsEnabled || !ModConfig.RememberSnapPoint.Value || ghost == null)
             {
                 return;
             }
