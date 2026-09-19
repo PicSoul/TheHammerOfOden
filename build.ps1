@@ -43,6 +43,17 @@ function RequireValheimClosed {
 
 # Renaming to .old is what r2modman does to the mods it manages: BepInEx loads
 # *.dll and nothing else, so the file stays put and stops being loaded.
+# Two mods driving the placement ghost at once produces nonsense. Refuse rather
+# than let it look like our bug.
+function RequireNoRivalGizmo {
+    $gizmo = Get-ChildItem (PluginRoot) -Directory -ErrorAction SilentlyContinue |
+             Where-Object { Test-Path (Join-Path $_.FullName "ComfyGizmo.dll") }
+    if ($gizmo) {
+        Fail "ComfyGizmo is installed at '$($gizmo.Name)'. Disable it in r2modman first - both mods rotate the placement ghost."
+    }
+    Ok "no conflicting rotation mod installed"
+}
+
 function SetLoaded([bool]$loaded) {
     RequireValheimClosed
     $dir = Join-Path (PluginRoot) "PICS0UL-TheHammerOfOden"
@@ -53,6 +64,7 @@ function SetLoaded([bool]$loaded) {
 
     if ($loaded) {
         if (Test-Path $live) { Ok "already enabled"; return }
+        RequireNoRivalGizmo
         if (-not (Test-Path $off)) { Fail "nothing to enable in $dir" }
         Move-Item $off $live -Force
         Ok "enabled - BepInEx will load it on next launch"
@@ -103,14 +115,7 @@ Write-Host "`ninstalling to profile '$Profile'..." -ForegroundColor Cyan
 RequireValheimClosed
 $pluginRoot = PluginRoot
 
-# Two mods driving the placement ghost at once produces nonsense. Refuse rather than
-# let it look like our bug.
-$gizmo = Get-ChildItem $pluginRoot -Directory -ErrorAction SilentlyContinue |
-         Where-Object { Test-Path (Join-Path $_.FullName "ComfyGizmo.dll") }
-if ($gizmo) {
-    Fail "ComfyGizmo is still installed at '$($gizmo.Name)'. Disable it in r2modman before testing - both mods rotate the placement ghost."
-}
-Ok "no conflicting rotation mod installed"
+RequireNoRivalGizmo
 
 $target = Join-Path $pluginRoot "PICS0UL-TheHammerOfOden"
 if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target | Out-Null }
