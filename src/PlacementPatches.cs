@@ -21,6 +21,7 @@ namespace TheHammerOfOden
             PieceTable ___m_buildPieces,
             ref int ___m_manualSnapPoint,
             ref float ___m_maxPlaceDistance,
+            bool ___m_noPlacementCost,
             GameObject ___m_placementGhost)
         {
             // Before any early return: the rotation transpiler reads this verdict from
@@ -35,6 +36,10 @@ namespace TheHammerOfOden
             // Every frame rather than on a change: the covering station can change by
             // walking, and its range by another player adjusting it.
             PlacementReach.Apply(__instance, ref ___m_maxPlaceDistance);
+
+            // Last frame's run, built here rather than inside PlacePiece so that other mods
+            // patching it are not re-entered mid-call.
+            Zooping.PlaceDue(__instance, ___m_noPlacementCost);
 
             if (!BuildTool.AppliesNow)
             {
@@ -52,7 +57,8 @@ namespace TheHammerOfOden
             SurfacePlacement.HandleInput(__instance);
             PlacementFreeze.HandleInput(__instance);
             PlacementGrid.HandleInput(__instance);
-            HandleNudge();
+            HandleNudge(__instance);
+            HandleUndo(__instance);
             HandleSnapPointReset(__instance, ref ___m_manualSnapPoint);
             HandleClippingToggle(__instance);
             HandleSnapDivisions(__instance);
@@ -77,11 +83,24 @@ namespace TheHammerOfOden
         /// lining something up by eye - so the usual hold-to-repeat would overshoot more
         /// often than it would help.
         /// </remarks>
-        private static void HandleNudge()
+        private static void HandleNudge(Player player)
         {
             if (Pressed(ModConfig.ResetOffsetKey.Value))
             {
+                bool hadZoop = Zooping.IsActive;
+
                 PlacementOffset.Reset();
+                Zooping.Clear();
+
+                Notify.Show(player, hadZoop ? "Zoop and offset cleared" : "Placement offset cleared");
+                return;
+            }
+
+            // Checked first: holding the zoop modifier means these keys are laying a run,
+            // not moving the piece.
+            if (Held(ModConfig.ZoopModifierKey.Value))
+            {
+                HandleZoop(player);
                 return;
             }
 
@@ -93,6 +112,69 @@ namespace TheHammerOfOden
             if (Pressed(ModConfig.NudgeLeftKey.Value))     PlacementOffset.NudgeBy(NudgeAxis.Lateral, -1, large);
             if (Pressed(ModConfig.NudgeUpKey.Value))       PlacementOffset.NudgeBy(NudgeAxis.Vertical, 1, large);
             if (Pressed(ModConfig.NudgeDownKey.Value))     PlacementOffset.NudgeBy(NudgeAxis.Vertical, -1, large);
+        }
+
+        /// <summary>Builds up a run of pieces along one of the nudge directions.</summary>
+        private static void HandleZoop(Player player)
+        {
+            Camera camera = MainCamera.Get();
+            if (camera == null)
+            {
+                return;
+            }
+
+            Vector3 forward = camera.transform.forward;
+            forward.y = 0f;
+            forward = forward.normalized;
+
+            // Quantised the same way the nudge is, so a run laid from any angle follows a
+            // world axis and lines up with everything else built that way.
+            forward = Mathf.Abs(forward.x) > Mathf.Abs(forward.z)
+                ? new Vector3(Mathf.Sign(forward.x), 0f, 0f)
+                : new Vector3(0f, 0f, Mathf.Sign(forward.z));
+
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+
+            if (Pressed(ModConfig.NudgeForwardKey.Value))  Zooping.Extend(player, forward);
+            if (Pressed(ModConfig.NudgeBackwardKey.Value)) Zooping.Extend(player, -forward);
+            if (Pressed(ModConfig.NudgeRightKey.Value))    Zooping.Extend(player, right);
+            if (Pressed(ModConfig.NudgeLeftKey.Value))     Zooping.Extend(player, -right);
+            if (Pressed(ModConfig.NudgeUpKey.Value))       Zooping.Extend(player, Vector3.up);
+            if (Pressed(ModConfig.NudgeDownKey.Value))     Zooping.Extend(player, Vector3.down);
+        }
+
+        private static void HandleUndo(Player player)
+        {
+            if (PressedWithModifiers(ModConfig.UndoKey.Value))
+            {
+                PlacementUndo.UndoLast(player);
+            }
+        }
+
+        /// <summary>
+        /// A shortcut including its modifiers, unlike the rest of the bindings here.
+        /// </summary>
+        /// <remarks>
+        /// Everything else in this mod uses a bare key or a key plus a modifier it owns
+        /// outright, so reading MainKey alone is enough. Undo is the one binding where the
+        /// modifier is the whole point: Z on its own would fire while walking.
+        /// </remarks>
+        private static bool PressedWithModifiers(KeyboardShortcut shortcut)
+        {
+            if (shortcut.MainKey == KeyCode.None || !ZInput.GetKeyDown(shortcut.MainKey, true))
+            {
+                return false;
+            }
+
+            foreach (KeyCode modifier in shortcut.Modifiers)
+            {
+                if (!ZInput.GetKey(modifier, true))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool Pressed(KeyboardShortcut shortcut)
@@ -614,6 +696,10 @@ namespace TheHammerOfOden
             // frozen piece, and on a surface it is how you lift a piece clear of it.
             PlacementOffset.Apply(___m_placementGhost);
 
+            // After every other positioning step, so the run follows the piece wherever it
+            // has ended up rather than where vanilla first put it.
+            Zooping.UpdatePreview(___m_placementGhost);
+
             RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
             SnapPointMarkers.Update(
                 ___m_placementGhost,
@@ -745,11 +831,35 @@ namespace TheHammerOfOden
     internal static class PlayerPlacePiecePatch
     {
         [HarmonyPrefix]
-        private static void Prefix(GameObject ___m_placementGhost, int ___m_manualSnapPoint)
+        private static void Prefix(
+            Vector3 pos,
+            GameObject ___m_placementGhost,
+            int ___m_manualSnapPoint)
+        {
+            if (!ModConfig.IsEnabled)
+            {
+                return;
+            }
+
+            SnapPointMemory.Remember(___m_placementGhost, ___m_manualSnapPoint);
+
+            // A new group, unless this is one of the copies of a run already under way -
+            // those belong to the group the run itself opened.
+            if (!Zooping.IsPlacing)
+            {
+                PlacementUndo.BeginAction();
+            }
+
+            // Measured now, while the ghost still exists to measure.
+            Zooping.Remember(___m_placementGhost, pos);
+        }
+
+        [HarmonyPostfix]
+        private static void Postfix(Piece piece, Quaternion rot, bool cheated)
         {
             if (ModConfig.IsEnabled)
             {
-                SnapPointMemory.Remember(___m_placementGhost, ___m_manualSnapPoint);
+                Zooping.QueueRun(piece, rot, cheated);
             }
         }
     }
@@ -773,6 +883,7 @@ namespace TheHammerOfOden
             if (ModConfig.IsEnabled)
             {
                 ScaleState.ApplyToPlaced(__instance);
+                PlacementUndo.Record(__instance);
             }
         }
     }
@@ -861,6 +972,7 @@ namespace TheHammerOfOden
                 SurfacePlacement.Reset();
                 PlacementFreeze.Reset();
                 PlacementGrid.Reset();
+                Zooping.Clear();
                 RotationGizmo.Hide();
                 SnapPointMarkers.Hide();
                 DerivedAnchorCache.Clear();

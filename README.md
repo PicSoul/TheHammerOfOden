@@ -1,8 +1,8 @@
 # The Hammer of Oden
 
-**Free-axis rotation, precise snapping and resizable pieces for Valheim building.**
+**One mod for Valheim building, in place of several.**
 
-Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, sink it into another piece, stretch it, copy the exact angle off something you already built, and see precisely what it is going to snap to.
+Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, sink it into another piece, stretch it, lay it flat against a wall, pin it in the air and walk around it, lay a whole run of it in one go, take that run back if it was wrong, and see precisely what it is going to snap to.
 
 > **Status: early.** Everything below works and is in daily use, but this has not been released yet.
 
@@ -43,8 +43,10 @@ Angles are counted per full turn, defaulting to 32 steps (11.25°). Vanilla uses
 | Nudge away / towards you | **↑** / **↓** |
 | Nudge up / down | **Home** / **End** |
 | Nudge by 1m instead of 0.1m | hold **Left Ctrl** |
-| Clear all nudging | **Delete** |
+| Clear nudging and any run | **Delete** |
 | Grid snapping on/off | **G** |
+| Lay a run of pieces | **Left Shift** + a nudge direction |
+| Undo the last placement | **Left Ctrl + Z** |
 | Change a station's build range | **Left Ctrl** + scroll |
 | Copy a piece with its full rotation, size and anchor | **Left Shift + middle-click** (vanilla copy) |
 
@@ -145,6 +147,32 @@ Nudging works unfrozen too. Steps run along the world's own axes: where you're l
 
 The grid is fixed to the world rather than to where you started building, so it's the same grid everywhere, in every session, for everyone in the world. Height is left alone unless you turn on `GridHeight`, because terrain is rarely level and rounding height on a slope either buries a piece or leaves it hanging.
 
+### Zooping
+
+A wall of ten panels is ten placements, each aimed by hand, and the tenth is never quite in line with the first. **Left Shift + a nudge direction** lays a run instead: press again for one more, press the opposite direction for one fewer. **Delete** cancels it.
+
+Runs compose. Press **Shift + ↑** four times and **Shift + ←** five times and you get a wall five by four rather than two separate runs — four along one axis and five along another is a grid, and asking for it that way is far less work than laying five runs of four. A third direction gives a solid block, which is as far as three dimensions go.
+
+A run lays itself over a moment rather than appearing at once, because every copy is a real placement with its own object and effects and doing sixty in one frame stutters. `PiecesPerFrame` controls that.
+
+Spacing is the piece's own width along the direction you're laying it, so copies sit flush whatever the piece is and however you've turned it. `Spacing = 2` leaves a gap of one piece between each, which suits fence posts and pillars.
+
+The run is previewed before it's built, and it isn't free — each copy is a real placement through Valheim's own code that checks its requirements and pays its materials. If you run out partway, the run stops there rather than leaving a gap in the middle.
+
+### Undo
+
+**Left Ctrl + Z** takes back the last thing you built — the whole run if you zooped, a single piece if you didn't. That's the unit you were thinking in either way.
+
+A piece gives back what it cost and no more — the same as taking it down by hand. An undo that refunded more than that would be a way of manufacturing resources.
+
+*Where* it goes is a different question from how much. Materials are handed straight into your inventory, and only what won't fit is dropped, in one pile at your feet — "won't fit" meaning either out of slots **or** over your carry weight. Valheim only enforces the first; nothing stops a pickup taking you overweight, which is fine when you chose to pick it up and not fine for a refund that arrives unasked. Capacity is read at the moment of the undo, so a belt or a change of gear counts. Vanilla scatters them at each piece instead, which is fine for one piece and a long walk after undoing a run forty long. `RefundToInventory = false` restores the vanilla scatter; the amount is identical either way.
+
+If you build from chests, note the asymmetry: materials can come **out of a chest** and come **back to your pockets**, because the container mods hook spending, not receiving. Undoing a large run built from storage can therefore fill your inventory quickly — which is what the pile at your feet is for.
+
+Ten placements are remembered by default. The limit is about what you can still remember doing rather than memory — a few thousand pieces would cost nothing to keep — so raise `Depth` if you want, knowing that undoing something from twenty minutes ago tends to surprise more than it helps.
+
+Pieces already gone — torn down by hand, or lost to a raid — are skipped, and undo falls through to the placement before rather than doing nothing visible.
+
 ### Build range and reach
 
 **Left Ctrl + scroll**, while looking at a crafting station, changes how far that station lets you build. The range is stored on that station, not in the config, so two benches in one base can have different radii and the value travels to other players and survives reloads.
@@ -171,7 +199,7 @@ The snap point comes from your own history rather than from the piece you clicke
 
 `BepInEx/config/com.pics0ul.valheim.thehammerofoden.cfg`
 
-Around forty settings across `Rotation`, `Snap Points`, `Gizmo`, `Free Placement`, `Clipping`, `Scale`, `Placement Offset` and `Debug`. Each carries a description in the file. The ones worth knowing:
+Over a hundred settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `Copy`, `Free Placement`, `Surface Placement`, `Freeze`, `Grid`, `Zoop`, `Undo`, `Station Range`, `Placement Offset`, `Clipping`, `Scale` and `Debug`. Each carries a description in the file explaining what it is for, so the list below is only the handful worth knowing before you start:
 
 | Setting | Default | Why you might change it |
 |---|---|---|
@@ -184,9 +212,15 @@ Around forty settings across `Rotation`, `Snap Points`, `Gizmo`, `Free Placement
 | `AlignToSurface` | `true` | off moves the piece to the surface but keeps your own rotation |
 | `GridSize` | `1` | the grid step in metres |
 | `NudgeStep` | `0.1` | metres per arrow-key press |
+| `Zoop Limit` | `60` | most extra copies one run may place |
+| `Zoop PiecesPerFrame` | `8` | raise for instant runs, at the cost of a stutter |
+| `Zoop Spacing` | `1` | `2` leaves a piece-sized gap between copies |
+| `Undo Depth` | `10` | how many placements back you can go |
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |
+| `Tools` | `BuildingOnly` | `AllTools` lets the mod reach the hoe and cultivator |
+| `ExtendReachToStation` | `true` | off keeps vanilla's arm's-length build range |
 
 ## Requirements and compatibility
 

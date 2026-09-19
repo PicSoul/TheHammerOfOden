@@ -54,7 +54,10 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 |---|---|
 | Rotation | `RotationState`, `RotationGizmo`, `AngleBeads`, `MarkerShapes` |
 | Snapping | `DerivedSnapPoints`, `DerivedAnchorCache`, `TargetSnapping`, `SnapPointMarkers`, `SnapPointOrder`, `SnapPointNaming`, `ActiveSnapPair`, `SnapPointMemory` |
-| Placement | `FreePlacement`, `SurfacePlacement`, `PlacementFreeze`, `PlacementGrid`, `PlacementRules`, `PlacementOffset`, `Clipping` |
+| Placement | `FreePlacement`, `SurfacePlacement`, `PlacementFreeze`, `PlacementGrid`, `PlacementReach`, `PlacementRules`, `PlacementOffset`, `Zooping`, `Clipping` |
+| Stations | `StationRange` |
+| Undo | `PlacementUndo` |
+| Tooling | `BuildTool` |
 | Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
 | Shared | `ModConfig`, `GhostBounds`, `MainCamera`, `GizmoMaterial`, `LineStyle`, `Notify` |
 
@@ -87,6 +90,12 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 **Four things decide the ghost's position, in a fixed order.** Surface alignment, then the grid, then freezing, then the nudge — set in `PlayerUpdatePlacementGhostRulesPatch` and `PlayerUpdatePlacementGhostGizmoPatch`. Each later one may override an earlier one, which is why the grid skips a frozen piece and why snapping is skipped for both. `PlacementSource` carries which of them won through to `PlacementRules`, because the answer changes what may be overridden: `NoRayHits` is bypassable only for a frozen piece, whose position was settled before you looked away.
 
 **Freezing records a rotation *difference*, not a rotation.** Storing the absolute rotation would leave a pinned piece unturnable. Storing `ghost.rotation * Quaternion.Inverse(RotationState.Current)` gives identity in the ordinary case and the surface's frame when frozen against something, and re-applying it each frame keeps the alignment while the rotation keys stay connected.
+
+**A zoop preview is cloned from a deactivated ghost.** Instantiating an active object runs its `Awake` immediately, so stripping components afterwards is a race against whatever they already did. Deactivating the ghost for the duration means the clone's components never start at all.
+
+**Zoop spacing is measured in the prefix, not the postfix.** It comes from the ghost's size at its current rotation, and by the time `PlacePiece` has returned the ghost may already have been torn down and rebuilt.
+
+**Undo holds ZDOIDs, never references.** Objects are destroyed and recreated when their zone unloads, so a GameObject reference goes stale the first time the player walks away. The prefab name is stored beside each id and checked on the way back, so an id that has come to mean something else is skipped rather than removing a stranger's building.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 

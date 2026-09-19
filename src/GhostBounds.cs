@@ -14,6 +14,7 @@ namespace TheHammerOfOden
     {
         private static GameObject _measured;
         private static Vector3 _localCenter;
+        private static Vector3 _localExtents = Vector3.one * 0.5f;
         private static float _localRadius = 0.5f;
 
         internal static void Measure(GameObject ghost, out Vector3 center, out float radius)
@@ -22,6 +23,7 @@ namespace TheHammerOfOden
             {
                 _measured = ghost;
                 _localCenter = Vector3.zero;
+                _localExtents = Vector3.one * 0.5f;
                 _localRadius = 0.5f;
 
                 Transform root = ghost.transform;
@@ -53,12 +55,44 @@ namespace TheHammerOfOden
                 if (any)
                 {
                     _localCenter = bounds.center;
+                    _localExtents = bounds.extents;
                     _localRadius = Mathf.Max(bounds.extents.magnitude, 0.25f);
                 }
             }
 
             center = ghost.transform.TransformPoint(_localCenter);
             radius = _localRadius;
+        }
+
+        /// <summary>
+        /// How wide the piece is along a world direction, at its current rotation.
+        /// </summary>
+        /// <remarks>
+        /// The standard projection of an oriented box onto an axis: sum the three local
+        /// half-extents, each weighted by how much its own axis points along the direction
+        /// asked about. A wall measured along its face gives its thickness; the same wall
+        /// measured along its length gives its length, with no special cases for which way
+        /// it has been turned.
+        ///
+        /// This is what makes zooped copies sit flush against each other rather than at some
+        /// fixed spacing that only suits one piece.
+        /// </remarks>
+        internal static float SizeAlong(GameObject ghost, Vector3 worldDirection)
+        {
+            Measure(ghost, out _, out _);
+
+            Quaternion rotation = ghost.transform.rotation;
+            Vector3 scale = ghost.transform.lossyScale;
+
+            Vector3 x = rotation * Vector3.right * (_localExtents.x * scale.x);
+            Vector3 y = rotation * Vector3.up * (_localExtents.y * scale.y);
+            Vector3 z = rotation * Vector3.forward * (_localExtents.z * scale.z);
+
+            float half = Mathf.Abs(Vector3.Dot(worldDirection, x))
+                + Mathf.Abs(Vector3.Dot(worldDirection, y))
+                + Mathf.Abs(Vector3.Dot(worldDirection, z));
+
+            return Mathf.Max(half * 2f, 0.1f);
         }
 
         /// <summary>Just the radius, for callers that do not need the centre.</summary>

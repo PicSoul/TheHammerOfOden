@@ -116,6 +116,15 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> ExtendReachToStation;
         internal static ConfigEntry<float> ReachLimit;
 
+        internal static ConfigEntry<KeyboardShortcut> UndoKey;
+        internal static ConfigEntry<int> UndoDepth;
+        internal static ConfigEntry<bool> UndoRefundsToInventory;
+
+        internal static ConfigEntry<KeyboardShortcut> ZoopModifierKey;
+        internal static ConfigEntry<int> ZoopLimit;
+        internal static ConfigEntry<float> ZoopSpacing;
+        internal static ConfigEntry<int> ZoopPerFrame;
+
         internal static ConfigEntry<KeyboardShortcut> GridKey;
         internal static ConfigEntry<float> GridSize;
         internal static ConfigEntry<bool> GridHeight;
@@ -572,6 +581,58 @@ namespace TheHammerOfOden
                     "Upper bound on the extended reach, whatever the station's range. Placing at "
                     + "great distance gets imprecise long before it gets useful.",
                     new AcceptableValueRange<float>(8f, 200f)));
+
+            UndoKey = config.Bind("Undo", "UndoKey",
+                new KeyboardShortcut(KeyCode.Z, KeyCode.LeftControl),
+                "Take back the last thing you built - a whole run if you zooped, a single piece "
+                + "if you did not. Each piece comes down through the same call the hammer makes, "
+                + "so the materials come back exactly as they would if you removed it by hand.");
+
+            UndoDepth = config.Bind("Undo", "Depth", 10,
+                new ConfigDescription(
+                    "How many placements back you can go. The limit is about what you can still "
+                    + "remember doing rather than memory - a few thousand pieces would cost "
+                    + "nothing to keep - so raise it if you want, knowing that undoing something "
+                    + "from twenty minutes ago is more likely to surprise you than help.",
+                    new AcceptableValueRange<int>(1, 50)));
+
+            UndoRefundsToInventory = config.Bind("Undo", "RefundToInventory", true,
+                "Hand undone materials straight to you, dropping only what will not fit, in one "
+                + "pile at your feet. With this off, Valheim scatters them at each piece instead - "
+                + "fine for one piece, and a long walk after undoing a run forty long. The amount "
+                + "is the same either way.");
+
+            ZoopModifierKey = config.Bind("Zoop", "ZoopModifierKey",
+                new KeyboardShortcut(KeyCode.LeftShift),
+                "Hold with a nudge direction key to lay a run of pieces that way. Press the same "
+                + "direction again for one more and the opposite direction for one fewer. A "
+                + "second direction turns the run into a grid and a third into a block, since "
+                + "runs multiply rather than replace each other. The clear-offset key cancels it.");
+
+            ZoopLimit = config.Bind("Zoop", "Limit", 60,
+                new ConfigDescription(
+                    "Most extra copies a single run may place. Each one is a real placement that "
+                    + "pays its own materials, so this is about how much one keystroke should be "
+                    + "able to commit you to. Small pieces eat it quickly - sixty one-metre floor "
+                    + "tiles is a modest room - while a grid reaches it faster still, since eight "
+                    + "by eight is already sixty-three copies. Large runs cost preview performance "
+                    + "before they cost anything else.",
+                    new AcceptableValueRange<int>(1, 500)));
+
+            ZoopPerFrame = config.Bind("Zoop", "PiecesPerFrame", 8,
+                new ConfigDescription(
+                    "How many pieces of a run are built each frame. Placing a long run all at once "
+                    + "stutters, because every copy is a real placement with its own object and "
+                    + "effects; spreading it lets the run lay itself over a moment instead. Raise "
+                    + "it if you would rather have the whole run immediately.",
+                    new AcceptableValueRange<int>(1, 100)));
+
+            ZoopSpacing = config.Bind("Zoop", "Spacing", 1f,
+                new ConfigDescription(
+                    "Multiplier on the gap between copies, where 1 is the piece's own width along "
+                    + "the direction it is being laid in - so copies sit flush. 2 leaves a gap of "
+                    + "one piece between each, which suits fence posts and pillars.",
+                    new AcceptableValueRange<float>(0.25f, 5f)));
 
             GridKey = config.Bind("Grid", "GridKey",
                 new KeyboardShortcut(KeyCode.G),

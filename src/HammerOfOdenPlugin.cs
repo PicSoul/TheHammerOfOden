@@ -129,6 +129,13 @@ namespace TheHammerOfOden
                 + $"extendReach={ModConfig.ExtendReachToStation.Value} "
                 + $"capped at {ModConfig.ReachLimit.Value}m");
 
+            Logger.LogInfo(
+                $"  zoop: {ModConfig.ZoopModifierKey.Value.MainKey}+direction, "
+                + $"limit={ModConfig.ZoopLimit.Value}, spacing={ModConfig.ZoopSpacing.Value}x");
+
+            Logger.LogInfo(
+                $"  undo: {ModConfig.UndoKey.Value}, depth={ModConfig.UndoDepth.Value}");
+
             Logger.LogInfo($"  clipping: {ModConfig.Clipping.Value}");
 
             Logger.LogInfo(
@@ -146,6 +153,7 @@ namespace TheHammerOfOden
         {
             try { _harmony?.UnpatchSelf(); } catch { }
             _harmony = null;
+            PlacementUndo.Clear();
             RotationGizmo.Destroy();
             SnapPointMarkers.Destroy();
             GizmoMaterial.Destroy();
