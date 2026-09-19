@@ -548,7 +548,6 @@ namespace TheHammerOfOden
 
             RotationState.MatchPiece(hovering);
             ScaleState.MatchPiece(hovering);
-            SnapPointRecall.Record(hovering);
             HammerOfOdenPlugin.Debug($"Copied full rotation from '{hovering.name}' on piece copy.");
         }
     }
@@ -594,6 +593,31 @@ namespace TheHammerOfOden
             else
             {
                 ActiveSnapPair.Clear();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Notes which anchor a piece was built by, so the next one of its kind matches.
+    /// </summary>
+    /// <remarks>
+    /// Placing is the moment worth recording. Cycling with Q and E happens while looking for
+    /// the right anchor and changes several times on the way; building with one is the point
+    /// at which the choice was meant.
+    ///
+    /// A prefix rather than a postfix because the return value is not interesting here. A
+    /// refused placement - no room, no materials - still tells us how you intended to hold
+    /// the piece, and the ghost is rebuilt either way.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), "PlacePiece", new[] { typeof(Piece) })]
+    internal static class PlayerPlacePiecePatch
+    {
+        [HarmonyPrefix]
+        private static void Prefix(GameObject ___m_placementGhost, int ___m_manualSnapPoint)
+        {
+            if (ModConfig.IsEnabled)
+            {
+                SnapPointMemory.Remember(___m_placementGhost, ___m_manualSnapPoint);
             }
         }
     }
@@ -694,8 +718,8 @@ namespace TheHammerOfOden
             // it returns early, and the piece's own points still deserve sorting.
             SnapPointOrder.Apply(___m_placementGhost);
 
-            // After AttachTo: the anchor we are looking for may be one we just created.
-            SnapPointRecall.ApplyTo(___m_placementGhost, ref ___m_manualSnapPoint);
+            // After AttachTo, because the remembered anchor may be one we just created.
+            SnapPointMemory.Restore(___m_placementGhost, ref ___m_manualSnapPoint);
 
             PlacementOffset.Reset();
             ScaleState.ForgetGhost();

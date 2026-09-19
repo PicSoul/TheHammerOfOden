@@ -17,7 +17,6 @@ namespace TheHammerOfOden
 
         internal static ConfigEntry<bool> CopyRotationOnPieceCopy;
         internal static ConfigEntry<KeyboardShortcut> CopyRotationKey;
-        internal static ConfigEntry<bool> RecallSnapPoint;
         internal static ConfigEntry<bool> CopyScaleOnPieceCopy;
 
         internal static ConfigEntry<FreePlacementMode> FreePlacement;
@@ -49,6 +48,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> TargetPreviewReach;
         internal static ConfigEntry<Color> TargetSnapPointColor;
 
+        internal static ConfigEntry<bool> RememberSnapPoint;
         internal static ConfigEntry<bool> HoldToResetSnapPoint;
         internal static ConfigEntry<float> SnapPointResetHold;
 
@@ -77,6 +77,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> ResetScaleOnPieceChange;
         internal static ConfigEntry<ScaleRestriction> ScaleRestrictions;
         internal static ConfigEntry<float> ScaleMaxWithParticles;
+        internal static ConfigEntry<float> RangeGrowth;
         internal static ConfigEntry<float> ScaleRepeatDelay;
         internal static ConfigEntry<float> ScaleRepeatRate;
         internal static ConfigEntry<bool> ScaleParticles;
@@ -154,13 +155,6 @@ namespace TheHammerOfOden
                 "When you copy a placed piece, also adopt the size it was built at. Pieces that cannot "
                 + "be resized reset the scale to normal instead, so copying a chest does not leave a "
                 + "stretched wall waiting behind it.");
-
-            RecallSnapPoint = config.Bind("Copy", "RecallSnapPoint", true,
-                "When copying a piece that has been pitched or rolled, also select the anchor it was "
-                + "snapped by. Nothing records that choice, so it is inferred by finding which of the "
-                + "piece's anchors sits on a neighbour's - reliable for tilted pieces, which usually "
-                + "meet their surroundings at a single point. Only attempted for tilted pieces, and "
-                + "your current selection is left alone whenever the answer is ambiguous.");
 
             FreePlacement = config.Bind("Free Placement", "Mode", FreePlacementMode.Toggle,
                 new ConfigDescription(
@@ -316,6 +310,14 @@ namespace TheHammerOfOden
                 + "about position and are reused for points in different places. Only the piece you "
                 + "are holding is renamed, and only while you hold it.");
 
+            RememberSnapPoint = config.Bind("Snap Points", "RememberSnapPoint", true,
+                "Remember which anchor you last built each kind of piece by, and hold the next one "
+                + "of that kind the same way. Choosing to place walls by their bottom corner then "
+                + "survives switching to a beam and back, instead of resetting every time the piece "
+                + "changes. Each kind of piece is remembered separately, and the record is kept "
+                + "beside this file in com.pics0ul.valheim.thehammerofoden.snappoints.cfg, so it "
+                + "survives a restart.");
+
             SortSnapPoints = config.Bind("Snap Points", "SortSnapPoints", true,
                 "Put snap points into a predictable order for cycling with Q and E. Vanilla presents "
                 + "them in whatever order the prefab happens to list them, so a piece can run "
@@ -384,13 +386,21 @@ namespace TheHammerOfOden
                     + "AnythingInteractive: also leaves out anything you can use at all. "
                     + "Nothing: no restriction."));
 
-            ScaleMaxWithParticles = config.Bind("Scale", "MaximumWithParticles", 2f,
+            RangeGrowth = config.Bind("Scale", "RangeGrowth", 1f,
                 new ConfigDescription(
-                    "A lower ceiling for pieces that carry particle effects, such as portals and "
-                    + "torches. Valheim's effects are authored for one size and their culling bounds "
-                    + "do not keep pace when scaled, so past roughly double they start to disappear "
-                    + "when you stand near them. Raise it if you would rather have the size than the "
-                    + "effect.",
+                    "How much a resized piece's detection ranges grow. A portal only lights its effect "
+                    + "when a player is within a fixed distance of it, and that distance has to grow "
+                    + "with the piece or the effect stops working - but only by as much as the piece's "
+                    + "surface moved outward, not by the whole scale factor. 1 matches the growth in "
+                    + "size; lower keeps ranges tighter, 0 leaves them at vanilla values.",
+                    new AcceptableValueRange<float>(0f, 3f)));
+
+            ScaleMaxWithParticles = config.Bind("Scale", "MaximumWithParticles", 5f,
+                new ConfigDescription(
+                    "A separate ceiling for pieces that carry particle effects, such as portals and "
+                    + "torches. At the default it matches Maximum and so does nothing; it is here as "
+                    + "an escape hatch for a modded piece whose effects misbehave when resized, since "
+                    + "a piece can gate its own effects on distances this mod knows nothing about.",
                     new AcceptableValueRange<float>(1f, 20f)));
 
             ScaleRepeatDelay = config.Bind("Scale", "RepeatDelay", 0.35f,

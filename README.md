@@ -96,6 +96,8 @@ Vanilla names snap points with bare ordinals — "Top 1", "Bottom 3" — that sa
 
 **Hold Q or E** to jump straight back to automatic snapping instead of cycling all the way around.
 
+Whichever anchor you build a piece by is remembered for that kind of piece. Decide to place walls by their bottom corner and every wall you pick up afterwards is held that way, through switching to a beam and back. Each kind of piece keeps its own choice, and the record survives a restart — it is kept in `com.pics0ul.valheim.thehammerofoden.snappoints.cfg`, next to the config. Delete a line from it to put that piece back on automatic snapping, or delete the file to start over.
+
 ### Free placement, on its own key
 
 In vanilla, holding Left Shift turns off snap attraction *and* frees terrain pieces from ground height. That is useful, but Left Shift is also the natural pitch modifier, so tilting a piece silently turned snapping off.
@@ -114,7 +116,9 @@ Particle effects are drawn larger to match, though not spread into the space aro
 
 ### Copying
 
-Vanilla's copy shortcut already takes a piece's yaw. This extends it to the full 3-axis rotation, the size it was built at, and — for tilted pieces — the anchor it was snapped by, inferred by finding which of its anchors sits on a neighbour's.
+Vanilla's copy shortcut already takes a piece's yaw. This extends it to the full 3-axis rotation and the size it was built at.
+
+The snap point comes from your own history rather than from the piece you clicked: copying switches which piece you are holding, and that brings up the anchor you last built that kind of piece by.
 
 ## Configuration
 
@@ -128,6 +132,7 @@ Around forty settings across `Rotation`, `Snap Points`, `Gizmo`, `Free Placement
 | `Display` | `Relevant` | `All` shows every anchor; `ActivePairOnly` shows just the snapping pair |
 | `DerivedSnapPoints` | `Centers` | denser modes mean more stops when cycling |
 | `SnapToDerivedTargets` | `false` | adds snap targets vanilla does not have |
+| `RememberSnapPoint` | `true` | off means every piece starts on automatic snapping |
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |

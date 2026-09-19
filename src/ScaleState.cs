@@ -171,27 +171,29 @@ namespace TheHammerOfOden
             view.SetLocalScale(wanted);
 
             ScaleParticles(piece.gameObject, wanted);
+            ScaledRanges.Apply(piece.gameObject, _scale);
             ParticleDiagnostics.AttachTo(piece.gameObject);
 
             HammerOfOdenPlugin.Debug($"Placed '{piece.name}' at scale {_scale}.");
         }
 
         /// <summary>
-        /// Bring a piece's particle effects up to size with it.
+        /// Resize a piece's particle effects along with it.
         /// </summary>
         /// <remarks>
-        /// Draws the particles larger without enlarging the space they move through.
+        /// An effect has three things that must scale together, and getting one without the
+        /// others is what made earlier attempts look wrong in different ways:
         ///
-        /// The obvious approach - setting scalingMode to Hierarchy - was wrong, and the
-        /// diagnostics showed why. Hierarchy multiplies velocity and emission volume as well
-        /// as size, so a portal at three times scale threw its particles across fourteen
-        /// metres. From a distance that still reads as an effect; up close you are standing
-        /// inside a nearly empty cloud with the particles streaming past behind the camera,
-        /// which looks exactly like the effect having vanished. Nothing was being culled and
-        /// the bounds were correct the whole time.
+        ///   particle size      or the effect is the wrong weight
+        ///   emission shape     or it covers the wrong footprint - a half-size hearth kept a
+        ///                      three metre wide box and its fire spilled outside the model
+        ///   start speed        or particles travel their original distance and the effect
+        ///                      spreads past a shrunken piece, or falls short of a grown one
         ///
-        /// Leaving the simulation in local space and raising only the size multiplier keeps
-        /// the effect where the artist put it, just drawn bigger.
+        /// scalingMode is deliberately left Local and the values changed directly. Hierarchy
+        /// would let Unity apply the transform scale on top of ours, and it also multiplies
+        /// velocity by the full parent scale, which threw a three times portal's particles
+        /// fourteen metres.
         /// </remarks>
         internal static void ScaleParticles(GameObject piece, Vector3 scale)
         {
@@ -201,19 +203,79 @@ namespace TheHammerOfOden
             }
 
             float factor = (scale.x + scale.y + scale.z) / 3f;
-            if (factor <= 0f)
+            if (factor <= 0f || Mathf.Approximately(factor, 1f))
             {
                 return;
             }
 
             foreach (ParticleSystem system in piece.GetComponentsInChildren<ParticleSystem>(true))
             {
-                ParticleSystem.MainModule main = system.main;
+                // Scaling an already-scaled system compounds, and a piece can pass through
+                // here twice: once when placed and again when its zone reloads it.
+                if (system.GetComponent<ScaledParticleMarker>() != null)
+                {
+                    continue;
+                }
 
-                // Explicitly local: whatever the prefab said, the simulation must not inherit
-                // the piece's scale or the effect spreads instead of growing.
+                system.gameObject.AddComponent<ScaledParticleMarker>();
+
+                ParticleSystem.MainModule main = system.main;
                 main.scalingMode = ParticleSystemScalingMode.Local;
-                main.startSizeMultiplier *= factor;
+                main.startSize = Scaled(main.startSize, factor);
+                main.startSpeed = Scaled(main.startSpeed, factor);
+                main.gravityModifier = Scaled(main.gravityModifier, factor);
+
+                ParticleSystem.ShapeModule shape = system.shape;
+                if (shape.enabled)
+                {
+                    // scale only, never radius. Unity multiplies the two together, so scaling
+                    // both squares the result: a three times portal took a nine times effect
+                    // and a five times one took twenty five, which is spread thin enough to
+                    // look like nothing at all. Box shapes hid this, because they take their
+                    // dimensions from scale and ignore radius entirely - which is why the
+                    // hearth looked right while every portal did not.
+                    shape.scale *= factor;
+                    shape.position *= factor;
+                }
+
+                ParticleSystem.VelocityOverLifetimeModule velocity = system.velocityOverLifetime;
+                if (velocity.enabled)
+                {
+                    velocity.x = Scaled(velocity.x, factor);
+                    velocity.y = Scaled(velocity.y, factor);
+                    velocity.z = Scaled(velocity.z, factor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Multiply a particle value, whichever form it takes.
+        /// </summary>
+        /// <remarks>
+        /// The obvious startSizeMultiplier only touches constantMax on a two-constant range,
+        /// so a size of 0.4 to 0.5 halved became 0.4 to 0.25 - a range with its ends the
+        /// wrong way round. Every value here has to be handled by mode.
+        /// </remarks>
+        private static ParticleSystem.MinMaxCurve Scaled(ParticleSystem.MinMaxCurve curve, float factor)
+        {
+            switch (curve.mode)
+            {
+                case ParticleSystemCurveMode.Constant:
+                    return new ParticleSystem.MinMaxCurve(curve.constant * factor);
+
+                case ParticleSystemCurveMode.TwoConstants:
+                    return new ParticleSystem.MinMaxCurve(
+                        curve.constantMin * factor,
+                        curve.constantMax * factor);
+
+                case ParticleSystemCurveMode.Curve:
+                    return new ParticleSystem.MinMaxCurve(curve.curveMultiplier * factor, curve.curve);
+
+                default:
+                    return new ParticleSystem.MinMaxCurve(
+                        curve.curveMultiplier * factor,
+                        curve.curveMin,
+                        curve.curveMax);
             }
         }
 

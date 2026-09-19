@@ -55,7 +55,33 @@ namespace TheHammerOfOden
             // this a piece is correct when built and wrong again after the zone reloads.
             ScaleState.ScaleParticles(view.gameObject, scale);
 
+            // The stored scale is absolute, so divide the prefab's own scale back out to get
+            // the multiplier that ranges should be adjusted by.
+            ScaledRanges.Apply(view.gameObject, MultiplierOf(view.gameObject, scale));
+
             ParticleDiagnostics.AttachTo(view.gameObject);
+        }
+
+        /// <summary>The stored scale expressed as a multiple of the prefab's own.</summary>
+        private static Vector3 MultiplierOf(GameObject instance, Vector3 stored)
+        {
+            if (ZNetScene.instance == null)
+            {
+                return stored;
+            }
+
+            GameObject prefab = ZNetScene.instance.GetPrefab(Utils.GetPrefabName(instance));
+            if (prefab == null)
+            {
+                return stored;
+            }
+
+            Vector3 basis = prefab.transform.localScale;
+
+            return new Vector3(
+                Mathf.Abs(basis.x) < 0.0001f ? stored.x : stored.x / basis.x,
+                Mathf.Abs(basis.y) < 0.0001f ? stored.y : stored.y / basis.y,
+                Mathf.Abs(basis.z) < 0.0001f ? stored.z : stored.z / basis.z);
         }
     }
 }

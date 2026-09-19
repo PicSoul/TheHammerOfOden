@@ -51,13 +51,108 @@ namespace TheHammerOfOden
             HammerOfOdenPlugin.Info(
                 $"[particles] '{name}' scale={transform.localScale} systems={_systems.Length}");
 
+            // Both, because the instance shows what we changed it to and the prefab shows what
+            // Valheim authored. Comparing the two is the point: without the original there is
+            // no way to tell which values are the artist's and which are ours.
+            HammerOfOdenPlugin.Info("[particles] -- as placed --");
             for (int i = 0; i < _systems.Length; i++)
             {
-                ParticleSystem.MainModule main = _systems[i].main;
+                DumpConfiguration(_systems[i], _renderers[i]);
+            }
+
+            DumpPrefab();
+        }
+
+        /// <summary>The untouched configuration, straight from the prefab.</summary>
+        private void DumpPrefab()
+        {
+            if (ZNetScene.instance == null)
+            {
+                return;
+            }
+
+            GameObject prefab = ZNetScene.instance.GetPrefab(Utils.GetPrefabName(gameObject));
+            if (prefab == null)
+            {
+                return;
+            }
+
+            HammerOfOdenPlugin.Info($"[particles] -- prefab '{prefab.name}' scale={prefab.transform.localScale} --");
+
+            foreach (ParticleSystem system in prefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                DumpConfiguration(system, system.GetComponent<ParticleSystemRenderer>());
+            }
+        }
+
+        /// <summary>
+        /// Everything about a system that affects how scaling it behaves.
+        /// </summary>
+        /// <remarks>
+        /// simulationSpace is the field that decides most of it. A World-space system emits
+        /// into the world and its particles then ignore the emitter entirely, so neither the
+        /// transform nor the scaling mode moves them once they exist. A Local one carries its
+        /// particles with the object. The two need different treatment, and guessing which
+        /// applies is what has made this take several attempts.
+        ///
+        /// Shape radius and start speed matter for the same reason: they set how far the
+        /// effect reaches, which is what looks wrong when the geometry changes size and the
+        /// effect does not follow.
+        /// </remarks>
+        private static void DumpConfiguration(ParticleSystem system, ParticleSystemRenderer renderer)
+        {
+            ParticleSystem.MainModule main = system.main;
+            ParticleSystem.ShapeModule shape = system.shape;
+            ParticleSystem.EmissionModule emission = system.emission;
+            ParticleSystem.VelocityOverLifetimeModule velocity = system.velocityOverLifetime;
+            ParticleSystem.SizeOverLifetimeModule size = system.sizeOverLifetime;
+
+            HammerOfOdenPlugin.Info(
+                $"[particles]   {system.name}"
+                + $" | space={main.simulationSpace}"
+                + $" scaling={main.scalingMode}"
+                + $" culling={main.cullingMode}");
+
+            HammerOfOdenPlugin.Info(
+                $"[particles]     size={Describe(main.startSize)}"
+                + $" speed={Describe(main.startSpeed)}"
+                + $" life={Describe(main.startLifetime)}"
+                + $" gravity={main.gravityModifierMultiplier:0.###}"
+                + $" simSpeed={main.simulationSpeed:0.###}");
+
+            HammerOfOdenPlugin.Info(
+                $"[particles]     shape={(shape.enabled ? shape.shapeType.ToString() : "off")}"
+                + $" radius={shape.radius:0.###}"
+                + $" shapeScale={shape.scale}"
+                + $" shapePos={shape.position}");
+
+            HammerOfOdenPlugin.Info(
+                $"[particles]     emission={(emission.enabled ? Describe(emission.rateOverTime) : "off")}"
+                + $" bursts={emission.burstCount}"
+                + $" velOverLife={velocity.enabled}"
+                + $" sizeOverLife={size.enabled}");
+
+            if (renderer != null)
+            {
                 HammerOfOdenPlugin.Info(
-                    $"[particles]   {_systems[i].name}: scalingMode={main.scalingMode}, "
-                    + $"cullingMode={main.cullingMode}, startSize={main.startSize.constant:0.###}, "
-                    + $"maxParticleSize={(_renderers[i] != null ? _renderers[i].maxParticleSize : -1f):0.###}");
+                    $"[particles]     render={renderer.renderMode}"
+                    + $" align={renderer.alignment}"
+                    + $" minSize={renderer.minParticleSize:0.###}"
+                    + $" maxSize={renderer.maxParticleSize:0.###}"
+                    + $" lengthScale={renderer.lengthScale:0.###}");
+            }
+        }
+
+        private static string Describe(ParticleSystem.MinMaxCurve curve)
+        {
+            switch (curve.mode)
+            {
+                case ParticleSystemCurveMode.Constant:
+                    return $"{curve.constant:0.###}";
+                case ParticleSystemCurveMode.TwoConstants:
+                    return $"{curve.constantMin:0.###}..{curve.constantMax:0.###}";
+                default:
+                    return $"{curve.mode}(mult {curve.curveMultiplier:0.###})";
             }
         }
 
@@ -115,6 +210,12 @@ namespace TheHammerOfOden
             StringBuilder text = new StringBuilder();
             text.Append("visible=").Append(renderer.isVisible);
             text.Append(", enabled=").Append(renderer.enabled);
+
+            // Whether the game has switched the effect off, as opposed to it being hidden.
+            // A portal's effects are disabled until it is connected, and something similar
+            // could be happening on approach - which would be vanilla behaviour, not scaling.
+            text.Append(", emitting=").Append(system.emission.enabled);
+            text.Append(", playing=").Append(system.isPlaying);
             text.Append(", particles=").Append(system.particleCount);
             text.Append(", boundsSize=").Append(b.size.ToString("0.##"));
             text.Append(", boundsCentre=").Append(b.center.ToString("0.##"));

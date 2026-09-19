@@ -53,9 +53,9 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 | Area | Files |
 |---|---|
 | Rotation | `RotationState`, `RotationGizmo`, `AngleBeads`, `MarkerShapes` |
-| Snapping | `DerivedSnapPoints`, `DerivedAnchorCache`, `TargetSnapping`, `SnapPointMarkers`, `SnapPointOrder`, `SnapPointNaming`, `ActiveSnapPair`, `SnapPointRecall` |
+| Snapping | `DerivedSnapPoints`, `DerivedAnchorCache`, `TargetSnapping`, `SnapPointMarkers`, `SnapPointOrder`, `SnapPointNaming`, `ActiveSnapPair`, `SnapPointMemory` |
 | Placement | `FreePlacement`, `PlacementRules`, `PlacementOffset`, `Clipping` |
-| Scale | `ScaleState`, `Scalable`, `ScalePersistence` |
+| Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
 | Shared | `ModConfig`, `GhostBounds`, `MainCamera`, `GizmoMaterial`, `LineStyle`, `Notify` |
 
 ### Things that are easy to get wrong
@@ -70,7 +70,15 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 
 **Marker shapes differ by vertex count, never by rotation.** A square and a diamond are the same outline turned 45°, and that difference disappears at small scale.
 
-**Particle scaling raises size only, never `scalingMode = Hierarchy`.** Hierarchy multiplies velocity and emission volume too, which throws a scaled piece's effects metres past it — they then appear to vanish when you stand near them. `DebugParticles` exists because that took two wrong guesses to find.
+**Particle scaling raises size only, never `scalingMode = Hierarchy`.** Hierarchy multiplies velocity and emission volume too, which throws a scaled piece's effects metres past it.
+
+**A shape's extent is `radius × scale`, so only one of them may be scaled.** Scaling both squares the effect — 9× at 3×, 25× at 5×. Box shapes ignore `radius` entirely, which is why a shrunk hearth looked correct while every portal did not, and why the bug survived a round of testing.
+
+**An effect that vanishes up close is probably not a particle problem.** A portal gates its effect on `TeleportWorld.m_activationRange`, a plain float that scaling does not touch, so on a large portal the trigger no longer has anything to do with where the portal is. `ScaledRanges` grows such ranges by how far the surface moved outward, not by the scale factor. Anything with a proximity trigger is a candidate for the same treatment.
+
+`DebugParticles` exists because the three above cost several wrong guesses between them, and dumping the instance's configuration next to the prefab's is what finally separated them.
+
+**Snap point choices are stored as local positions, never indices.** An index depends on child order and on how many anchors the current `DerivedSnapPoints` mode adds, so one recorded under `Centers` points somewhere else under `Full`. `SnapPointMemory` carries a position and matches within a centimetre.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 
