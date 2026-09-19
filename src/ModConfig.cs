@@ -6,6 +6,7 @@ namespace TheHammerOfOden
     internal static class ModConfig
     {
         internal static ConfigEntry<bool> Enabled;
+        internal static ConfigEntry<ToolScope> Tools;
 
         internal static ConfigEntry<int> SnapDivisions;
         internal static ConfigEntry<KeyboardShortcut> SnapIncreaseKey;
@@ -90,6 +91,34 @@ namespace TheHammerOfOden
 
         internal static ConfigEntry<float> OffsetStep;
         internal static ConfigEntry<float> OffsetLimit;
+        internal static ConfigEntry<float> NudgeStep;
+        internal static ConfigEntry<float> NudgeStepLarge;
+        internal static ConfigEntry<NudgeFrameMode> NudgeFrame;
+        internal static ConfigEntry<KeyboardShortcut> NudgeLargeModifierKey;
+        internal static ConfigEntry<KeyboardShortcut> NudgeForwardKey;
+        internal static ConfigEntry<KeyboardShortcut> NudgeBackwardKey;
+        internal static ConfigEntry<KeyboardShortcut> NudgeLeftKey;
+        internal static ConfigEntry<KeyboardShortcut> NudgeRightKey;
+        internal static ConfigEntry<KeyboardShortcut> NudgeUpKey;
+        internal static ConfigEntry<KeyboardShortcut> NudgeDownKey;
+        internal static ConfigEntry<KeyboardShortcut> ResetOffsetKey;
+
+        internal static ConfigEntry<KeyboardShortcut> FreezeKey;
+        internal static ConfigEntry<bool> ResetOffsetOnUnfreeze;
+
+        internal static ConfigEntry<KeyboardShortcut> StationRangeKey;
+        internal static ConfigEntry<float> StationRangeStep;
+        internal static ConfigEntry<float> StationRangeMin;
+        internal static ConfigEntry<float> StationRangeMax;
+        internal static ConfigEntry<float> StationAdjustDistance;
+        internal static ConfigEntry<bool> RequireLookingAtStation;
+        internal static ConfigEntry<bool> ShowStationArea;
+        internal static ConfigEntry<bool> ExtendReachToStation;
+        internal static ConfigEntry<float> ReachLimit;
+
+        internal static ConfigEntry<KeyboardShortcut> GridKey;
+        internal static ConfigEntry<float> GridSize;
+        internal static ConfigEntry<bool> GridHeight;
 
         internal static ConfigEntry<PlacementFreedom> Freedom;
         internal static ConfigEntry<ClippingMode> Clipping;
@@ -116,6 +145,17 @@ namespace TheHammerOfOden
         {
             Enabled = config.Bind("General", "Enabled", true,
                 "Master switch. Turn off to leave placement entirely to the vanilla game.");
+
+            Tools = config.Bind("General", "Tools", ToolScope.BuildingOnly,
+                new ConfigDescription(
+                    "Which tools this mod affects.\n"
+                    + "BuildingOnly: the hammer and anything else that places pieces, but not the "
+                    + "hoe or cultivator. They share Valheim's placement code, which is how a mod "
+                    + "reaches them by accident, and nothing here means much for a levelling "
+                    + "operation. Recognised by the piece being a terrain operation rather than by "
+                    + "the tool's name, so modded hammers still work and modded terrain tools are "
+                    + "still excluded.\n"
+                    + "AllTools: everything that uses the placement ghost."));
 
             SnapDivisions = config.Bind("Rotation", "SnapAnglesPerTurn", 32,
                 new ConfigDescription(
@@ -476,6 +516,124 @@ namespace TheHammerOfOden
             ResetScaleOnPieceChange = config.Bind("Scale", "ResetOnPieceChange", true,
                 "Return to normal size when you select a different piece. Off keeps your scale across "
                 + "pieces, which is useful when building a set to match.");
+
+            FreezeKey = config.Bind("Freeze", "FreezeKey",
+                new KeyboardShortcut(KeyCode.Keypad0),
+                "Pin the piece where it is so you can walk around it and look at it from "
+                + "somewhere you could never have aimed from. The nudge keys below are how you "
+                + "adjust it once aiming no longer moves it. Rotation still works while frozen.");
+
+            ResetOffsetOnUnfreeze = config.Bind("Freeze", "ResetOffsetOnUnfreeze", true,
+                "Clear the nudge when you unfreeze, so the next piece starts where you aim rather "
+                + "than carrying the last piece's adjustment.");
+
+            StationRangeKey = config.Bind("Station Range", "StationRangeKey",
+                new KeyboardShortcut(KeyCode.LeftControl),
+                "Hold and scroll to change the build range of the crafting station you are looking "
+                + "at. Requires the hammer out, since that is when the scroll wheel belongs to "
+                + "building. Left Alt would be the obvious choice and is taken here by roll.");
+
+            StationRangeStep = config.Bind("Station Range", "Step", 1f,
+                new ConfigDescription("Metres added or removed per scroll click.",
+                    new AcceptableValueRange<float>(0.25f, 10f)));
+
+            StationRangeMin = config.Bind("Station Range", "Minimum", 2f,
+                new ConfigDescription("Smallest a station's build range may be set to.",
+                    new AcceptableValueRange<float>(1f, 50f)));
+
+            StationRangeMax = config.Bind("Station Range", "Maximum", 100f,
+                new ConfigDescription("Largest a station's build range may be set to.",
+                    new AcceptableValueRange<float>(10f, 500f)));
+
+            RequireLookingAtStation = config.Bind("Station Range", "RequireLookingAtStation", true,
+                "Only adjust the station under your crosshair. With this off it falls back to the "
+                + "nearest station within AdjustDistance, which is handier when the bench is behind "
+                + "a wall and ambiguous when several overlap.");
+
+            StationAdjustDistance = config.Bind("Station Range", "AdjustDistance", 8f,
+                new ConfigDescription(
+                    "How far away a station may be to adjust it without looking at it. Ignored when "
+                    + "RequireLookingAtStation is on.",
+                    new AcceptableValueRange<float>(2f, 30f)));
+
+            ShowStationArea = config.Bind("Station Range", "ShowStationArea", true,
+                "Flash the station's area circle while changing its range, so you can see what you "
+                + "are doing.");
+
+            ExtendReachToStation = config.Bind("Station Range", "ExtendReachToStation", true,
+                "Let you build anywhere the station reaches, rather than only as far as your arm. "
+                + "Valheim limits building twice over - the station's circle says where you may "
+                + "build, and a separate arm's-length limit says how far the aiming ray goes - and "
+                + "the second has nothing to do with the first. This grants nothing that was not "
+                + "already permitted; it saves you walking to it.");
+
+            ReachLimit = config.Bind("Station Range", "ReachLimit", 50f,
+                new ConfigDescription(
+                    "Upper bound on the extended reach, whatever the station's range. Placing at "
+                    + "great distance gets imprecise long before it gets useful.",
+                    new AcceptableValueRange<float>(8f, 200f)));
+
+            GridKey = config.Bind("Grid", "GridKey",
+                new KeyboardShortcut(KeyCode.G),
+                "Restrict placement to a fixed world grid. Useful for spacing things that share no "
+                + "snap points - torches along a wall, fence posts, chests in a row.");
+
+            GridSize = config.Bind("Grid", "GridSize", 1f,
+                new ConfigDescription(
+                    "Grid step in metres. The grid is fixed to the world, not to where you started "
+                    + "building, so it is the same grid everywhere and for everyone.",
+                    new AcceptableValueRange<float>(0.05f, 8f)));
+
+            GridHeight = config.Bind("Grid", "GridHeight", false,
+                "Snap height to the grid as well as the ground plane. Off by default because "
+                + "terrain is rarely level, and rounding height on a slope either buries a piece "
+                + "or leaves it hanging.");
+
+            NudgeStep = config.Bind("Placement Offset", "NudgeStep", 0.1f,
+                new ConfigDescription("Metres moved per press of a nudge key.",
+                    new AcceptableValueRange<float>(0.01f, 1f)));
+
+            NudgeStepLarge = config.Bind("Placement Offset", "NudgeStepLarge", 1f,
+                new ConfigDescription("Metres moved per press while the large modifier is held.",
+                    new AcceptableValueRange<float>(0.05f, 8f)));
+
+            NudgeFrame = config.Bind("Placement Offset", "NudgeFrame", NudgeFrameMode.World,
+                new ConfigDescription(
+                    "Which directions the nudge keys move along.\n"
+                    + "World: along the world's own axes. Where you are looking picks which axis is "
+                    + "meant, but the step runs along it exactly, so nudges made from anywhere land "
+                    + "on the same lattice and pieces line up with each other.\n"
+                    + "Camera: straight along your line of sight, at whatever angle you are standing "
+                    + "at. Good for pushing a piece away from you, but turning between presses "
+                    + "changes what the next one does."));
+
+            NudgeLargeModifierKey = config.Bind("Placement Offset", "NudgeLargeModifierKey",
+                new KeyboardShortcut(KeyCode.LeftControl),
+                "Hold to move by NudgeStepLarge instead of NudgeStep. Left Control also does "
+                + "something of Valheim's own while a ghost is up - the piece visibly changes - "
+                + "which is harmless and overlaps only while you hold it.");
+
+            NudgeForwardKey = config.Bind("Placement Offset", "NudgeForwardKey",
+                new KeyboardShortcut(KeyCode.UpArrow), "Move the piece away from you.");
+
+            NudgeBackwardKey = config.Bind("Placement Offset", "NudgeBackwardKey",
+                new KeyboardShortcut(KeyCode.DownArrow), "Move the piece towards you.");
+
+            NudgeLeftKey = config.Bind("Placement Offset", "NudgeLeftKey",
+                new KeyboardShortcut(KeyCode.LeftArrow), "Move the piece left.");
+
+            NudgeRightKey = config.Bind("Placement Offset", "NudgeRightKey",
+                new KeyboardShortcut(KeyCode.RightArrow), "Move the piece right.");
+
+            NudgeUpKey = config.Bind("Placement Offset", "NudgeUpKey",
+                new KeyboardShortcut(KeyCode.Home), "Move the piece up.");
+
+            NudgeDownKey = config.Bind("Placement Offset", "NudgeDownKey",
+                new KeyboardShortcut(KeyCode.End), "Move the piece down.");
+
+            ResetOffsetKey = config.Bind("Placement Offset", "ResetOffsetKey",
+                new KeyboardShortcut(KeyCode.Delete),
+                "Clear both the depth offset and the nudge, putting the piece back where you aim.");
 
             OffsetStep = config.Bind("Placement Offset", "Step", 0.05f,
                 new ConfigDescription(

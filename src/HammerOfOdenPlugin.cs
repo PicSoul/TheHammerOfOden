@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using System;
 using BepInEx;
@@ -15,6 +16,21 @@ namespace TheHammerOfOden
 
         private static ManualLogSource _logger;
         private Harmony _harmony;
+
+        /// <summary>
+        /// Patches that did not apply, so the player can be told rather than left guessing.
+        /// </summary>
+        /// <remarks>
+        /// Patching class by class means a bad target costs one feature instead of the whole
+        /// mod, which is the right trade - but it makes the failure quiet, and quiet is how a
+        /// wrong method name survives. Twice now a feature has been written, shipped and
+        /// tested while its patch was never applied at all: once naming a PlacePiece overload
+        /// that does not exist, once patching CraftingStation.Awake, which does not exist
+        /// either. Both times the log said so plainly and neither of us read it.
+        ///
+        /// So it is said on screen instead, the first time you pick up a hammer.
+        /// </remarks>
+        internal static readonly List<string> FailedPatches = new List<string>();
 
         private void Awake()
         {
@@ -57,6 +73,7 @@ namespace TheHammerOfOden
                 catch (Exception ex)
                 {
                     failed++;
+                    FailedPatches.Add(type.Name);
                     Logger.LogError(
                         $"Patch '{type.Name}' could not be applied, so that feature is disabled. "
                         + "The rest of the mod is unaffected.");
@@ -100,6 +117,17 @@ namespace TheHammerOfOden
                 $"  surface placement: {ModConfig.SurfaceMode.Value} on "
                 + $"{ModConfig.SurfacePlacementKey.Value.MainKey}, applies to "
                 + $"{ModConfig.SurfaceTarget.Value}, align={ModConfig.AlignToSurface.Value}");
+
+            Logger.LogInfo(
+                $"  freeze: {ModConfig.FreezeKey.Value.MainKey}, "
+                + $"nudge={ModConfig.NudgeStep.Value}m/{ModConfig.NudgeStepLarge.Value}m, "
+                + $"grid={ModConfig.GridKey.Value.MainKey} at {ModConfig.GridSize.Value}m");
+
+            Logger.LogInfo(
+                $"  station range: {ModConfig.StationRangeKey.Value.MainKey}+wheel, "
+                + $"step={ModConfig.StationRangeStep.Value}m, "
+                + $"extendReach={ModConfig.ExtendReachToStation.Value} "
+                + $"capped at {ModConfig.ReachLimit.Value}m");
 
             Logger.LogInfo($"  clipping: {ModConfig.Clipping.Value}");
 

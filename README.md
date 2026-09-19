@@ -38,6 +38,14 @@ Angles are counted per full turn, defaulting to 32 steps (11.25°). Vanilla uses
 |---|---|
 | Free placement on/off | **O** |
 | Surface placement on/off | **P** |
+| Freeze the piece in place | **Numpad 0** |
+| Nudge left / right | **←** / **→** |
+| Nudge away / towards you | **↑** / **↓** |
+| Nudge up / down | **Home** / **End** |
+| Nudge by 1m instead of 0.1m | hold **Left Ctrl** |
+| Clear all nudging | **Delete** |
+| Grid snapping on/off | **G** |
+| Change a station's build range | **Left Ctrl** + scroll |
 | Copy a piece with its full rotation, size and anchor | **Left Shift + middle-click** (vanilla copy) |
 
 ### Resizing (hold **Left Shift**)
@@ -121,6 +129,30 @@ Three modes beyond off: hold the key, toggle it, or `WhenTilted` — active when
 
 Wards, no-build zones and occupied ground are never bypassed, the same as free placement.
 
+### Freezing and nudging
+
+Vanilla ties the piece to wherever your aim meets a surface, so you can only build somewhere you can both see and stand to aim at. That rules out a lot: under a roof you can't back away from, over a cliff edge, deep inside a structure, or anywhere the piece itself is blocking your view of where it should go.
+
+**Numpad 0** pins the piece where it is. Walk around it, look at it from anywhere, judge it properly — it stays put. The arrow keys, **Home** and **End** then move it a step at a time on all three axes, since aiming no longer does anything. **Left Ctrl** makes each step a metre instead of 10cm.
+
+Rotation still works on a frozen piece. If you froze one that was lying against a surface, it keeps that alignment while still answering the rotation keys.
+
+Nudging works unfrozen too. Steps run along the world's own axes: where you're looking picks which axis you mean, but the step follows that axis exactly, so nudges made from anywhere land on the same lattice and pieces line up with each other. `NudgeFrame = Camera` moves along your line of sight instead, at whatever angle you're standing at — useful for pushing a piece away from you, but turning between presses changes what the next one does.
+
+### Grid snapping
+
+**G** restricts placement to a fixed world grid, 1m by default. Snap points handle pieces built to meet each other; this handles the ones that weren't — torches spaced along a wall, fence posts across open ground, chests in a row.
+
+The grid is fixed to the world rather than to where you started building, so it's the same grid everywhere, in every session, for everyone in the world. Height is left alone unless you turn on `GridHeight`, because terrain is rarely level and rounding height on a slope either buries a piece or leaves it hanging.
+
+### Build range and reach
+
+**Left Ctrl + scroll**, while looking at a crafting station, changes how far that station lets you build. The range is stored on that station, not in the config, so two benches in one base can have different radii and the value travels to other players and survives reloads.
+
+Separately, Valheim limits building twice over: the station's circle says where you *may* build, and an arm's-length limit of about 8m says how far the aiming ray travels. The second has nothing to do with the first, which is why standing in the middle of a 30m workbench still means walking the length of a wall. Reach now rises to match whatever station you're standing in, capped by `ReachLimit`.
+
+This grants nothing that wasn't already permitted — the station still has to cover the spot and every other rule still applies. It saves the walking.
+
 ### Resizing
 
 Stretch, compress or uniformly scale a piece before placing it. Size persists through saves, zone reloads and to other players.
@@ -150,6 +182,8 @@ Around forty settings across `Rotation`, `Snap Points`, `Gizmo`, `Free Placement
 | `RememberSnapPoint` | `true` | off means every piece starts on automatic snapping |
 | `Applies To` | `NonStructural` | `Everything` lets walls and floors lie against surfaces too |
 | `AlignToSurface` | `true` | off moves the piece to the surface but keeps your own rotation |
+| `GridSize` | `1` | the grid step in metres |
+| `NudgeStep` | `0.1` | metres per arrow-key press |
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |

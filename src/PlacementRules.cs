@@ -22,6 +22,19 @@ namespace TheHammerOfOden
         Everything = 3
     }
 
+    /// <summary>What decided where the ghost is standing.</summary>
+    internal enum PlacementSource
+    {
+        /// <summary>Vanilla: wherever the aiming ray met a surface.</summary>
+        Aim = 0,
+
+        /// <summary>Laid against the surface you are looking at.</summary>
+        Surface = 1,
+
+        /// <summary>Pinned in place; aiming no longer has anything to do with it.</summary>
+        Frozen = 2
+    }
+
     /// <summary>
     /// Relaxes vanilla's placement rules while free placement is active.
     /// </summary>
@@ -55,7 +68,7 @@ namespace TheHammerOfOden
             Player player,
             ref Player.PlacementStatus status,
             GameObject ghost,
-            bool onSurface)
+            PlacementSource source)
         {
             if (!ModConfig.IsEnabled || status == Player.PlacementStatus.Valid)
             {
@@ -65,20 +78,19 @@ namespace TheHammerOfOden
             // Tied to free placement for the same reason clipping is: it is the one moment
             // the player has explicitly said they know better than the game. Surface
             // placement is the same statement made a different way.
-            if (!onSurface && !FreePlacement.IsActiveNow())
+            if (source == PlacementSource.Aim && !FreePlacement.IsActiveNow())
             {
                 return;
             }
 
-            PlacementFreedom freedom = FreedomFor(onSurface);
+            PlacementFreedom freedom = FreedomFor(source);
 
-            if (freedom == PlacementFreedom.Vanilla || !CanBypass(status, freedom))
+            if (freedom == PlacementFreedom.Vanilla || !CanBypass(status, freedom, source))
             {
                 return;
             }
 
-            HammerOfOdenPlugin.Debug(
-                $"{(onSurface ? "Surface placement" : "Free placement")} overrode '{status}'.");
+            HammerOfOdenPlugin.Debug($"{Describe(source)} overrode '{status}'.");
 
             status = Player.PlacementStatus.Valid;
 
@@ -102,11 +114,11 @@ namespace TheHammerOfOden
         /// why. It never raises the ceiling beyond that, and nothing here reaches the three
         /// statuses that are never bypassable.
         /// </remarks>
-        private static PlacementFreedom FreedomFor(bool onSurface)
+        private static PlacementFreedom FreedomFor(PlacementSource source)
         {
             PlacementFreedom configured = ModConfig.Freedom.Value;
 
-            if (onSurface && configured < PlacementFreedom.Surfaces)
+            if (source != PlacementSource.Aim && configured < PlacementFreedom.Surfaces)
             {
                 return PlacementFreedom.Surfaces;
             }
@@ -114,7 +126,20 @@ namespace TheHammerOfOden
             return configured;
         }
 
-        private static bool CanBypass(Player.PlacementStatus status, PlacementFreedom freedom)
+        private static string Describe(PlacementSource source)
+        {
+            switch (source)
+            {
+                case PlacementSource.Surface: return "Surface placement";
+                case PlacementSource.Frozen: return "Freeze";
+                default: return "Free placement";
+            }
+        }
+
+        private static bool CanBypass(
+            Player.PlacementStatus status,
+            PlacementFreedom freedom,
+            PlacementSource source)
         {
             switch (status)
             {
@@ -124,9 +149,12 @@ namespace TheHammerOfOden
                 case Player.PlacementStatus.BlockedbyPlayer:
                     return false;
 
-                // Nothing was aimed at; there is no position to make valid.
+                // Nothing was aimed at, so ordinarily there is no position to make valid.
+                // A frozen piece is the exception: its position was settled before you looked
+                // away, and looking at the sky is a normal thing to do while walking around
+                // one to judge it.
                 case Player.PlacementStatus.NoRayHits:
-                    return false;
+                    return source == PlacementSource.Frozen;
 
                 // What the piece is allowed to rest on.
                 case Player.PlacementStatus.Invalid:

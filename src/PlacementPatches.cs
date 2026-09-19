@@ -20,9 +20,23 @@ namespace TheHammerOfOden
             bool takeInput,
             PieceTable ___m_buildPieces,
             ref int ___m_manualSnapPoint,
+            ref float ___m_maxPlaceDistance,
             GameObject ___m_placementGhost)
         {
+            // Before any early return: the rotation transpiler reads this verdict from
+            // inside Valheim's own code, on frames where input is not being taken.
+            BuildTool.Evaluate(___m_buildPieces);
+
             if (!ModConfig.IsEnabled || !takeInput || ___m_buildPieces == null)
+            {
+                return;
+            }
+
+            // Every frame rather than on a change: the covering station can change by
+            // walking, and its range by another player adjusting it.
+            PlacementReach.Apply(__instance, ref ___m_maxPlaceDistance);
+
+            if (!BuildTool.AppliesNow)
             {
                 return;
             }
@@ -36,6 +50,9 @@ namespace TheHammerOfOden
             ActiveSnapPair.Clear();
             FreePlacement.HandleInput(__instance);
             SurfacePlacement.HandleInput(__instance);
+            PlacementFreeze.HandleInput(__instance);
+            PlacementGrid.HandleInput(__instance);
+            HandleNudge();
             HandleSnapPointReset(__instance, ref ___m_manualSnapPoint);
             HandleClippingToggle(__instance);
             HandleSnapDivisions(__instance);
@@ -43,7 +60,49 @@ namespace TheHammerOfOden
             HandleScaling(__instance, ___m_placementGhost);
             HandleResets();
             HandleStandaloneCopyKey(__instance);
-            HandleRotation();
+
+            // Before rotation, which otherwise consumes the wheel for yaw.
+            if (!HandleStationRange(__instance))
+            {
+                HandleRotation();
+            }
+        }
+
+        /// <summary>
+        /// Moves the piece a step at a time, on all three axes.
+        /// </summary>
+        /// <remarks>
+        /// Key repeat is left to the operating system rather than timed here, the way the
+        /// scaling keys do it. Nudging is a deliberate, one-step-at-a-time action - you are
+        /// lining something up by eye - so the usual hold-to-repeat would overshoot more
+        /// often than it would help.
+        /// </remarks>
+        private static void HandleNudge()
+        {
+            if (Pressed(ModConfig.ResetOffsetKey.Value))
+            {
+                PlacementOffset.Reset();
+                return;
+            }
+
+            bool large = Held(ModConfig.NudgeLargeModifierKey.Value);
+
+            if (Pressed(ModConfig.NudgeForwardKey.Value))  PlacementOffset.NudgeBy(NudgeAxis.Forward, 1, large);
+            if (Pressed(ModConfig.NudgeBackwardKey.Value)) PlacementOffset.NudgeBy(NudgeAxis.Forward, -1, large);
+            if (Pressed(ModConfig.NudgeRightKey.Value))    PlacementOffset.NudgeBy(NudgeAxis.Lateral, 1, large);
+            if (Pressed(ModConfig.NudgeLeftKey.Value))     PlacementOffset.NudgeBy(NudgeAxis.Lateral, -1, large);
+            if (Pressed(ModConfig.NudgeUpKey.Value))       PlacementOffset.NudgeBy(NudgeAxis.Vertical, 1, large);
+            if (Pressed(ModConfig.NudgeDownKey.Value))     PlacementOffset.NudgeBy(NudgeAxis.Vertical, -1, large);
+        }
+
+        private static bool Pressed(KeyboardShortcut shortcut)
+        {
+            return shortcut.MainKey != KeyCode.None && ZInput.GetKeyDown(shortcut.MainKey, true);
+        }
+
+        private static bool Held(KeyboardShortcut shortcut)
+        {
+            return shortcut.MainKey != KeyCode.None && ZInput.GetKey(shortcut.MainKey, true);
         }
 
         private static float _snapCycleHeldSince;
@@ -278,6 +337,29 @@ namespace TheHammerOfOden
             Notify.Show(player, "Clipping: " + Clipping.Describe(mode));
         }
 
+        /// <summary>
+        /// Changes a nearby station's build range with the wheel.
+        /// </summary>
+        /// <returns>True if the wheel was used for this, so rotation should leave it alone.</returns>
+        private static bool HandleStationRange(Player player)
+        {
+            if (!IsHeld(ModConfig.StationRangeKey))
+            {
+                return false;
+            }
+
+            float scroll = ZInput.GetMouseScrollWheel();
+            if (scroll == 0f)
+            {
+                // The modifier is down, so the wheel is spoken for even on a frame with no
+                // movement. Returning true keeps a held modifier from rotating the piece.
+                return true;
+            }
+
+            StationRange.Adjust(player, Mathf.RoundToInt(Mathf.Sign(scroll)));
+            return true;
+        }
+
         private static void HandleRotation()
         {
             float scroll = ZInput.GetMouseScrollWheel();
@@ -479,13 +561,13 @@ namespace TheHammerOfOden
         /// <summary>Called from patched IL, receiving vanilla's yaw-only rotation.</summary>
         internal static Quaternion SubstituteRotation(Quaternion vanilla)
         {
-            return ModConfig.IsEnabled ? RotationState.Current : vanilla;
+            return ModConfig.IsEnabled && BuildTool.AppliesNow ? RotationState.Current : vanilla;
         }
 
         /// <summary>Called from patched IL, receiving whether AltPlace is physically held.</summary>
         internal static bool SubstituteFreePlacement(bool vanillaHeld)
         {
-            return FreePlacement.IsActive(vanillaHeld);
+            return BuildTool.AppliesNow ? FreePlacement.IsActive(vanillaHeld) : vanillaHeld;
         }
     }
 
@@ -503,10 +585,15 @@ namespace TheHammerOfOden
             int ___m_manualSnapPoint,
             List<Transform> ___m_tempSnapPoints1)
         {
+            if (!BuildTool.AppliesNow)
+            {
+                return;
+            }
+
             // Snapping and the depth offset both move the ghost, which would undo the
             // surface placement decided moments ago in the rules postfix. On a surface the
             // aimed-at point is the answer, so neither gets a say.
-            bool onSurface = SurfacePlacement.AppliedThisFrame;
+            bool onSurface = SurfacePlacement.AppliedThisFrame || PlacementFreeze.IsFrozen;
 
             if (!onSurface)
             {
@@ -523,10 +610,9 @@ namespace TheHammerOfOden
                 ScaleState.ApplyTo(___m_placementGhost);
             }
 
-            if (!onSurface)
-            {
-                PlacementOffset.Apply(___m_placementGhost);
-            }
+            // Deliberately not gated on the above: the nudge is the only way to move a
+            // frozen piece, and on a surface it is how you lift a piece clear of it.
+            PlacementOffset.Apply(___m_placementGhost);
 
             RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
             SnapPointMarkers.Update(
@@ -586,9 +672,28 @@ namespace TheHammerOfOden
             ref Player.PlacementStatus ___m_placementStatus,
             GameObject ___m_placementGhost)
         {
+            if (!BuildTool.AppliesNow)
+            {
+                return;
+            }
+
+            // Order matters. The surface decides a position from what you are aiming at;
+            // the grid rounds that off; freezing then overrides both with the position you
+            // pinned, which is why it comes last and why the grid skips a frozen piece.
             bool onSurface = SurfacePlacement.Apply(__instance, ___m_placementGhost);
 
-            PlacementRules.Apply(__instance, ref ___m_placementStatus, ___m_placementGhost, onSurface);
+            if (!onSurface && !PlacementFreeze.IsFrozen)
+            {
+                PlacementGrid.Apply(___m_placementGhost);
+            }
+
+            bool frozen = PlacementFreeze.Apply(___m_placementGhost);
+
+            PlacementSource source = frozen
+                ? PlacementSource.Frozen
+                : onSurface ? PlacementSource.Surface : PlacementSource.Aim;
+
+            PlacementRules.Apply(__instance, ref ___m_placementStatus, ___m_placementGhost, source);
         }
     }
 
@@ -694,17 +799,68 @@ namespace TheHammerOfOden
         }
     }
 
+    /// <summary>
+    /// Puts a station's stored build range back as it comes into the world.
+    /// </summary>
+    /// <remarks>
+    /// m_rangeBuild is a plain serialized field that vanilla never networks or saves, so a
+    /// station always wakes up with its prefab's range and has to be corrected afterwards.
+    ///
+    /// Priority.Last because this is contested ground. Any mod offering a global build
+    /// radius does it the same way - ValheimQoL postfixes this very method and writes its
+    /// WorkBenchRange setting - and Harmony gives no order between two postfixes that both
+    /// take the default priority, so whichever ran second won and it was not us. Running
+    /// last settles it: a global setting is the base for stations nobody has adjusted, and
+    /// a range stored on a particular station is a deliberate choice about that station, so
+    /// it should be the one that survives.
+    ///
+    /// Stations with nothing stored are left alone, so another mod's default still applies
+    /// everywhere it has not been overruled.
+    /// </remarks>
+    [HarmonyPatch(typeof(CraftingStation), "Start")]
+    internal static class CraftingStationStartPatch
+    {
+        [HarmonyPostfix]
+        [HarmonyPriority(Priority.Last)]
+        private static void Postfix(CraftingStation __instance)
+        {
+            if (ModConfig.IsEnabled)
+            {
+                StationRange.Restore(__instance);
+            }
+        }
+    }
+
     /// <summary>Clear the free-placement toggle when leaving build mode.</summary>
     [HarmonyPatch(typeof(Player), "SetPlaceMode")]
     internal static class PlayerSetPlaceModePatch
     {
+        private static bool _warnedAboutPatches;
+
         [HarmonyPostfix]
-        private static void Postfix(PieceTable buildPieces)
+        private static void Postfix(
+            Player __instance,
+            PieceTable buildPieces,
+            ref float ___m_maxPlaceDistance)
         {
+            // On entering build mode, not at startup: a message during the loading screen is
+            // a message nobody sees.
+            if (buildPieces != null && !_warnedAboutPatches
+                && HammerOfOdenPlugin.FailedPatches.Count > 0)
+            {
+                _warnedAboutPatches = true;
+                Notify.Show(__instance,
+                    $"Hammer of Oden: {HammerOfOdenPlugin.FailedPatches.Count} feature(s) "
+                    + "disabled - see the log");
+            }
+
             if (buildPieces == null)
             {
+                PlacementReach.Restore(ref ___m_maxPlaceDistance);
                 FreePlacement.Reset();
                 SurfacePlacement.Reset();
+                PlacementFreeze.Reset();
+                PlacementGrid.Reset();
                 RotationGizmo.Hide();
                 SnapPointMarkers.Hide();
                 DerivedAnchorCache.Clear();
@@ -736,6 +892,11 @@ namespace TheHammerOfOden
         [HarmonyPostfix]
         private static void Postfix(GameObject ___m_placementGhost, ref int ___m_manualSnapPoint)
         {
+            if (!BuildTool.AppliesNow)
+            {
+                return;
+            }
+
             // Rename first: the ordering below sorts on the new names, and AttachTo
             // measures positions rather than names so it is unaffected either way.
             SnapPointNaming.Apply(___m_placementGhost);
@@ -750,6 +911,7 @@ namespace TheHammerOfOden
             SnapPointMemory.Restore(___m_placementGhost, ref ___m_manualSnapPoint);
 
             PlacementOffset.Reset();
+            PlacementFreeze.Reset();
             ScaleState.ForgetGhost();
             Scalable.Forget();
 

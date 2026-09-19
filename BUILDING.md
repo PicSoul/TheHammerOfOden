@@ -54,7 +54,7 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 |---|---|
 | Rotation | `RotationState`, `RotationGizmo`, `AngleBeads`, `MarkerShapes` |
 | Snapping | `DerivedSnapPoints`, `DerivedAnchorCache`, `TargetSnapping`, `SnapPointMarkers`, `SnapPointOrder`, `SnapPointNaming`, `ActiveSnapPair`, `SnapPointMemory` |
-| Placement | `FreePlacement`, `SurfacePlacement`, `PlacementRules`, `PlacementOffset`, `Clipping` |
+| Placement | `FreePlacement`, `SurfacePlacement`, `PlacementFreeze`, `PlacementGrid`, `PlacementRules`, `PlacementOffset`, `Clipping` |
 | Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
 | Shared | `ModConfig`, `GhostBounds`, `MainCamera`, `GizmoMaterial`, `LineStyle`, `Notify` |
 
@@ -83,6 +83,10 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 **Aligning to a surface needs two vectors, not one.** `Quaternion.FromToRotation(Vector3.up, normal)` is the obvious way and gives the minimal arc, which leaves the twist about the normal unspecified — a piece on a wall then spins as the player strafes. `SurfacePlacement` and `RotationGizmo` both build the basis from a second, independent direction for this reason.
 
 **Private signatures are checked against the assembly, not guessed.** `Player.PlacePiece` takes five arguments, not one, and a patch naming a signature that does not exist throws — which costs that feature silently, since a feature that never runs does not announce itself. `MetadataLoadContext` over `assembly_valheim.dll` will print the truth in a few lines.
+
+**Four things decide the ghost's position, in a fixed order.** Surface alignment, then the grid, then freezing, then the nudge — set in `PlayerUpdatePlacementGhostRulesPatch` and `PlayerUpdatePlacementGhostGizmoPatch`. Each later one may override an earlier one, which is why the grid skips a frozen piece and why snapping is skipped for both. `PlacementSource` carries which of them won through to `PlacementRules`, because the answer changes what may be overridden: `NoRayHits` is bypassable only for a frozen piece, whose position was settled before you looked away.
+
+**Freezing records a rotation *difference*, not a rotation.** Storing the absolute rotation would leave a pinned piece unturnable. Storing `ghost.rotation * Quaternion.Inverse(RotationState.Current)` gives identity in the ordinary case and the surface's frame when frozen against something, and re-applying it each frame keeps the alignment while the rotation keys stay connected.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 
