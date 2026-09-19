@@ -28,6 +28,18 @@ namespace TheHammerOfOden
             // inside Valheim's own code, on frames where input is not being taken.
             BuildTool.Evaluate(___m_buildPieces);
 
+            // Both of these run whether the mod is on or off - the toggle has to, or there
+            // would be no way back once it was off, and the glow has to so it can take itself
+            // down. Neither belongs on a terrain tool, so both ask about the tool rather than
+            // about the master switch.
+            if (BuildTool.IsBuildingTool && takeInput
+                && ___m_buildPieces != null && !Hud.IsPieceSelectionVisible())
+            {
+                HandleMasterToggle(__instance);
+            }
+
+            HammerGlow.Apply(__instance, ModConfig.IsEnabled && BuildTool.IsBuildingTool);
+
             if (!ModConfig.IsEnabled || !takeInput || ___m_buildPieces == null)
             {
                 return;
@@ -141,6 +153,26 @@ namespace TheHammerOfOden
             if (Pressed(ModConfig.NudgeLeftKey.Value))     Zooping.Extend(player, -right);
             if (Pressed(ModConfig.NudgeUpKey.Value))       Zooping.Extend(player, Vector3.up);
             if (Pressed(ModConfig.NudgeDownKey.Value))     Zooping.Extend(player, Vector3.down);
+        }
+
+        /// <summary>Turns the whole mod on or off, and says which.</summary>
+        private static void HandleMasterToggle(Player player)
+        {
+            if (!PressedWithModifiers(ModConfig.MasterToggleKey.Value))
+            {
+                return;
+            }
+
+            // Written to the setting rather than held in a field, so the choice survives a
+            // restart and reads correctly in the config file.
+            ModConfig.Enabled.Value = !ModConfig.Enabled.Value;
+
+            HammerOfOdenPlugin.Info(
+                $"Master toggle: the mod is now {(ModConfig.Enabled.Value ? "on" : "off")}.");
+
+            Notify.Show(player, ModConfig.Enabled.Value
+                ? "The Hammer of Oden: on"
+                : "The Hammer of Oden: off");
         }
 
         private static void HandleUndo(Player player)

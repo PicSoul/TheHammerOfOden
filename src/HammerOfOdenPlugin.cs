@@ -136,6 +136,10 @@ namespace TheHammerOfOden
             Logger.LogInfo(
                 $"  undo: {ModConfig.UndoKey.Value}, depth={ModConfig.UndoDepth.Value}");
 
+            Logger.LogInfo(
+                $"  master toggle: {ModConfig.MasterToggleKey.Value.MainKey}, "
+                + $"glow={ModConfig.ShowHammerGlow.Value}");
+
             Logger.LogInfo($"  clipping: {ModConfig.Clipping.Value}");
 
             Logger.LogInfo(
@@ -154,6 +158,7 @@ namespace TheHammerOfOden
             try { _harmony?.UnpatchSelf(); } catch { }
             _harmony = null;
             PlacementUndo.Clear();
+            HammerGlow.Forget();
             RotationGizmo.Destroy();
             SnapPointMarkers.Destroy();
             GizmoMaterial.Destroy();

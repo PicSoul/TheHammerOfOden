@@ -37,6 +37,18 @@ namespace TheHammerOfOden
         private static GameObject _lastPiece;
         private static bool _lastVerdict = true;
 
+        /// <summary>
+        /// Whether the tool in hand is one this mod covers, regardless of the master switch.
+        /// </summary>
+        /// <remarks>
+        /// Separate from AppliesNow because two things need different answers. Features ask
+        /// "should I act?", which means the mod is on and the tool is right. The master
+        /// toggle and the glow that reports it ask "is this my tool?" - they have to keep
+        /// working while the mod is off, or there would be no way to switch it back on, and
+        /// they must still keep away from the hoe.
+        /// </remarks>
+        internal static bool IsBuildingTool { get; private set; } = true;
+
         /// <summary>Whether the mod should act on the tool currently in hand.</summary>
         internal static bool AppliesNow { get; private set; } = true;
 
@@ -45,16 +57,12 @@ namespace TheHammerOfOden
         /// </summary>
         internal static void Evaluate(PieceTable table)
         {
-            AppliesNow = Applies(table);
+            IsBuildingTool = Applies(table);
+            AppliesNow = ModConfig.IsEnabled && IsBuildingTool;
         }
 
         private static bool Applies(PieceTable table)
         {
-            if (!ModConfig.IsEnabled)
-            {
-                return false;
-            }
-
             if (ModConfig.Tools.Value == ToolScope.AllTools)
             {
                 return true;

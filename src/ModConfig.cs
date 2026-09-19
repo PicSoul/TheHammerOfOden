@@ -7,6 +7,14 @@ namespace TheHammerOfOden
     {
         internal static ConfigEntry<bool> Enabled;
         internal static ConfigEntry<ToolScope> Tools;
+        internal static ConfigEntry<KeyboardShortcut> MasterToggleKey;
+        internal static ConfigEntry<bool> ShowHammerGlow;
+        internal static ConfigEntry<bool> ShowHammerSparks;
+        internal static ConfigEntry<float> SparkRate;
+        internal static ConfigEntry<Color> GlowColor;
+        internal static ConfigEntry<float> GlowIntensity;
+        internal static ConfigEntry<float> GlowRange;
+        internal static ConfigEntry<float> GlowHeadOffset;
 
         internal static ConfigEntry<int> SnapDivisions;
         internal static ConfigEntry<KeyboardShortcut> SnapIncreaseKey;
@@ -154,6 +162,45 @@ namespace TheHammerOfOden
         {
             Enabled = config.Bind("General", "Enabled", true,
                 "Master switch. Turn off to leave placement entirely to the vanilla game.");
+
+            MasterToggleKey = config.Bind("General", "MasterToggleKey",
+                new KeyboardShortcut(KeyCode.H, KeyCode.LeftShift),
+                "Turn every feature of this mod on or off at once, without leaving the game. "
+                + "Flips the Enabled setting above, so the choice is remembered. Only read while "
+                + "a build tool is in hand, which is the only time any of it applies.");
+
+            ShowHammerGlow = config.Bind("General", "ShowHammerGlow", true,
+                "Light the hammer while the mod is switched on, so you can see the state of the "
+                + "master toggle at a glance instead of scrolling to find out.");
+
+            ShowHammerSparks = config.Bind("General", "ShowHammerSparks", true,
+                "Drift a few slow motes off the hammer while the mod is on. The light alone "
+                + "reads well at night and washes out at noon; these show in any light.");
+
+            SparkRate = config.Bind("General", "SparkRate", 18f,
+                new ConfigDescription(
+                    "Motes given off per second. Applied live, so you can settle on a number "
+                    + "while looking at it rather than restarting to compare.",
+                    new AcceptableValueRange<float>(1f, 60f)));
+
+            GlowColor = config.Bind("General", "GlowColor", new Color(0.45f, 0.75f, 1f),
+                "Colour of the hammer glow.");
+
+            GlowIntensity = config.Bind("General", "GlowIntensity", 1.6f,
+                new ConfigDescription("Brightness of the hammer glow.",
+                    new AcceptableValueRange<float>(0f, 8f)));
+
+            GlowRange = config.Bind("General", "GlowRange", 2.5f,
+                new ConfigDescription(
+                    "How far the hammer glow reaches, in metres. Kept short by default: this is "
+                    + "meant to show on the tool, not to work as a torch.",
+                    new AcceptableValueRange<float>(0.5f, 15f)));
+
+            GlowHeadOffset = config.Bind("General", "GlowHeadOffset", 0.85f,
+                new ConfigDescription(
+                    "Where along the tool the glow sits, from 0 at the grip to 1 at the very end. "
+                    + "The default puts it just inside the head rather than floating off the tip.",
+                    new AcceptableValueRange<float>(0f, 1f)));
 
             Tools = config.Bind("General", "Tools", ToolScope.BuildingOnly,
                 new ConfigDescription(

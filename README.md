@@ -10,6 +10,14 @@ Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch 
 
 Everything is rebindable in the config file.
 
+### Master switch
+
+| Action | Control |
+|---|---|
+| Turn the whole mod on or off | **Left Shift + H** |
+
+The hammer lights up and gives off a few slow motes while the mod is on, so you can see the state at a glance rather than scrolling to find out. The light reads well at night and washes out at noon; the motes show in any light. Read only while a build tool is in hand, which is the only time any of this applies.
+
 ### Rotating
 
 | Action | Control |
@@ -220,6 +228,11 @@ Over a hundred settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `C
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |
 | `Tools` | `BuildingOnly` | `AllTools` lets the mod reach the hoe and cultivator |
+| `ShowHammerGlow` | `true` | off if you would rather the tool stayed dark |
+| `ShowHammerSparks` | `true` | the motes, independent of the light |
+| `SparkRate` | `18` | motes per second; applied live while you watch |
+| `GlowHeadOffset` | `0.85` | where along the tool the glow sits, 0 grip to 1 tip |
+| `GlowColor` | pale blue | any colour; `GlowIntensity` and `GlowRange` tune it |
 | `ExtendReachToStation` | `true` | off keeps vanilla's arm's-length build range |
 
 ## Requirements and compatibility

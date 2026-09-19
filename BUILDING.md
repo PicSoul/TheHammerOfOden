@@ -57,7 +57,7 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 | Placement | `FreePlacement`, `SurfacePlacement`, `PlacementFreeze`, `PlacementGrid`, `PlacementReach`, `PlacementRules`, `PlacementOffset`, `Zooping`, `Clipping` |
 | Stations | `StationRange` |
 | Undo | `PlacementUndo` |
-| Tooling | `BuildTool` |
+| Status | `HammerGlow`, `BuildTool` |
 | Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
 | Shared | `ModConfig`, `GhostBounds`, `MainCamera`, `GizmoMaterial`, `LineStyle`, `Notify` |
 
@@ -96,6 +96,10 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 **Zoop spacing is measured in the prefix, not the postfix.** It comes from the ghost's size at its current rotation, and by the time `PlacePiece` has returned the ghost may already have been torn down and rebuilt.
 
 **Undo holds ZDOIDs, never references.** Objects are destroyed and recreated when their zone unloads, so a GameObject reference goes stale the first time the player walks away. The prefab name is stored beside each id and checked on the way back, so an id that has come to mean something else is skipped rather than removing a stranger's building.
+
+**`BuildTool` answers two different questions.** `AppliesNow` means *the mod is on and the tool is right* and gates every feature. `IsBuildingTool` means only *the tool is right*, and gates the master toggle and the glow — those have to keep working while the mod is off, or there is no way to switch it back on, while still keeping off the hoe. Collapsing them into one flag makes either the toggle unreachable or the hoe affected.
+
+**A ParticleSystem is stopped before it is configured.** It initialises on Awake and will fire a burst at default settings — large white squares — before any setup lands.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 
