@@ -18,6 +18,7 @@ namespace TheHammerOfOden
         private static void Prefix(
             Player __instance,
             bool takeInput,
+            float dt,
             PieceTable ___m_buildPieces,
             ref int ___m_manualSnapPoint,
             ref float ___m_maxPlaceDistance,
@@ -27,6 +28,23 @@ namespace TheHammerOfOden
             // Before any early return: the rotation transpiler reads this verdict from
             // inside Valheim's own code, on frames where input is not being taken.
             BuildTool.Evaluate(___m_buildPieces);
+
+            // The camera covers the hoe and cultivator as well as the hammer, so it sits
+            // above the hammer-only gate below. Losing the tool entirely puts it away.
+            if (ModConfig.IsEnabled && BuildTool.IsPlacementTool && takeInput
+                && !Hud.IsPieceSelectionVisible())
+            {
+                BuildCamera.HandleInput(__instance);
+                BuildCamera.Move(__instance, dt);
+            }
+            else if (!BuildTool.IsPlacementTool)
+            {
+                BuildCamera.Deactivate(__instance);
+            }
+
+            // Read every frame, on any tool, so putting the camera away or swapping to an axe
+            // takes the lent effect back rather than leaving it running.
+            Wisplight.Ensure(__instance);
 
             // Both of these run whether the mod is on or off - the toggle has to, or there
             // would be no way back once it was off, and the glow has to so it can take itself
@@ -67,6 +85,7 @@ namespace TheHammerOfOden
             ActiveSnapPair.Clear();
             FreePlacement.HandleInput(__instance);
             SurfacePlacement.HandleInput(__instance);
+
             PlacementFreeze.HandleInput(__instance);
             PlacementGrid.HandleInput(__instance);
             HandleNudge(__instance);
@@ -840,6 +859,82 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
+    /// Flies the camera instead of following the player.
+    /// </summary>
+    /// <remarks>
+    /// A prefix that skips vanilla outright rather than a postfix that moves the camera
+    /// afterwards: UpdateCamera does collision and smoothing work on its way to a position
+    /// that is then thrown away, and the smoothing fights anything written after it.
+    /// </remarks>
+    [HarmonyPatch(typeof(GameCamera), "UpdateCamera")]
+    internal static class GameCameraUpdatePatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(GameCamera __instance)
+        {
+            if (!ModConfig.IsEnabled || !BuildCamera.IsActive)
+            {
+                return true;
+            }
+
+            BuildCamera.ApplyTo(__instance);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Holds the character still while the camera is away.
+    /// </summary>
+    /// <remarks>
+    /// This gates movement and looking only. Placement input is read elsewhere, so you can
+    /// still build - which is the point of flying the camera somewhere in the first place.
+    /// </remarks>
+    [HarmonyPatch(typeof(PlayerController), "TakeInput")]
+    internal static class PlayerControllerTakeInputPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ref bool __result)
+        {
+            if (ModConfig.IsEnabled && BuildCamera.IsActive)
+            {
+                __result = false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Aims placement from the camera rather than from the player's head.
+    /// </summary>
+    /// <remarks>
+    /// Valheim aims from Character.m_eye, so lending the placement update the camera's eye
+    /// is the whole of it - no placement code needs to know the camera exists.
+    ///
+    /// A finalizer returns it, not a postfix, because a finalizer runs even when something
+    /// inside the method throws. Leaving the eye behind the camera after an exception would
+    /// put the player's attacks, interaction and hover text somewhere out in the air, and it
+    /// would be a puzzle to trace back to here.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), "UpdatePlacement")]
+    internal static class PlayerUpdatePlacementEyePatch
+    {
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.First)]
+        private static void Prefix(Transform ___m_eye)
+        {
+            if (ModConfig.IsEnabled)
+            {
+                BuildCamera.BorrowEye(___m_eye);
+            }
+        }
+
+        [HarmonyFinalizer]
+        private static void Finalizer(Transform ___m_eye)
+        {
+            BuildCamera.ReturnEye(___m_eye);
+        }
+    }
+
+    /// <summary>
     /// Notes which anchor a piece was built by, so the next one of its kind matches.
     /// </summary>
     /// <remarks>
@@ -1004,6 +1099,8 @@ namespace TheHammerOfOden
                 SurfacePlacement.Reset();
                 PlacementFreeze.Reset();
                 PlacementGrid.Reset();
+                BuildCamera.Deactivate(Player.m_localPlayer);
+                Wisplight.Remove();
                 Zooping.Clear();
                 RotationGizmo.Hide();
                 SnapPointMarkers.Hide();

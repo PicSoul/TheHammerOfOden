@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using BepInEx.Configuration;
+using UnityEngine;
 using System.Reflection;
 using System;
 using BepInEx;
@@ -140,6 +142,11 @@ namespace TheHammerOfOden
                 $"  master toggle: {ModConfig.MasterToggleKey.Value.MainKey}, "
                 + $"glow={ModConfig.ShowHammerGlow.Value}");
 
+            Logger.LogInfo(
+                $"  build camera: {ModConfig.BuildCameraKey.Value.MainKey}, "
+                + $"speed={ModConfig.CameraSpeed.Value}m/s, range={ModConfig.CameraRange.Value}m, "
+                + $"light={ModConfig.CameraLight.Value}");
+
             Logger.LogInfo($"  clipping: {ModConfig.Clipping.Value}");
 
             Logger.LogInfo(
@@ -151,6 +158,31 @@ namespace TheHammerOfOden
             Logger.LogInfo(
                 $"  gizmo: {(ModConfig.ShowGizmo.Value ? "on" : "off")}, "
                 + $"placement offset step={ModConfig.OffsetStep.Value}m");
+        }
+
+        /// <summary>
+        /// Watches for the mist diagnostic key.
+        /// </summary>
+        /// <remarks>
+        /// On the plugin rather than in the placement patches because the question it answers
+        /// is about holding an axe or a torch, neither of which is a build tool.
+        /// </remarks>
+        private void Update()
+        {
+            if (Player.m_localPlayer != null)
+            {
+                UpgradeGlowFix.Apply(Player.m_localPlayer);
+            }
+
+            KeyboardShortcut key = ModConfig.DebugMistKey?.Value ?? default(KeyboardShortcut);
+
+            if (key.MainKey != KeyCode.None
+                && Player.m_localPlayer != null
+                && ZInput.instance != null
+                && ZInput.GetKeyDown(key.MainKey, true))
+            {
+                MistDiagnostics.Dump(Player.m_localPlayer);
+            }
         }
 
         private void OnDestroy()

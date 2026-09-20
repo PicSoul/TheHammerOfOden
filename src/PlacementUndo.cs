@@ -226,7 +226,7 @@ namespace TheHammerOfOden
             {
                 float unitWeight = item.m_itemData.m_shared.m_weight;
 
-                int allowed = WeightAllows(player, inventory, unitWeight, remaining);
+                int allowed = Carrying.WeightAllows(player, unitWeight, remaining);
 
                 if (allowed >= remaining
                     && inventory.CanAddItem(item.gameObject, remaining)
@@ -236,7 +236,7 @@ namespace TheHammerOfOden
                 }
 
                 while (remaining > 0
-                    && WeightAllows(player, inventory, unitWeight, 1) >= 1
+                    && Carrying.WeightAllows(player, unitWeight, 1) >= 1
                     && inventory.CanAddItem(item.gameObject, 1)
                     && inventory.AddItem(item.gameObject, 1))
                 {
@@ -297,29 +297,6 @@ namespace TheHammerOfOden
             }
         }
 
-        /// <summary>
-        /// How many of an item the player can take before going over their carry weight.
-        /// </summary>
-        /// <remarks>
-        /// Weightless items are unlimited by this measure, and a player already over their
-        /// limit can take none - which is the right answer rather than an edge case, since
-        /// the rest simply goes on the ground instead.
-        /// </remarks>
-        private static int WeightAllows(Player player, Inventory inventory, float unitWeight, int wanted)
-        {
-            if (unitWeight <= 0f)
-            {
-                return wanted;
-            }
-
-            float spare = player.GetMaxCarryWeight() - inventory.GetTotalWeight();
-            if (spare <= 0f)
-            {
-                return 0;
-            }
-
-            return Mathf.Min(wanted, Mathf.FloorToInt(spare / unitWeight));
-        }
 
         internal static void Clear()
         {

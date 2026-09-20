@@ -49,6 +49,18 @@ namespace TheHammerOfOden
         /// </remarks>
         internal static bool IsBuildingTool { get; private set; } = true;
 
+        /// <summary>
+        /// Whether any placement tool is in hand at all, terrain tools included.
+        /// </summary>
+        /// <remarks>
+        /// A third question, because the build camera answers it differently from everything
+        /// else. Rotation, snapping and scaling mean nothing for a levelling operation, but
+        /// flying the camera to look at what you are about to flatten is just as useful with
+        /// a hoe as with a hammer - so the camera covers all three tools while the rest of
+        /// the mod stays on the hammer.
+        /// </remarks>
+        internal static bool IsPlacementTool { get; private set; }
+
         /// <summary>Whether the mod should act on the tool currently in hand.</summary>
         internal static bool AppliesNow { get; private set; } = true;
 
@@ -57,6 +69,7 @@ namespace TheHammerOfOden
         /// </summary>
         internal static void Evaluate(PieceTable table)
         {
+            IsPlacementTool = table != null;
             IsBuildingTool = Applies(table);
             AppliesNow = ModConfig.IsEnabled && IsBuildingTool;
         }

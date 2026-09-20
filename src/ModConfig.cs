@@ -128,6 +128,26 @@ namespace TheHammerOfOden
         internal static ConfigEntry<int> UndoDepth;
         internal static ConfigEntry<bool> UndoRefundsToInventory;
 
+        internal static ConfigEntry<KeyboardShortcut> BuildCameraKey;
+        internal static ConfigEntry<KeyboardShortcut> CameraUpKey;
+        internal static ConfigEntry<KeyboardShortcut> CameraDownKey;
+        internal static ConfigEntry<KeyboardShortcut> CameraBoostKey;
+        internal static ConfigEntry<float> CameraSpeed;
+        internal static ConfigEntry<float> CameraBoost;
+        internal static ConfigEntry<float> CameraRange;
+        internal static ConfigEntry<float> CameraSensitivity;
+        internal static ConfigEntry<bool> InvertCameraY;
+        internal static ConfigEntry<bool> CameraLight;
+        internal static ConfigEntry<float> CameraLightIntensity;
+        internal static ConfigEntry<float> CameraLightRange;
+        internal static ConfigEntry<bool> CameraPickup;
+        internal static ConfigEntry<float> CameraPickupRange;
+        internal static ConfigEntry<float> CameraPickupInterval;
+        internal static ConfigEntry<float> MistClearRange;
+        internal static ConfigEntry<bool> RequiresWisplight;
+        internal static ConfigEntry<bool> HideDemisterOrb;
+        internal static ConfigEntry<bool> QuietUpgradeGlow;
+
         internal static ConfigEntry<KeyboardShortcut> ZoopModifierKey;
         internal static ConfigEntry<int> ZoopLimit;
         internal static ConfigEntry<float> ZoopSpacing;
@@ -144,6 +164,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> ResetOnPieceChange;
         internal static ConfigEntry<bool> DebugLogging;
         internal static ConfigEntry<bool> DebugParticles;
+        internal static ConfigEntry<KeyboardShortcut> DebugMistKey;
 
         internal static bool IsEnabled => Enabled != null && Enabled.Value;
         internal static bool DebugEnabled => DebugLogging != null && DebugLogging.Value;
@@ -629,6 +650,105 @@ namespace TheHammerOfOden
                     + "great distance gets imprecise long before it gets useful.",
                     new AcceptableValueRange<float>(8f, 200f)));
 
+            BuildCameraKey = config.Bind("Build Camera", "BuildCameraKey",
+                new KeyboardShortcut(KeyCode.B),
+                "Detach the camera from your character and fly it around what you are building. "
+                + "Placement follows the camera, so you can put a piece where you could never "
+                + "have stood to aim at it. Your character stays where it is.");
+
+            CameraUpKey = config.Bind("Build Camera", "UpKey",
+                new KeyboardShortcut(KeyCode.Space), "Fly the camera up.");
+
+            CameraDownKey = config.Bind("Build Camera", "DownKey",
+                new KeyboardShortcut(KeyCode.LeftControl), "Fly the camera down.");
+
+            CameraBoostKey = config.Bind("Build Camera", "BoostKey",
+                new KeyboardShortcut(KeyCode.LeftShift), "Hold to fly faster.");
+
+            CameraSpeed = config.Bind("Build Camera", "Speed", 10f,
+                new ConfigDescription("Metres per second.",
+                    new AcceptableValueRange<float>(1f, 60f)));
+
+            CameraBoost = config.Bind("Build Camera", "BoostMultiplier", 3f,
+                new ConfigDescription("How much faster the boost key makes it.",
+                    new AcceptableValueRange<float>(1f, 10f)));
+
+            CameraRange = config.Bind("Build Camera", "Range", 40f,
+                new ConfigDescription(
+                    "How far the camera may get from your character, in metres. This is not an "
+                    + "arbitrary limit: Valheim keeps objects alive around your body, and a "
+                    + "camera beyond that either sees a half-built world or forces the game to "
+                    + "load a second one around the camera. The second is what makes other "
+                    + "build-camera mods expensive, and is deliberately not done here.",
+                    new AcceptableValueRange<float>(5f, 120f)));
+
+            CameraSensitivity = config.Bind("Build Camera", "Sensitivity", 2f,
+                new ConfigDescription("Mouse sensitivity while flying.",
+                    new AcceptableValueRange<float>(0.1f, 10f)));
+
+            InvertCameraY = config.Bind("Build Camera", "InvertY", false,
+                "Invert vertical mouse movement while flying.");
+
+            CameraLight = config.Bind("Build Camera", "Light", true,
+                "Carry a light with the camera, so you can see what you are building at night. "
+                + "Casts no shadows - a shadowed light this size is one of the most expensive "
+                + "things a scene can hold, and this is here to let you see.");
+
+            CameraLightIntensity = config.Bind("Build Camera", "LightIntensity", 1.2f,
+                new ConfigDescription("Brightness of the camera light.",
+                    new AcceptableValueRange<float>(0f, 8f)));
+
+            CameraLightRange = config.Bind("Build Camera", "LightRange", 20f,
+                new ConfigDescription("How far the camera light reaches, in metres.",
+                    new AcceptableValueRange<float>(2f, 80f)));
+
+            CameraPickup = config.Bind("Build Camera", "Pickup", true,
+                "Pick up loose items the camera passes over. Your carry weight is respected, "
+                + "which vanilla pickup does not do - a sweep you did not ask for should not "
+                + "leave you staggering.");
+
+            CameraPickupRange = config.Bind("Build Camera", "PickupRange", 8f,
+                new ConfigDescription("How far around the camera to collect from, in metres.",
+                    new AcceptableValueRange<float>(1f, 40f)));
+
+            CameraPickupInterval = config.Bind("Build Camera", "PickupInterval", 0.25f,
+                new ConfigDescription(
+                    "Seconds between sweeps. This is a cheap layer-masked query rather than a "
+                    + "scan of the scene, but there is no reason to run it every frame either.",
+                    new AcceptableValueRange<float>(0.05f, 2f)));
+
+            MistClearRange = config.Bind("Mistlands", "MistClearRange", 0f,
+                new ConfigDescription(
+                    "How far a wisplight clears Mistlands fog around you, in metres. 0 leaves it "
+                    + "exactly as Valheim has it, which is about 15.\n"
+                    + "Given in metres rather than as a multiple on purpose: the mist is pushed "
+                    + "aside by a force field, and a force field is a strong thing to make large. "
+                    + "A multiplier hides how big the result actually is - eight times a base you "
+                    + "cannot see is a hundred and twenty metres, which drags the whole sky about "
+                    + "rather than clearing a space to build in. Twenty-five to thirty is plenty.",
+                    new AcceptableValueRange<float>(0f, 60f)));
+
+            QuietUpgradeGlow = config.Bind("Mistlands", "QuietUpgradeGlow", true,
+                "Stop an upgraded item's glow from churning the Mistlands mist.\n"
+                + "Valheim's upgrade sparkle carries a particle force field reaching five "
+                + "metres, attached to your hand. The mist is a particle system, so the field "
+                + "shoves it about wherever you walk - hold an upgraded axe and the fog boils "
+                + "around you, hold a torch and it settles. The field is presumably meant to "
+                + "shape the glow's own sparkles, so only the field is switched off and the "
+                + "glow itself is left exactly as it was.");
+
+            HideDemisterOrb = config.Bind("Mistlands", "HideDemisterOrb", true,
+                "Hide the glowing wisp itself while keeping the mist it clears. The ball is the "
+                + "part that does nothing - the mist is moved by a force field, not by the thing "
+                + "you can see - and it is distracting in front of what you are building.");
+
+            RequiresWisplight = config.Bind("Mistlands", "RequiresWisplight", true,
+                "Keep Valheim's rule that clearing mist needs a wisplight. Turn this off and the "
+                + "mist clears while a build tool is in hand whether you have one or not.\n"
+                + "Detection is by status effect, not by item, so anything that grants mist "
+                + "vision counts - the wisplight itself, a backpack with one built in, or "
+                + "whatever a future mod adds - with no list of item names to keep up to date.");
+
             UndoKey = config.Bind("Undo", "UndoKey",
                 new KeyboardShortcut(KeyCode.Z, KeyCode.LeftControl),
                 "Take back the last thing you built - a whole run if you zooped, a single piece "
@@ -787,6 +907,13 @@ namespace TheHammerOfOden
                 "Report what a scaled piece's particle effects are doing - visibility, particle count "
                 + "and renderer bounds - so the cause of effects disappearing on large pieces can be "
                 + "identified rather than guessed at. Noisy; switch on only while investigating.");
+
+            DebugMistKey = config.Bind("Debug", "DebugMistKey",
+                new KeyboardShortcut(KeyCode.F10),
+                "Press to list every demister and particle force field near you, with what each "
+                + "one is set to. For working out what is acting on the Mistlands mist - hold "
+                + "one item, press it, hold another, press it, and compare. Costs a full scene "
+                + "search, so it runs only on the key press and never on a timer.");
 
             DebugLogging = config.Bind("Debug", "DebugLogging", false,
                 "Write placement diagnostics to the BepInEx log.");

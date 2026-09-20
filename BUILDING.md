@@ -58,6 +58,9 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 | Stations | `StationRange` |
 | Undo | `PlacementUndo` |
 | Status | `HammerGlow`, `BuildTool` |
+| Camera | `BuildCamera` |
+| Mistlands | `Wisplight`, `MistClearing`, `UpgradeGlowFix`, `MistDiagnostics` |
+| Shared rules | `Carrying` |
 | Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
 | Shared | `ModConfig`, `GhostBounds`, `MainCamera`, `GizmoMaterial`, `LineStyle`, `Notify` |
 
@@ -100,6 +103,16 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 **`BuildTool` answers two different questions.** `AppliesNow` means *the mod is on and the tool is right* and gates every feature. `IsBuildingTool` means only *the tool is right*, and gates the master toggle and the glow — those have to keep working while the mod is off, or there is no way to switch it back on, while still keeping off the hoe. Collapsing them into one flag makes either the toggle unreachable or the hoe affected.
 
 **A ParticleSystem is stopped before it is configured.** It initialises on Awake and will fire a burst at default settings — large white squares — before any setup lands.
+
+**The build camera lends out the eye, it does not move it.** Valheim aims placement from `Character.m_eye`, so the camera's transform is written into the eye for the length of `Player.UpdatePlacement` and put back by a **finalizer** — which runs even when something inside throws. Moving the eye outright would also move attacks, interaction and hover text.
+
+**The camera never shifts the world's reference point.** `ZNetScene.Update` creates and destroys objects around the player, and running it against a distant camera is what makes other build-camera mods expensive — the game then maintains two spheres of live objects and churns the difference every frame. The tether keeps the camera inside what is already loaded instead.
+
+**Sweeping uses a layer-masked `OverlapSphere` on a timer.** `Object.FindObjectsByType` walks every object in the scene; at Valheim's object counts, per frame, that alone is most of a frame budget.
+
+**The Mistlands mist is moved by `ParticleSystemForceField`s, and anything can own one.** Valheim's own `UpgraderGlow.prefab` carries one reaching 5m on your hand, which is why upgraded gear churns the fog and a torch does not. Only fields under a `UpgraderGlow` object are disabled — an item is entitled to a force field of its own, and taking them all would break something to fix something else.
+
+**Mist clearing is scoped to one object.** `Demister` is on Mistlands fires and torches too, each with its own range, so reaching them all through `Demister.Awake` turns every fire into a wide force field and the mist gets pushed from all sides at once. Our own demister is spawned from `SE_Demister.m_ballPrefab` and parked at the camera, the way the Mistwalker clears mist simply by existing.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 

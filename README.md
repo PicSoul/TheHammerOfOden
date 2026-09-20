@@ -18,6 +18,29 @@ Everything is rebindable in the config file.
 
 The hammer lights up and gives off a few slow motes while the mod is on, so you can see the state at a glance rather than scrolling to find out. The light reads well at night and washes out at noon; the motes show in any light. Read only while a build tool is in hand, which is the only time any of this applies.
 
+### Mistlands
+
+An upgraded item's glow carries a particle force field reaching five metres, attached to your hand. The Mistlands mist is a particle system, so that field shoves it about wherever you walk — hold an upgraded axe and the fog boils around you; hold a torch, which has no upgrade glow, and it settles. It's Valheim's own effect and almost certainly meant to shape the glow's *own* sparkles.
+
+`QuietUpgradeGlow` switches off just the field, leaving the glow exactly as it was. On by default.
+
+Separately, with the build camera flying you can clear mist around it without a wisplight — `RequiresWisplight = false`. Detection is by status effect rather than by item, so a wisplight, a backpack with one built in, or anything a future mod adds all count.
+
+### Build camera
+
+| Action | Control |
+|---|---|
+| Detach the camera and fly it | **B** |
+| Fly | your normal movement keys |
+| Up / down | **Space** / **Left Ctrl** |
+| Faster | hold **Left Shift** |
+
+Your character stays put and placement follows the camera, so you can put a piece where you could never have stood to aim at it — under a roof, over a cliff, or behind the wall you're building.
+
+It carries a light, and picks up loose items it passes over while respecting your carry weight, which vanilla pickup does not.
+
+The camera is tethered to you, 40m by default. That's not an arbitrary limit: Valheim keeps objects alive around your body, and a camera beyond that either sees a half-built world or forces the game to load a second one around the camera. The second is what makes other build-camera mods expensive, and isn't done here.
+
 ### Rotating
 
 | Action | Control |
@@ -207,7 +230,7 @@ The snap point comes from your own history rather than from the piece you clicke
 
 `BepInEx/config/com.pics0ul.valheim.thehammerofoden.cfg`
 
-Over a hundred settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `Copy`, `Free Placement`, `Surface Placement`, `Freeze`, `Grid`, `Zoop`, `Undo`, `Station Range`, `Placement Offset`, `Clipping`, `Scale` and `Debug`. Each carries a description in the file explaining what it is for, so the list below is only the handful worth knowing before you start:
+Around a hundred and forty settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `Copy`, `Free Placement`, `Surface Placement`, `Freeze`, `Grid`, `Zoop`, `Undo`, `Build Camera`, `Mistlands`, `Station Range`, `Placement Offset`, `Clipping`, `Scale` and `Debug`. Each carries a description in the file explaining what it is for, so the list below is only the handful worth knowing before you start:
 
 | Setting | Default | Why you might change it |
 |---|---|---|
@@ -228,6 +251,10 @@ Over a hundred settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `C
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |
 | `Tools` | `BuildingOnly` | `AllTools` lets the mod reach the hoe and cultivator |
+| `Build Camera Range` | `40` | how far the camera may get from you |
+| `Build Camera Pickup` | `true` | sweep up loose items the camera passes |
+| `QuietUpgradeGlow` | `true` | stops upgraded gear churning the Mistlands mist |
+| `RequiresWisplight` | `true` | off clears mist at the build camera without one |
 | `ShowHammerGlow` | `true` | off if you would rather the tool stayed dark |
 | `ShowHammerSparks` | `true` | the motes, independent of the light |
 | `SparkRate` | `18` | motes per second; applied live while you watch |
