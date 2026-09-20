@@ -101,6 +101,13 @@ namespace TheHammerOfOden
 
                 _orb = Object.Instantiate(prefab, BuildCamera.Position, Quaternion.identity);
                 HammerOfOdenPlugin.Info("[mist] placed our own demister at the camera.");
+
+                // Only where it means something. The demister follows the camera everywhere,
+                // but announcing it in the Meadows would be reporting on nothing.
+                if (player.GetCurrentBiome() == Heightmap.Biome.Mistlands)
+                {
+                    Notify.Show(player, "Demister: on");
+                }
             }
 
             _orb.transform.position = BuildCamera.Position;

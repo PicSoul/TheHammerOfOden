@@ -46,6 +46,11 @@ namespace TheHammerOfOden
             // takes the lent effect back rather than leaving it running.
             Wisplight.Ensure(__instance);
 
+            if (BuildTool.IsPlacementTool && takeInput && !Hud.IsPieceSelectionVisible())
+            {
+                DoorAccess.HandleUse(__instance);
+            }
+
             // Both of these run whether the mod is on or off - the toggle has to, or there
             // would be no way back once it was off, and the glow has to so it can take itself
             // down. Neither belongs on a terrain tool, so both ask about the tool rather than
@@ -869,6 +874,12 @@ namespace TheHammerOfOden
     [HarmonyPatch(typeof(GameCamera), "UpdateCamera")]
     internal static class GameCameraUpdatePatch
     {
+        private static readonly MethodInfo VanillaScroll = AccessTools.Method(
+            typeof(ZInput), nameof(ZInput.GetMouseScrollWheel));
+
+        private static readonly MethodInfo Substitute = AccessTools.Method(
+            typeof(GameCameraUpdatePatch), nameof(SubstituteScroll));
+
         [HarmonyPrefix]
         private static bool Prefix(GameCamera __instance)
         {
@@ -879,6 +890,71 @@ namespace TheHammerOfOden
 
             BuildCamera.ApplyTo(__instance);
             return false;
+        }
+
+        /// <summary>
+        /// Hides the wheel from the camera while it is being used for something else.
+        /// </summary>
+        /// <remarks>
+        /// With a piece selected the camera already ignores the wheel, so adjusting a
+        /// station's range looks right. With only the hammer in hand and nothing selected
+        /// there is no ghost, vanilla stops suppressing the zoom, and the same gesture walks
+        /// the camera in and out while it changes the range.
+        ///
+        /// Intercepting the read rather than putting the distance back afterwards: the
+        /// camera's position is computed from the distance inside this very method, so a
+        /// restore after the fact still shows one frame of the zoom before snapping back.
+        /// </remarks>
+        [HarmonyTranspiler]
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            List<CodeInstruction> codes = new List<CodeInstruction>(instructions);
+            int patched = 0;
+
+            // Backwards: inserting shifts every later index.
+            for (int i = codes.Count - 1; i >= 0; i--)
+            {
+                bool isScroll = (codes[i].opcode == OpCodes.Call || codes[i].opcode == OpCodes.Callvirt)
+                    && codes[i].operand is MethodInfo called
+                    && called == VanillaScroll;
+
+                if (!isScroll)
+                {
+                    continue;
+                }
+
+                codes.Insert(i + 1, new CodeInstruction(OpCodes.Call, Substitute));
+                patched++;
+            }
+
+            if (patched == 0)
+            {
+                HammerOfOdenPlugin.Error(
+                    "Could not find the camera's scroll wheel read, so the camera will zoom "
+                    + "while changing a station's build range. Nothing else is affected.");
+            }
+            else
+            {
+                HammerOfOdenPlugin.Debug($"Camera zoom: intercepted {patched} wheel read(s).");
+            }
+
+            return codes;
+        }
+
+        /// <summary>Called from patched IL, receiving the wheel movement vanilla read.</summary>
+        internal static float SubstituteScroll(float vanilla)
+        {
+            if (!ModConfig.IsEnabled || !BuildTool.IsBuildingTool)
+            {
+                return vanilla;
+            }
+
+            KeyboardShortcut shortcut = ModConfig.StationRangeKey.Value;
+
+            bool claimed = shortcut.MainKey != KeyCode.None
+                && ZInput.GetKey(shortcut.MainKey, true);
+
+            return claimed ? 0f : vanilla;
         }
     }
 

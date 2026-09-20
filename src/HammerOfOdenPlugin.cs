@@ -172,6 +172,9 @@ namespace TheHammerOfOden
             if (Player.m_localPlayer != null)
             {
                 UpgradeGlowFix.Apply(Player.m_localPlayer);
+                DoorAccess.HandleToggle(Player.m_localPlayer);
+                DoorAccess.AutoOpen(Player.m_localPlayer);
+                DoorAccess.AutoClose(Player.m_localPlayer);
             }
 
             KeyboardShortcut key = ModConfig.DebugMistKey?.Value ?? default(KeyboardShortcut);
@@ -182,6 +185,15 @@ namespace TheHammerOfOden
                 && ZInput.GetKeyDown(key.MainKey, true))
             {
                 MistDiagnostics.Dump(Player.m_localPlayer);
+            }
+
+            KeyboardShortcut patches = ModConfig.DebugPatchesKey?.Value ?? default(KeyboardShortcut);
+
+            if (patches.MainKey != KeyCode.None
+                && ZInput.instance != null
+                && ZInput.GetKeyDown(patches.MainKey, true))
+            {
+                PatchInspector.Dump();
             }
         }
 

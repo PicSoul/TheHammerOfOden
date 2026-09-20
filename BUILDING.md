@@ -59,6 +59,8 @@ Patch classes are applied individually rather than with `PatchAll`, so one bad t
 | Undo | `PlacementUndo` |
 | Status | `HammerGlow`, `BuildTool` |
 | Camera | `BuildCamera` |
+| Doors | `DoorAccess` |
+| Diagnostics | `PatchInspector`, `MistDiagnostics`, `ParticleDiagnostics` |
 | Mistlands | `Wisplight`, `MistClearing`, `UpgradeGlowFix`, `MistDiagnostics` |
 | Shared rules | `Carrying` |
 | Scale | `ScaleState`, `Scalable`, `ScalePersistence`, `ScaledRanges` |
@@ -113,6 +115,10 @@ Several decisions here look arbitrary and are not. Each is explained where it li
 **The Mistlands mist is moved by `ParticleSystemForceField`s, and anything can own one.** Valheim's own `UpgraderGlow.prefab` carries one reaching 5m on your hand, which is why upgraded gear churns the fog and a torch does not. Only fields under a `UpgraderGlow` object are disabled — an item is entitled to a force field of its own, and taking them all would break something to fix something else.
 
 **Mist clearing is scoped to one object.** `Demister` is on Mistlands fires and torches too, each with its own range, so reaching them all through `Demister.Awake` turns every fire into a wide force field and the mist gets pushed from all sides at once. Our own demister is spawned from `SE_Demister.m_ballPrefab` and parked at the camera, the way the Mistwalker clears mist simply by existing.
+
+**A door's swing side comes from the direction passed to `Door.Open`.** Vanilla passes `(character.position - door.position).normalized` and dots it against the door's forward; pass the opposite and every door opens into the player's face. Neighbouring doors are opened as a group with one shared direction, or two leaves approached at an angle disagree about which way to swing.
+
+**Never write to a `Dictionary` while enumerating it, including to a key already present.** That does not change the count and still invalidates the enumerator under Unity's Mono, though newer .NET permits it. `DoorAccess.AutoClose` walks a snapshot of the keys.
 
 **Bounds ignore particle renderers.** A charcoal kiln was otherwise measured against its smoke plume.
 

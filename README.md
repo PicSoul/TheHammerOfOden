@@ -26,6 +26,23 @@ An upgraded item's glow carries a particle force field reaching five metres, att
 
 Separately, with the build camera flying you can clear mist around it without a wisplight — `RequiresWisplight = false`. Detection is by status effect rather than by item, so a wisplight, a backpack with one built in, or anything a future mod adds all count.
 
+### Doors
+
+| Action | Control |
+|---|---|
+| Auto-open doors on/off | **K** |
+| Open the door you're looking at, while building | your normal use key |
+
+Vanilla switches interaction off entirely while a build tool is out — right for chests and crafting stations, which you'd trigger by accident lining up a piece, and maddening for the door between you and more wood. So doors, and only doors, stay usable.
+
+Auto-open is off by default and works whatever you're holding. Doors open as you come within 5m and close again once you're 8m away for two seconds.
+
+Both halves live here on purpose. An opener and a closer that each know only distances will fight over any door you stand beside — one sees you near enough to open, the other far enough to close — and making two separate mods agree means tuning thresholds in both until they happen not to overlap. Owning both ends means the doors this opened are *remembered*, so closing them again isn't a guess. A door you opened by hand and left open is never touched.
+
+Neighbouring doors are opened as one, with a single swing direction measured from the middle of the pair. Nothing in the game ties the halves of a double door together — they're just two doors standing next to each other — so `DoorPairDistance` is how they're recognised.
+
+**If you use another mod's auto-close, turn one of them off.**
+
 ### Build camera
 
 | Action | Control |
@@ -230,7 +247,7 @@ The snap point comes from your own history rather than from the piece you clicke
 
 `BepInEx/config/com.pics0ul.valheim.thehammerofoden.cfg`
 
-Around a hundred and forty settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `Copy`, `Free Placement`, `Surface Placement`, `Freeze`, `Grid`, `Zoop`, `Undo`, `Build Camera`, `Mistlands`, `Station Range`, `Placement Offset`, `Clipping`, `Scale` and `Debug`. Each carries a description in the file explaining what it is for, so the list below is only the handful worth knowing before you start:
+Around a hundred and fifty settings across `General`, `Rotation`, `Snap Points`, `Gizmo`, `Copy`, `Free Placement`, `Surface Placement`, `Freeze`, `Grid`, `Zoop`, `Undo`, `Build Camera`, `Doors`, `Mistlands`, `Station Range`, `Placement Offset`, `Clipping`, `Scale` and `Debug`. Each carries a description in the file explaining what it is for, so the list below is only the handful worth knowing before you start:
 
 | Setting | Default | Why you might change it |
 |---|---|---|
@@ -255,6 +272,8 @@ Around a hundred and forty settings across `General`, `Rotation`, `Snap Points`,
 | `Build Camera Pickup` | `true` | sweep up loose items the camera passes |
 | `QuietUpgradeGlow` | `true` | stops upgraded gear churning the Mistlands mist |
 | `RequiresWisplight` | `true` | off clears mist at the build camera without one |
+| `AutoOpenDoors` | `false` | doors open as you approach; **K** toggles it in game |
+| `AutoCloseDoors` | `true` | closes only the doors auto-open opened |
 | `ShowHammerGlow` | `true` | off if you would rather the tool stayed dark |
 | `ShowHammerSparks` | `true` | the motes, independent of the light |
 | `SparkRate` | `18` | motes per second; applied live while you watch |
