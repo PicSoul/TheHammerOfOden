@@ -163,6 +163,15 @@ namespace TheHammerOfOden
             if (solid > 1)
             {
                 reason = "is built from " + solid + " colliders, so it has moving or working parts";
+
+                // Printed because "two colliders" is the refusal most likely to be wrong, and the
+                // numbers say at a glance whether they are two parts or one shape counted twice.
+                foreach (Bounds seen in volumes)
+                {
+                    HammerOfOdenPlugin.Debug(
+                        $"    volume centre {seen.center.ToString("0.###")} size {seen.size.ToString("0.###")}");
+                }
+
                 return false;
             }
 

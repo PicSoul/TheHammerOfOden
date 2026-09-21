@@ -174,8 +174,16 @@ namespace TheHammerOfOden
 
             // Automatic, not the anchor last used for this kind of piece. Recalling one is for
             // laying a run of something; the piece being edited already stands where it stands.
-            try { ManualSnapPoint(player) = -1; }
-            catch (System.Exception ex) { HammerOfOdenPlugin.Debug("Could not reset the snap anchor: " + ex.Message); }
+            try
+            {
+                int was = ManualSnapPoint(player);
+                ManualSnapPoint(player) = -1;
+                HammerOfOdenPlugin.Debug($"Edit set the snap anchor to automatic (was {was}).");
+            }
+            catch (System.Exception ex)
+            {
+                HammerOfOdenPlugin.Debug("Could not reset the snap anchor: " + ex.Message);
+            }
 
             RotationState.MatchPiece(piece);
             ScaleState.MatchPiece(piece);

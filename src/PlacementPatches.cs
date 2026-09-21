@@ -1298,10 +1298,12 @@ namespace TheHammerOfOden
             if (PlacementEdit.IsEditing)
             {
                 ___m_manualSnapPoint = -1;
+                HammerOfOdenPlugin.Debug("Ghost rebuilt during an edit; snap anchor left automatic.");
             }
             else
             {
                 SnapPointMemory.Restore(___m_placementGhost, ref ___m_manualSnapPoint);
+                HammerOfOdenPlugin.Debug($"Ghost rebuilt; snap anchor recalled as {___m_manualSnapPoint}.");
             }
 
             PlacementOffset.Reset();
