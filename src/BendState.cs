@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TheHammerOfOden
 {
@@ -22,6 +22,11 @@ namespace TheHammerOfOden
     /// piece's thickness, or towards its width. For a wall those are a round tower wall and an
     /// arch respectively, and both are things people build. Thinner first, because that is the
     /// one that bends furthest before the inside of the curve meets itself.
+    ///
+    /// The angle runs both ways from straight. The direction key picks which axis the piece
+    /// curves towards; the sign picks which way along it. Those are different questions, and
+    /// with only one of them a beam could arch upwards but never sag, and a wall could wrap one
+    /// way round a tower but not the other. Together they reach all four.
     /// </remarks>
     internal static class BendState
     {
@@ -75,7 +80,8 @@ namespace TheHammerOfOden
             int rise = RiseFor(piece);
             Vector3 size = BendDeformer.Size(piece);
 
-            return $"{_degrees:0}° along {Name(axis)} ({size[axis]:0.#}m), curving {Name(rise)}";
+            string way = _degrees >= 0f ? "+" : "-";
+            return $"{_degrees:0}° along {Name(axis)} ({size[axis]:0.#}m), curving {way}{Name(rise)}";
         }
 
         private static string Name(int axis)
@@ -106,11 +112,13 @@ namespace TheHammerOfOden
             float safe = BendDeformer.MaximumDegrees(ghost, AxisFor(ghost), RiseFor(ghost));
             float limit = Mathf.Min(Mathf.Clamp(ModConfig.BendMaximum.Value, 0f, 180f), safe);
 
-            float wanted = Mathf.Clamp(_degrees + Mathf.Sign(scroll) * step, 0f, limit);
+            // Both ways from straight. The fold-through ceiling is a property of the curve's
+            // radius, which does not care which way it curves, so the same figure bounds both.
+            float wanted = Mathf.Clamp(_degrees + Mathf.Sign(scroll) * step, -limit, limit);
 
             if (Mathf.Approximately(wanted, _degrees))
             {
-                if (scroll > 0f && _degrees >= limit - 0.01f)
+                if (Mathf.Abs(_degrees) >= limit - 0.01f)
                 {
                     Notify.Show(player, $"Bend at its limit for this piece ({limit:0}°)");
                 }
@@ -133,7 +141,7 @@ namespace TheHammerOfOden
             if (ghost != null && IsBent)
             {
                 float safe = BendDeformer.MaximumDegrees(ghost, AxisFor(ghost), RiseFor(ghost));
-                _degrees = Mathf.Min(_degrees, safe);
+                _degrees = Mathf.Clamp(_degrees, -safe, safe);
             }
 
             Notify.Show(player, ghost != null ? "Bend " + Describe(ghost) : "Bend direction swapped");

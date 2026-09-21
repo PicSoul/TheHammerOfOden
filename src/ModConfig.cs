@@ -711,7 +711,7 @@ namespace TheHammerOfOden
                 "Degrees of bend per notch of the wheel.");
 
             BendMaximum = Synced(config.Bind("Bend", "Maximum", 180f,
-                "How far a piece may be bent, in degrees from end to end. 180 is a half circle: a "
+                "How far a piece may be bent, in degrees from end to end, in either direction - the wheel runs both ways from straight, so a beam can arch or sag and a wall can wrap either way round a tower. 180 is a half circle: a "
                 + "straight beam becomes an arch with its ends pointing straight up, rising about "
                 + "0.318 of its own length. That is the practical ceiling - an arc's rise peaks at "
                 + "0.362 of its length at around 267 degrees, by which point it has curled back "
