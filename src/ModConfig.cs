@@ -123,6 +123,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> BendStep;
         internal static ConfigEntry<float> BendMaximum;
         internal static ConfigEntry<int> BendMinimumSlices;
+        internal static ConfigEntry<float> BendSegment;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -720,6 +721,14 @@ namespace TheHammerOfOden
                 + "0.362 of its length at around 267 degrees, by which point it has curled back "
                 + "through itself and is a ring rather than a building piece."));
 
+            BendSegment = config.Bind("Bend", "SegmentLength", 0.15f,
+                "How finely a piece is cut up before it is curved, in metres along the bend. What "
+                + "decides whether something looks curved is not how many vertices it has but how far "
+                + "apart they are: a wall's uprights are short along the bend and ride the arc almost "
+                + "rigidly, while its rails span the whole piece and have to curve across all of it. "
+                + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
+                + "metre piece.");
+
             BendMinimumSlices = config.Bind("Bend", "MinimumSlices", 3,
                 "How many rings of vertices a mesh needs along the bend before it is curved rather "
                 + "than hidden. A deformer can only move vertices that exist: a coarse stand-in mesh "
@@ -758,7 +767,7 @@ namespace TheHammerOfOden
                 + "fade: it treats alpha as a cutout, so recolouring the piece leaves it just as "
                 + "solid. Turn this off to keep the piece's real materials and only tint it.");
 
-            EditGhostBoxColor = config.Bind("Edit", "EditGhostColour", new Color(0.3f, 1f, 0.45f, 0.35f),
+            EditGhostBoxColor = config.Bind("Edit", "EditGhostColour", new Color(0.3f, 1f, 0.45f, 0.18f),
                 "Colour the piece being edited is drawn in. Green by default so it cannot be confused "
                 + "with the blue the hammer paints on whatever it is pointed at. Raise the alpha to "
                 + "make it more solid, lower it to see further past it.");

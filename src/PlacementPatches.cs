@@ -1288,7 +1288,21 @@ namespace TheHammerOfOden
             SnapPointOrder.Apply(___m_placementGhost);
 
             // After AttachTo, because the remembered anchor may be one we just created.
-            SnapPointMemory.Restore(___m_placementGhost, ref ___m_manualSnapPoint);
+            //
+            // Not while editing. Remembering an anchor is for laying a run of the same piece,
+            // where the last one you used is almost certainly the one you want again. Editing
+            // is the opposite: the piece already stands somewhere, you are adjusting it where
+            // it is, and an anchor recalled from whatever you were building an hour ago drags
+            // it somewhere else entirely. Automatic picks the nearest, which is at worst a
+            // guess about a piece you are looking at rather than a guess about your history.
+            if (PlacementEdit.IsEditing)
+            {
+                ___m_manualSnapPoint = -1;
+            }
+            else
+            {
+                SnapPointMemory.Restore(___m_placementGhost, ref ___m_manualSnapPoint);
+            }
 
             PlacementOffset.Reset();
             PlacementFreeze.Reset();

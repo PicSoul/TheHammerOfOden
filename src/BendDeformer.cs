@@ -90,6 +90,8 @@ namespace TheHammerOfOden
         private static int _appliedAxis = -1;
         private static int _appliedRise = -1;
 
+        private static int _densifiedFor = -1;
+
         private static Vector3 _min;
         private static Vector3 _max;
         private static bool _measured;
@@ -198,6 +200,7 @@ namespace TheHammerOfOden
             }
 
             HoldDetail(piece);
+            Densify(piece, axis);
             Bend(piece, degrees * Mathf.Deg2Rad, axis, rise);
         }
 
@@ -219,6 +222,7 @@ namespace TheHammerOfOden
             _appliedAngle = float.NaN;
             _appliedAxis = -1;
             _appliedRise = -1;
+            _densifiedFor = -1;
             _measured = false;
         }
 
@@ -419,6 +423,60 @@ namespace TheHammerOfOden
         /// fits a wall whose planks curve while its rails stay straight: same maths, same piece,
         /// different subdivision.
         /// </remarks>
+        /// <summary>
+        /// Gives every mesh enough vertices along the bend to curve, once per axis.
+        /// </summary>
+        /// <remarks>
+        /// Done here rather than at capture because the axis is not known until something is
+        /// actually bent, and subdividing along the wrong one would be wasted work and wasted
+        /// memory. Repeated for a different axis, which costs one rebuild on the rare occasion
+        /// the direction is changed mid-piece.
+        /// </remarks>
+        private static void Densify(GameObject piece, int axis)
+        {
+            if (_densifiedFor == axis)
+            {
+                return;
+            }
+
+            _densifiedFor = axis;
+
+            Transform root = piece.transform;
+            float segment = Mathf.Max(0.02f, ModConfig.BendSegment.Value);
+            int rebuilt = 0;
+
+            foreach (Deformed entry in Active)
+            {
+                if (entry.Filter == null || entry.Original == null)
+                {
+                    continue;
+                }
+
+                Matrix4x4 toPiece = root.worldToLocalMatrix * entry.Filter.transform.localToWorldMatrix;
+
+                Mesh dense = MeshSubdivider.Subdivide(entry.Original, toPiece, axis, segment);
+                if (dense == null)
+                {
+                    continue;
+                }
+
+                if (entry.Working != null)
+                {
+                    Object.Destroy(entry.Working);
+                }
+
+                entry.Working = dense;
+                entry.Source = dense.vertices;
+                rebuilt++;
+            }
+
+            if (rebuilt > 0)
+            {
+                HammerOfOdenPlugin.Debug(
+                    $"Bend subdivided {rebuilt} mesh(es) to {segment:0.##}m segments along the bend.");
+            }
+        }
+
         private static void HideIfItCannotCurve(Deformed entry, Transform root, int axis)
         {
             Transform local = entry.Filter.transform;
