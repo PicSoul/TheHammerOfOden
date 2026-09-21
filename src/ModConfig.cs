@@ -739,12 +739,13 @@ namespace TheHammerOfOden
                 + "game recalculates support in that window. It is short and the collision comes "
                 + "straight back, but turn this off if you would rather not risk it.");
 
-            EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.18f, 0.22f, 0.32f, 1f),
-                "How the piece being edited is drawn, so it shows where it stands without being "
-                + "mistaken for something solid. Valheim's piece shader is opaque, so alpha here "
-                + "does nothing - a piece is made to recede by darkening it rather than by making "
-                + "it see-through. Applied through the game's own per-object material system, so "
-                + "no other piece in the world changes.");
+            EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.55f, 0.7f, 1f, 0.5f),
+                "How the piece being edited is drawn: faint enough to see past, solid enough to show "
+                + "where it still stands. The alpha does work - it only ever looked as though it did "
+                + "not, because the hammer's own highlight was overwriting this several times a second "
+                + "and wiping it a fifth of a second later. Lower the alpha to fade it further; at "
+                + "0.25 it disappears altogether. Applied through the game's own per-object material "
+                + "system, so no other piece in the world changes.");
 
             EditGhostGlow = config.Bind("Edit", "EditGhostGlow", new Color(0.10f, 0.16f, 0.28f, 1f),
                 "A faint light of its own for the piece being edited, which is what stops the "

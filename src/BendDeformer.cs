@@ -315,7 +315,51 @@ namespace TheHammerOfOden
                 entry.Working.RecalculateBounds();
 
                 entry.Filter.sharedMesh = entry.Working;
+
+                ReportDetail(entry, root, axis, length);
             }
+        }
+
+        /// <summary>
+        /// How many places along the bend axis a mesh actually has vertices.
+        /// </summary>
+        /// <remarks>
+        /// A deformer can only move vertices that exist. A plain box has its eight corners and
+        /// nothing in between, so bending it lifts the corners onto the arc and leaves the edges
+        /// running dead straight between them - which does not read as a gentle curve, it reads
+        /// as not having bent at all. A mesh with loops along its length curves; a mesh with two
+        /// slices cannot, however correct the arithmetic.
+        ///
+        /// That is the difference this measures, and it is the only remaining explanation that
+        /// fits a wall whose planks curve while its rails stay straight: same maths, same piece,
+        /// different subdivision.
+        /// </remarks>
+        private static void ReportDetail(Deformed entry, Transform root, int axis, float length)
+        {
+            if (!ModConfig.DebugEnabled)
+            {
+                return;
+            }
+
+            Transform local = entry.Filter.transform;
+
+            // Bucketed at a centimetre: exact float equality would count a slice twice for
+            // rounding alone, and a centimetre is far finer than any curve needs.
+            HashSet<int> slices = new HashSet<int>();
+            foreach (Vector3 vertex in entry.Source)
+            {
+                float v = root.InverseTransformPoint(local.TransformPoint(vertex))[axis];
+                slices.Add(Mathf.RoundToInt(v * 100f));
+            }
+
+            Renderer renderer = entry.Filter.GetComponent<Renderer>();
+            bool drawn = entry.Filter.gameObject.activeInHierarchy
+                && renderer != null && renderer.enabled;
+
+            HammerOfOdenPlugin.Debug(
+                $"    {(drawn ? "DRAWN " : "hidden")} {entry.Filter.name}: "
+                + $"{entry.Source.Length} verts in {slices.Count} slice(s) along the bend"
+                + (slices.Count <= 2 ? "  <- too few to curve" : string.Empty));
         }
 
         /// <summary>
