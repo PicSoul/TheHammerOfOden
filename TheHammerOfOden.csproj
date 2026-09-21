@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!--
     Machine-specific paths live in Local.props, which is gitignored.
@@ -66,6 +66,20 @@
     </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule">
       <HintPath>$(ValheimManaged)\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Needed by the vendored ServerSync/ConfigSync.cs, which draws its own
+         "config is locked by the server" notice. -->
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(ValheimManaged)\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ValheimManaged)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ValheimManaged)\UnityEngine.UIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="BepInEx">

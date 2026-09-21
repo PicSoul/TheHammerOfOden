@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using BepInEx.Configuration;
 using UnityEngine;
 using System.Reflection;
@@ -6,6 +6,7 @@ using System;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using ServerSync;
 
 namespace TheHammerOfOden
 {
@@ -18,6 +19,28 @@ namespace TheHammerOfOden
 
         private static ManualLogSource _logger;
         private Harmony _harmony;
+
+        /// <summary>
+        /// Lets a server decide the settings that govern what the world allows, and leaves the
+        /// rest to each player.
+        /// </summary>
+        /// <remarks>
+        /// ModRequired is false on purpose. This is a building mod: a player without it can
+        /// still play on the same server perfectly well, just with vanilla placement, and
+        /// turning that into a kick would be rude for no gain. The Mark of Oden sets it true
+        /// because there the mod changes how creatures behave, and a client that disagreed
+        /// about that would see a different world.
+        ///
+        /// On a server without the mod, and in single player, nothing is pushed and every value
+        /// stays exactly as the config file has it.
+        /// </remarks>
+        private readonly ConfigSync _configSync = new ConfigSync(PluginGuid)
+        {
+            DisplayName = PluginName,
+            CurrentVersion = PluginVersion,
+            MinimumRequiredVersion = PluginVersion,
+            ModRequired = false
+        };
 
         /// <summary>
         /// Patches that did not apply, so the player can be told rather than left guessing.
@@ -38,7 +61,7 @@ namespace TheHammerOfOden
         {
             _logger = Logger;
 
-            ModConfig.Bind(Config);
+            ModConfig.Bind(Config, _configSync);
 
             _harmony = new Harmony(PluginGuid);
             ApplyPatches();

@@ -1,4 +1,5 @@
-using BepInEx.Configuration;
+﻿using BepInEx.Configuration;
+using ServerSync;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -193,8 +194,58 @@ namespace TheHammerOfOden
         /// </remarks>
         internal static float StepDegrees => 360f / Mathf.Max(2, SnapDivisions.Value);
 
-        internal static void Bind(ConfigFile config)
+        /// <summary>
+        /// Whether the settings the server decides are actually enforced on clients.
+        ///
+        /// Synchronising a value and enforcing it are two different things. Without this, a
+        /// server hands its values to clients on connect and a client may still edit them
+        /// afterwards - which is the right default for a friendly server, where the sync is a
+        /// convenience rather than a rule. Turning it on makes those settings read-only for
+        /// everyone but an admin, which is what a public server wants.
+        ///
+        /// Only an admin can change it, because it is itself a synced setting and the server
+        /// is the one that decides.
+        /// </summary>
+        public static ConfigEntry<bool> LockServerSettings;
+
+        private static ConfigSync _sync;
+
+        /// <summary>
+        /// Marks a setting as one the server decides.
+        ///
+        /// The split is between what the world allows and what you happen to like looking at.
+        /// How far you can reach, how large a piece may be scaled, how many pieces one zoop may
+        /// lay and whether undo hands the materials back are all things that would let one player
+        /// build under different rules from everyone else, so a server gets to set them for the
+        /// whole session. Keys, colours, marker sizes, camera speed and every other matter of
+        /// taste stay yours, because a server has no business choosing them and players would
+        /// rightly resent it if one did.
+        ///
+        /// Single player and a server without the mod both leave every value exactly as the
+        /// config file has it, so nothing here changes anything for a solo game.
+        /// </summary>
+        private static ConfigEntry<T> Synced<T>(ConfigEntry<T> entry)
         {
+            if (_sync != null)
+            {
+                SyncedConfigEntry<T> synced = _sync.AddConfigEntry(entry);
+                synced.SynchronizedConfig = true;
+            }
+
+            return entry;
+        }
+
+        internal static void Bind(ConfigFile config, ConfigSync sync = null)
+        {
+            _sync = sync;
+
+            LockServerSettings = config.Bind("Server", "LockSettings", false,
+                "Enforce the server's values for the settings it decides, rather than only "
+                + "handing them out. Off means a client may still change them afterwards, which "
+                + "suits a server among friends; on makes them read-only for everyone but an "
+                + "admin. Ignored in single player and on a server without this mod.");
+            if (sync != null) { sync.AddLockingConfigEntry(LockServerSettings); }
+
             Enabled = config.Bind("General", "Enabled", true,
                 "Master switch. Turn off to leave placement entirely to the vanilla game.");
 
@@ -293,13 +344,13 @@ namespace TheHammerOfOden
                 + "be resized reset the scale to normal instead, so copying a chest does not leave a "
                 + "stretched wall waiting behind it.");
 
-            FreePlacement = config.Bind("Free Placement", "Mode", FreePlacementMode.Toggle,
+            FreePlacement = Synced(config.Bind("Free Placement", "Mode", FreePlacementMode.Toggle,
                 new ConfigDescription(
                     "Who controls free placement (no snap attraction, and terrain pieces freed from ground height).\n"
                     + "Vanilla: Valheim's own behaviour, held with AltPlace (Left Shift). Use this if you have "
                     + "rebound XAxisKey away from Left Shift.\n"
                     + "Hold: hold FreePlacementKey instead, leaving Left Shift free for pitch.\n"
-                    + "Toggle: tap FreePlacementKey to turn it on and off."));
+                    + "Toggle: tap FreePlacementKey to turn it on and off.")));
 
             FreePlacementKey = config.Bind("Free Placement", "FreePlacementKey",
                 new KeyboardShortcut(KeyCode.O),
@@ -546,7 +597,7 @@ namespace TheHammerOfOden
             ScaleResetKey = config.Bind("Scale", "ResetKey", new KeyboardShortcut(KeyCode.Keypad5),
                 "Return the piece to its normal size.");
 
-            ScaleRestrictions = config.Bind("Scale", "Restrictions", ScaleRestriction.ProductionStations,
+            ScaleRestrictions = Synced(config.Bind("Scale", "Restrictions", ScaleRestriction.ProductionStations,
                 new ConfigDescription(
                     "Which pieces are left out of resizing. "
                     + "ProductionStations: crafting stations, smelters, kilns, cooking stations, "
@@ -555,24 +606,24 @@ namespace TheHammerOfOden
                     + "else, including chests, doors, portals, torches and station add-ons, can be "
                     + "resized. "
                     + "AnythingInteractive: also leaves out anything you can use at all. "
-                    + "Nothing: no restriction."));
+                    + "Nothing: no restriction.")));
 
-            RangeGrowth = config.Bind("Scale", "RangeGrowth", 1f,
+            RangeGrowth = Synced(config.Bind("Scale", "RangeGrowth", 1f,
                 new ConfigDescription(
                     "How much a resized piece's detection ranges grow. A portal only lights its effect "
                     + "when a player is within a fixed distance of it, and that distance has to grow "
                     + "with the piece or the effect stops working - but only by as much as the piece's "
                     + "surface moved outward, not by the whole scale factor. 1 matches the growth in "
                     + "size; lower keeps ranges tighter, 0 leaves them at vanilla values.",
-                    new AcceptableValueRange<float>(0f, 3f)));
+                    new AcceptableValueRange<float>(0f, 3f))));
 
-            ScaleMaxWithParticles = config.Bind("Scale", "MaximumWithParticles", 5f,
+            ScaleMaxWithParticles = Synced(config.Bind("Scale", "MaximumWithParticles", 5f,
                 new ConfigDescription(
                     "A separate ceiling for pieces that carry particle effects, such as portals and "
                     + "torches. At the default it matches Maximum and so does nothing; it is here as "
                     + "an escape hatch for a modded piece whose effects misbehave when resized, since "
                     + "a piece can gate its own effects on distances this mod knows nothing about.",
-                    new AcceptableValueRange<float>(1f, 20f)));
+                    new AcceptableValueRange<float>(1f, 20f))));
 
             ScaleRepeatDelay = config.Bind("Scale", "RepeatDelay", 0.35f,
                 new ConfigDescription(
@@ -584,11 +635,11 @@ namespace TheHammerOfOden
                 new ConfigDescription("Seconds between steps while a scale key is held.",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
 
-            ScaleParticles = config.Bind("Scale", "ScaleParticles", true,
+            ScaleParticles = Synced(config.Bind("Scale", "ScaleParticles", true,
                 "Draw a piece's particle effects larger along with its geometry. Only the particle "
                 + "size changes; the space they move through is deliberately left alone, because "
                 + "scaling that too throws them metres past the piece and the effect appears to "
-                + "vanish when you stand near it.");
+                + "vanish when you stand near it."));
 
             ScaleStep = config.Bind("Scale", "Step", 0.05f,
                 new ConfigDescription(
@@ -596,13 +647,13 @@ namespace TheHammerOfOden
                     + "shrinking returns to where you started.",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
 
-            ScaleMin = config.Bind("Scale", "Minimum", 0.2f,
+            ScaleMin = Synced(config.Bind("Scale", "Minimum", 0.2f,
                 new ConfigDescription("Smallest multiple of a piece's normal size.",
-                    new AcceptableValueRange<float>(0.05f, 1f)));
+                    new AcceptableValueRange<float>(0.05f, 1f))));
 
-            ScaleMax = config.Bind("Scale", "Maximum", 5f,
+            ScaleMax = Synced(config.Bind("Scale", "Maximum", 5f,
                 new ConfigDescription("Largest multiple of a piece's normal size.",
-                    new AcceptableValueRange<float>(1f, 20f)));
+                    new AcceptableValueRange<float>(1f, 20f))));
 
             ResetScaleOnPieceChange = config.Bind("Scale", "ResetOnPieceChange", true,
                 "Return to normal size when you select a different piece. Off keeps your scale across "
@@ -624,17 +675,17 @@ namespace TheHammerOfOden
                 + "at. Requires the hammer out, since that is when the scroll wheel belongs to "
                 + "building. Left Alt would be the obvious choice and is taken here by roll.");
 
-            StationRangeStep = config.Bind("Station Range", "Step", 1f,
+            StationRangeStep = Synced(config.Bind("Station Range", "Step", 1f,
                 new ConfigDescription("Metres added or removed per scroll click.",
-                    new AcceptableValueRange<float>(0.25f, 10f)));
+                    new AcceptableValueRange<float>(0.25f, 10f))));
 
-            StationRangeMin = config.Bind("Station Range", "Minimum", 2f,
+            StationRangeMin = Synced(config.Bind("Station Range", "Minimum", 2f,
                 new ConfigDescription("Smallest a station's build range may be set to.",
-                    new AcceptableValueRange<float>(1f, 50f)));
+                    new AcceptableValueRange<float>(1f, 50f))));
 
-            StationRangeMax = config.Bind("Station Range", "Maximum", 100f,
+            StationRangeMax = Synced(config.Bind("Station Range", "Maximum", 100f,
                 new ConfigDescription("Largest a station's build range may be set to.",
-                    new AcceptableValueRange<float>(10f, 500f)));
+                    new AcceptableValueRange<float>(10f, 500f))));
 
             RequireLookingAtStation = config.Bind("Station Range", "RequireLookingAtStation", true,
                 "Only adjust the station under your crosshair. With this off it falls back to the "
@@ -651,18 +702,18 @@ namespace TheHammerOfOden
                 "Flash the station's area circle while changing its range, so you can see what you "
                 + "are doing.");
 
-            ExtendReachToStation = config.Bind("Station Range", "ExtendReachToStation", true,
+            ExtendReachToStation = Synced(config.Bind("Station Range", "ExtendReachToStation", true,
                 "Let you build anywhere the station reaches, rather than only as far as your arm. "
                 + "Valheim limits building twice over - the station's circle says where you may "
                 + "build, and a separate arm's-length limit says how far the aiming ray goes - and "
                 + "the second has nothing to do with the first. This grants nothing that was not "
-                + "already permitted; it saves you walking to it.");
+                + "already permitted; it saves you walking to it."));
 
-            ReachLimit = config.Bind("Station Range", "ReachLimit", 50f,
+            ReachLimit = Synced(config.Bind("Station Range", "ReachLimit", 50f,
                 new ConfigDescription(
                     "Upper bound on the extended reach, whatever the station's range. Placing at "
                     + "great distance gets imprecise long before it gets useful.",
-                    new AcceptableValueRange<float>(8f, 200f)));
+                    new AcceptableValueRange<float>(8f, 200f))));
 
             BuildCameraKey = config.Bind("Build Camera", "BuildCameraKey",
                 new KeyboardShortcut(KeyCode.B),
@@ -687,14 +738,14 @@ namespace TheHammerOfOden
                 new ConfigDescription("How much faster the boost key makes it.",
                     new AcceptableValueRange<float>(1f, 10f)));
 
-            CameraRange = config.Bind("Build Camera", "Range", 40f,
+            CameraRange = Synced(config.Bind("Build Camera", "Range", 40f,
                 new ConfigDescription(
                     "How far the camera may get from your character, in metres. This is not an "
                     + "arbitrary limit: Valheim keeps objects alive around your body, and a "
                     + "camera beyond that either sees a half-built world or forces the game to "
                     + "load a second one around the camera. The second is what makes other "
                     + "build-camera mods expensive, and is deliberately not done here.",
-                    new AcceptableValueRange<float>(5f, 120f)));
+                    new AcceptableValueRange<float>(5f, 120f))));
 
             CameraSensitivity = config.Bind("Build Camera", "Sensitivity", 2f,
                 new ConfigDescription("Mouse sensitivity while flying.",
@@ -728,14 +779,14 @@ namespace TheHammerOfOden
                 new ConfigDescription("How far the camera light reaches, in metres.",
                     new AcceptableValueRange<float>(2f, 80f)));
 
-            CameraPickup = config.Bind("Build Camera", "Pickup", true,
+            CameraPickup = Synced(config.Bind("Build Camera", "Pickup", true,
                 "Pick up loose items the camera passes over. Your carry weight is respected, "
                 + "which vanilla pickup does not do - a sweep you did not ask for should not "
-                + "leave you staggering.");
+                + "leave you staggering."));
 
-            CameraPickupRange = config.Bind("Build Camera", "PickupRange", 8f,
+            CameraPickupRange = Synced(config.Bind("Build Camera", "PickupRange", 8f,
                 new ConfigDescription("How far around the camera to collect from, in metres.",
-                    new AcceptableValueRange<float>(1f, 40f)));
+                    new AcceptableValueRange<float>(1f, 40f))));
 
             CameraPickupInterval = config.Bind("Build Camera", "PickupInterval", 0.25f,
                 new ConfigDescription(
@@ -743,7 +794,7 @@ namespace TheHammerOfOden
                     + "scan of the scene, but there is no reason to run it every frame either.",
                     new AcceptableValueRange<float>(0.05f, 2f)));
 
-            MistClearRange = config.Bind("Mistlands", "MistClearRange", 0f,
+            MistClearRange = Synced(config.Bind("Mistlands", "MistClearRange", 0f,
                 new ConfigDescription(
                     "How far a wisplight clears Mistlands fog around you, in metres. 0 leaves it "
                     + "exactly as Valheim has it, which is about 15.\n"
@@ -752,7 +803,7 @@ namespace TheHammerOfOden
                     + "A multiplier hides how big the result actually is - eight times a base you "
                     + "cannot see is a hundred and twenty metres, which drags the whole sky about "
                     + "rather than clearing a space to build in. Twenty-five to thirty is plenty.",
-                    new AcceptableValueRange<float>(0f, 60f)));
+                    new AcceptableValueRange<float>(0f, 60f))));
 
             OpenDoorsWhileBuilding = config.Bind("Doors", "OpenDoorsWhileBuilding", true,
                 "Open and close doors with the usual use key while a build tool is in hand. "
@@ -828,12 +879,12 @@ namespace TheHammerOfOden
                 + "part that does nothing - the mist is moved by a force field, not by the thing "
                 + "you can see - and it is distracting in front of what you are building.");
 
-            RequiresWisplight = config.Bind("Mistlands", "RequiresWisplight", true,
+            RequiresWisplight = Synced(config.Bind("Mistlands", "RequiresWisplight", true,
                 "Keep Valheim's rule that clearing mist needs a wisplight. Turn this off and the "
                 + "mist clears while a build tool is in hand whether you have one or not.\n"
                 + "Detection is by status effect, not by item, so anything that grants mist "
                 + "vision counts - the wisplight itself, a backpack with one built in, or "
-                + "whatever a future mod adds - with no list of item names to keep up to date.");
+                + "whatever a future mod adds - with no list of item names to keep up to date."));
 
             UndoKey = config.Bind("Undo", "UndoKey",
                 new KeyboardShortcut(KeyCode.Z, KeyCode.LeftControl),
@@ -841,19 +892,19 @@ namespace TheHammerOfOden
                 + "if you did not. Each piece comes down through the same call the hammer makes, "
                 + "so the materials come back exactly as they would if you removed it by hand.");
 
-            UndoDepth = config.Bind("Undo", "Depth", 10,
+            UndoDepth = Synced(config.Bind("Undo", "Depth", 10,
                 new ConfigDescription(
                     "How many placements back you can go. The limit is about what you can still "
                     + "remember doing rather than memory - a few thousand pieces would cost "
                     + "nothing to keep - so raise it if you want, knowing that undoing something "
                     + "from twenty minutes ago is more likely to surprise you than help.",
-                    new AcceptableValueRange<int>(1, 50)));
+                    new AcceptableValueRange<int>(1, 50))));
 
-            UndoRefundsToInventory = config.Bind("Undo", "RefundToInventory", true,
+            UndoRefundsToInventory = Synced(config.Bind("Undo", "RefundToInventory", true,
                 "Hand undone materials straight to you, dropping only what will not fit, in one "
                 + "pile at your feet. With this off, Valheim scatters them at each piece instead - "
                 + "fine for one piece, and a long walk after undoing a run forty long. The amount "
-                + "is the same either way.");
+                + "is the same either way."));
 
             ZoopModifierKey = config.Bind("Zoop", "ZoopModifierKey",
                 new KeyboardShortcut(KeyCode.LeftShift),
@@ -862,7 +913,7 @@ namespace TheHammerOfOden
                 + "second direction turns the run into a grid and a third into a block, since "
                 + "runs multiply rather than replace each other. The clear-offset key cancels it.");
 
-            ZoopLimit = config.Bind("Zoop", "Limit", 60,
+            ZoopLimit = Synced(config.Bind("Zoop", "Limit", 60,
                 new ConfigDescription(
                     "Most extra copies a single run may place. Each one is a real placement that "
                     + "pays its own materials, so this is about how much one keystroke should be "
@@ -870,7 +921,7 @@ namespace TheHammerOfOden
                     + "tiles is a modest room - while a grid reaches it faster still, since eight "
                     + "by eight is already sixty-three copies. Large runs cost preview performance "
                     + "before they cost anything else.",
-                    new AcceptableValueRange<int>(1, 500)));
+                    new AcceptableValueRange<int>(1, 500))));
 
             ZoopPerFrame = config.Bind("Zoop", "PiecesPerFrame", 8,
                 new ConfigDescription(
@@ -956,12 +1007,12 @@ namespace TheHammerOfOden
                     + "into another by just the right amount.",
                     new AcceptableValueRange<float>(0.01f, 0.5f)));
 
-            OffsetLimit = config.Bind("Placement Offset", "Limit", 3f,
+            OffsetLimit = Synced(config.Bind("Placement Offset", "Limit", 3f,
                 new ConfigDescription(
                     "Maximum distance the piece can be pushed or pulled from where you are aiming.",
-                    new AcceptableValueRange<float>(0.5f, 20f)));
+                    new AcceptableValueRange<float>(0.5f, 20f))));
 
-            Freedom = config.Bind("Free Placement", "Freedom", PlacementFreedom.SurfacesAndSpacing,
+            Freedom = Synced(config.Bind("Free Placement", "Freedom", PlacementFreedom.SurfacesAndSpacing,
                 new ConfigDescription(
                     "Which vanilla placement rules free placement sets aside. "
                     + "Vanilla: none, free placement only affects snapping. "
@@ -970,9 +1021,9 @@ namespace TheHammerOfOden
                     + "SurfacesAndSpacing: also the room a piece demands, such as forge extensions "
                     + "refusing to sit near each other. "
                     + "Everything: also biome, dungeon and weather restrictions. "
-                    + "Wards, no-build zones and other players are never bypassed at any setting."));
+                    + "Wards, no-build zones and other players are never bypassed at any setting.")));
 
-            Clipping = config.Bind("Clipping", "Mode", ClippingMode.WithFreePlacement,
+            Clipping = Synced(config.Bind("Clipping", "Mode", ClippingMode.WithFreePlacement,
                 new ConfigDescription(
                     "Whether pieces may be placed intersecting other objects. Vanilla refuses when a "
                     + "piece would penetrate something by more than 0.2m, which makes tight arrangements "
@@ -980,7 +1031,7 @@ namespace TheHammerOfOden
                     + "Never: vanilla behaviour. "
                     + "WithFreePlacement: allowed only while free placement is on, since both express the "
                     + "same intent. "
-                    + "Always: allowed at all times."));
+                    + "Always: allowed at all times.")));
 
             ClippingToggleKey = config.Bind("Clipping", "ToggleKey", KeyboardShortcut.Empty,
                 "Optional key to step through the clipping modes while building. Leave empty to disable.");
