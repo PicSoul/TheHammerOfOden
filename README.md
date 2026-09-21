@@ -6,6 +6,32 @@ Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch 
 
 > **Status: early.** Everything below works and is in daily use, but this has not been released yet.
 
+## Multiplayer
+
+**Install it on the server and on every client.** It is not optional on a shared world, and the
+server will refuse entry to a client that does not have it, or that has a different version.
+
+That is deliberate rather than territorial. Most of what this mod does travels the way vanilla
+building travels: where a piece sits, which way it faces and what it overlaps are ordinary
+networked state, and a player without the mod sees all of it correctly. A piece's **scale** does
+not. Valheim stores it on the object, but only reads it back when `m_syncInitialScale` is set on
+the instance, and on a building piece that flag comes from the prefab as `false`. This mod reads
+the stored value itself and sets the flag afterwards, which makes the size right everywhere the
+mod is installed and silently wrong everywhere it is not: a wall you built at twice its height is
+an ordinary wall to them, collider and all. They would walk through what you built, or into
+nothing at all. A world whose geometry depends on who is looking at it is worse than a world you
+have to install a mod to enter.
+
+The server also decides the settings that govern what the world allows - reach, scale limits,
+station ranges, how much a single zoop may place, whether undo hands the materials back, how far
+the camera may fly and what it may pick up. Keys, colours, marker sizes and camera feel stay
+yours; a server has no business choosing those. `Server / LockSettings` decides whether the
+server's values are enforced or merely handed out on connect: off suits a server among friends,
+on makes them read-only for anyone who is not an admin.
+
+Single player is untouched by all of this. Nothing is pushed, nothing is locked, and every value
+stays exactly as your config file has it.
+
 ## Controls
 
 Everything is rebindable in the config file.

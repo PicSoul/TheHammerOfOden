@@ -25,11 +25,20 @@ namespace TheHammerOfOden
         /// rest to each player.
         /// </summary>
         /// <remarks>
-        /// ModRequired is false on purpose. This is a building mod: a player without it can
-        /// still play on the same server perfectly well, just with vanilla placement, and
-        /// turning that into a kick would be rude for no gain. The Mark of Oden sets it true
-        /// because there the mod changes how creatures behave, and a client that disagreed
-        /// about that would see a different world.
+        /// ModRequired is true because a client without this mod does not see the same world.
+        /// Rotation, position and clipping all travel as ordinary networked state, so those are
+        /// safe - but a piece's scale does not. ZNetView.Awake only reads the stored scale when
+        /// m_syncInitialScale is set, that flag comes from the prefab, and on a building piece
+        /// it is false. This mod sets it after reading the value back itself, so the size is
+        /// correct wherever the mod is installed and silently wrong where it is not: a wall you
+        /// see as twice its height is a normal wall to them, collider included. They would walk
+        /// through what you built, or into nothing at all.
+        ///
+        /// Refusing entry is the blunt answer and the honest one. The alternative is a world
+        /// whose geometry depends on who is looking at it.
+        ///
+        /// It also means a version mismatch is a kick, so a new build has to reach the server
+        /// and the players together.
         ///
         /// On a server without the mod, and in single player, nothing is pushed and every value
         /// stays exactly as the config file has it.
@@ -39,7 +48,7 @@ namespace TheHammerOfOden
             DisplayName = PluginName,
             CurrentVersion = PluginVersion,
             MinimumRequiredVersion = PluginVersion,
-            ModRequired = false
+            ModRequired = true
         };
 
         /// <summary>
