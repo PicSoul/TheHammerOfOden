@@ -125,6 +125,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
+        internal static ConfigEntry<bool> EditHidesPiece;
+        internal static ConfigEntry<Color> EditGhostBoxColor;
         internal static ConfigEntry<bool> ResetOffsetOnUnfreeze;
 
         internal static ConfigEntry<KeyboardShortcut> StationRangeKey;
@@ -738,6 +740,17 @@ namespace TheHammerOfOden
                 + "holds nothing up: editing a wall that a roof rests on can drop the roof if the "
                 + "game recalculates support in that window. It is short and the collision comes "
                 + "straight back, but turn this off if you would rather not risk it.");
+
+            EditHidesPiece = config.Bind("Edit", "EditHidesPiece", true,
+                "Hide the piece being edited and mark where it stood with a translucent box. The "
+                + "piece itself cannot be faded - Valheim's shader treats alpha as a cutout, so a "
+                + "piece is either solid or gone - and a solid recoloured piece is no easier to see "
+                + "past than the original. The box is drawn with a shader that does blend, so it can "
+                + "be see-through. Turn this off to keep the piece visible and only tint it.");
+
+            EditGhostBoxColor = config.Bind("Edit", "EditGhostBoxColor", new Color(0.3f, 1f, 0.45f, 0.25f),
+                "Colour of that box. Green by default so it cannot be confused with the blue the "
+                + "hammer paints on whatever it is pointed at. Raise the alpha to make it more solid.");
 
             EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.55f, 0.7f, 1f, 0.5f),
                 "How the piece being edited is drawn. The colour works; the alpha does not blend. "

@@ -102,6 +102,33 @@ Two further consequences. The piece comes back at full health, so damage and wea
 chest, sign or item stand with something in it is refused rather than quietly emptied, since the
 replacement is built from the prefab and the prefab knows nothing about what was inside.
 
+### Bending
+
+| Action | Control |
+|---|---|
+| Bend the piece in hand | hold **Keypad 1** and turn the wheel |
+| Swap which way it curves | **Keypad 3** |
+| Straighten it | **Keypad .** |
+
+A straight beam becomes an arch. The shape is a true circular arc rather than two halves hinged
+at the middle, so there is no fold in it anywhere, and the wheel runs both ways from straight - a
+beam can arch or sag, a wall can wrap either way round a tower.
+
+Pieces are bent along their longest side, which is measured rather than chosen; nobody wants a
+pole bent across its thickness. That leaves the one real choice, which of the other two directions
+it curves towards, and **Keypad 3** swaps it.
+
+Only plain structure may be bent. A piece needs one collider, no moving or usable parts, and
+meshes the game will let a mod read - `moo`'s mesh probe reports which, and the two lists in the
+config override it either way. The ceiling is half a circle, and each piece also has its own lower
+ceiling past which the inside of the curve would pass through itself.
+
+> **A bent piece stays at full detail.** Valheim's low-detail stand-in for a distant piece is a
+> plain box with no geometry between its corners, so it cannot follow a curve - left alone it
+> draws a straight bar over your arch. Holding the piece at full detail is what stops that, and
+> the cost is that bent pieces do not get cheaper at a distance. Nothing else does this, and
+> unbent pieces are untouched.
+
 ### Build camera
 
 | Action | Control |
