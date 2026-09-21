@@ -312,6 +312,17 @@ namespace TheHammerOfOden
                 if (!source.isReadable)
                 {
                     unreadable++;
+
+                    // It cannot be curved, so it must not be drawn: left alone it renders dead
+                    // straight over the bent piece, which is the same artefact a mesh too coarse
+                    // to curve produces and wants the same answer.
+                    Renderer straight = filter.GetComponent<Renderer>();
+                    if (straight != null && straight.enabled)
+                    {
+                        straight.enabled = false;
+                        Flattened.Add(straight);
+                    }
+
                     continue;
                 }
 

@@ -102,6 +102,12 @@ namespace TheHammerOfOden
 
             Collider[] colliders = piece.GetComponentsInChildren<Collider>(true);
 
+            // Distinct volumes, not components. The 4x2 stone wall carries two identical
+            // 4x1x1 boxes, one on the root and one on a child called "collider" - a duplicate
+            // left in the prefab, not a second working part. Counting components called it
+            // complicated; counting the shapes it actually occupies calls it what it is.
+            List<Bounds> volumes = new List<Bounds>();
+
             int solid = 0;
             foreach (Collider collider in colliders)
             {
@@ -126,6 +132,25 @@ namespace TheHammerOfOden
                     continue;
                 }
 
+                Bounds box = collider.bounds;
+                bool duplicate = false;
+
+                foreach (Bounds seen in volumes)
+                {
+                    if ((seen.center - box.center).sqrMagnitude < 0.0004f
+                        && (seen.size - box.size).sqrMagnitude < 0.0004f)
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+
+                if (duplicate)
+                {
+                    continue;
+                }
+
+                volumes.Add(box);
                 solid++;
             }
 
@@ -152,6 +177,7 @@ namespace TheHammerOfOden
 
             MeshFilter[] filters = piece.GetComponentsInChildren<MeshFilter>(true);
             int meshes = 0;
+            int readable = 0;
 
             foreach (MeshFilter filter in filters)
             {
@@ -163,21 +189,27 @@ namespace TheHammerOfOden
 
                 meshes++;
 
-                // Decided here rather than discovered halfway through a bend. A mesh imported
-                // without Read/Write hands back an empty vertex array, so a piece holding even
-                // one of them would come out partly curved and partly straight. The darkwood
-                // roof is exactly that case: twenty-one of its twenty-four meshes cannot be
-                // read, and the first rule called it bendable.
-                if (!mesh.isReadable)
+                if (mesh.isReadable)
                 {
-                    reason = "has meshes that cannot be read at runtime";
-                    return false;
+                    readable++;
                 }
             }
 
             if (meshes == 0)
             {
                 reason = "has no mesh to bend";
+                return false;
+            }
+
+            // Some unreadable meshes are survivable, all of them are not. A mesh that cannot be
+            // read cannot be curved, so it is hidden for the duration rather than left drawing
+            // straight over a bent piece - the same treatment a mesh too coarse to curve gets.
+            // The stone fence is the case worth allowing: its detailed mesh reads fine and what
+            // cannot be read is its distant stand-in and its broken state, neither of which is
+            // what you are looking at while you bend it.
+            if (readable == 0)
+            {
+                reason = "has no mesh that can be read at runtime";
                 return false;
             }
 

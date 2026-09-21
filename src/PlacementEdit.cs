@@ -60,6 +60,19 @@ namespace TheHammerOfOden
             }
         }
 
+        /// <summary>
+        /// Direct access to the chosen snap anchor.
+        /// </summary>
+        /// <remarks>
+        /// Setting it through the placement ghost's setup was not enough, because that setup does
+        /// not always run. SetSelectedPiece rebuilds the ghost only when the selection actually
+        /// changes - and editing a wall while a wall is already in hand changes nothing, which is
+        /// the common case rather than the odd one. The anchor is therefore set here, where the
+        /// edit begins, regardless of whether anything else happens.
+        /// </remarks>
+        private static readonly AccessTools.FieldRef<Player, int> ManualSnapPoint =
+            AccessTools.FieldRefAccess<Player, int>("m_manualSnapPoint");
+
         private static ZDOID _original = ZDOID.None;
         private static string _originalPrefab;
 
@@ -94,6 +107,19 @@ namespace TheHammerOfOden
 
             if (IsEditing)
             {
+                // Looking at something else means "edit that instead", not "stop". Making the
+                // key mean only cancel forced two presses to move to another piece, and the
+                // first of them looked like nothing had happened.
+                Piece wanted = player.GetHoveringPiece();
+                ZNetView view = wanted == null ? null : wanted.GetComponent<ZNetView>();
+
+                if (view != null && view.IsValid() && view.GetZDO().m_uid != _original)
+                {
+                    Cancel(player, null);
+                    Begin(player);
+                    return;
+                }
+
                 Cancel(player, "Edit cancelled - the piece is untouched");
                 return;
             }
@@ -145,6 +171,11 @@ namespace TheHammerOfOden
                 Notify.Show(player, "You cannot build that piece");
                 return;
             }
+
+            // Automatic, not the anchor last used for this kind of piece. Recalling one is for
+            // laying a run of something; the piece being edited already stands where it stands.
+            try { ManualSnapPoint(player) = -1; }
+            catch (System.Exception ex) { HammerOfOdenPlugin.Debug("Could not reset the snap anchor: " + ex.Message); }
 
             RotationState.MatchPiece(piece);
             ScaleState.MatchPiece(piece);
