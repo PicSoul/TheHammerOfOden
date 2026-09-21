@@ -115,6 +115,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> FreezeKey;
         internal static ConfigEntry<bool> EditPlacedPieces;
         internal static ConfigEntry<KeyboardShortcut> EditKey;
+        internal static ConfigEntry<string> BendNever;
+        internal static ConfigEntry<string> BendAlways;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -681,6 +683,18 @@ namespace TheHammerOfOden
                 + "across rather than being charged twice. Press again to cancel and leave the piece "
                 + "untouched. A chest, sign or item stand holding something is refused rather than "
                 + "quietly emptied.");
+
+            BendNever = Synced(config.Bind("Bend", "NeverBendable", "",
+                "Prefab names that must never be bent, whatever they are made of, separated by commas. "
+                + "The measurement is a good guess rather than a promise, and this is how to correct it "
+                + "without waiting for a new build. Use the prefab name, such as wood_door, not the "
+                + "name shown in game."));
+
+            BendAlways = Synced(config.Bind("Bend", "AlwaysBendable", "",
+                "Prefab names that may be bent even though the measurement says otherwise, separated by "
+                + "commas. Be careful with this: a piece is normally refused because it is built from "
+                + "several colliders, and forcing one through leaves its collision straight while its "
+                + "shape curves away from it."));
 
             EditRemovesCollision = config.Bind("Edit", "EditRemovesCollision", true,
                 "Stand the piece being edited down while you work on it, so its old self is not "

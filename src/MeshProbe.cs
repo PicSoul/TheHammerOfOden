@@ -49,6 +49,10 @@ namespace TheHammerOfOden
             DescribeColliders(piece, report);
             DescribeSnapPoints(piece, report);
 
+            report.AppendLine(Bendable.Allows(piece.gameObject)
+                ? "  BENDABLE    : yes - one collider and a mesh, which is what plain structure looks like"
+                : "  BENDABLE    : no - " + Bendable.Reason(piece.gameObject));
+
             report.AppendLine("---- end ----");
 
             HammerOfOdenPlugin.Info(report.ToString());
