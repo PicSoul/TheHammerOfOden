@@ -131,15 +131,20 @@ namespace TheHammerOfOden
                 return;
             }
 
+            // Recorded before the piece is selected, not after. Selecting rebuilds the
+            // placement ghost, and the ghost's own setup is where a remembered snap anchor gets
+            // restored - so an edit that announces itself afterwards has already missed the
+            // moment it needed to say "not this time, snap automatically".
+            _original = view.GetZDO().m_uid;
+            _originalPrefab = Utils.GetPrefabName(piece.gameObject);
+
             if (!SelectPiece(player, piece))
             {
                 // Vanilla's own answer when the recipe is not known or the station is missing.
+                Clear();
                 Notify.Show(player, "You cannot build that piece");
                 return;
             }
-
-            _original = view.GetZDO().m_uid;
-            _originalPrefab = Utils.GetPrefabName(piece.gameObject);
 
             RotationState.MatchPiece(piece);
             ScaleState.MatchPiece(piece);
@@ -352,6 +357,15 @@ namespace TheHammerOfOden
         private static void Tint(GameObject piece)
         {
             if (piece == null || MaterialMan.instance == null)
+            {
+                return;
+            }
+
+            // Not on top of the ghost material. MaterialMan sets a property block on the
+            // renderers, and a property block beats the colour the material itself carries -
+            // so tinting as well left the see-through material drawing in the tint's blue
+            // rather than its own green. They are alternatives, not layers.
+            if (ModConfig.EditHidesPiece.Value)
             {
                 return;
             }
