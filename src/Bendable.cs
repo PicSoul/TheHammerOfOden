@@ -70,6 +70,14 @@ namespace TheHammerOfOden
             }
 
             _cached = IsAllowed(piece, out _cachedReason);
+
+            // A refusal is a fact about a prefab, so it is worth having in the log rather than
+            // only in a message that has already scrolled past by the time anyone asks why.
+            if (!_cached)
+            {
+                HammerOfOdenPlugin.Debug(
+                    $"Bend refused '{Utils.GetPrefabName(piece)}': {_cachedReason}.");
+            }
         }
 
         private static bool IsAllowed(GameObject piece, out string reason)

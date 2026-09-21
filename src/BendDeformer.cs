@@ -205,12 +205,40 @@ namespace TheHammerOfOden
         /// </remarks>
         private static void Capture(GameObject piece)
         {
+            int total = 0;
+            int unreadable = 0;
+            int batched = 0;
+            int hidden = 0;
+
             foreach (MeshFilter filter in piece.GetComponentsInChildren<MeshFilter>(true))
             {
                 Mesh source = filter.sharedMesh;
-                if (source == null || !source.isReadable)
+                if (source == null)
                 {
                     continue;
+                }
+
+                total++;
+
+                if (!source.isReadable)
+                {
+                    unreadable++;
+                    continue;
+                }
+
+                // Counted, not skipped. A static-batched renderer draws from a combined buffer
+                // baked at build time, so replacing its filter's mesh changes the mesh and not
+                // the picture - which looks exactly like the curve being wrong, and is the most
+                // likely reason a wood wall bends its planks and leaves its rails straight.
+                Renderer renderer = filter.GetComponent<Renderer>();
+                if (renderer != null && renderer.isPartOfStaticBatch)
+                {
+                    batched++;
+                }
+
+                if (!filter.gameObject.activeInHierarchy || renderer == null || !renderer.enabled)
+                {
+                    hidden++;
                 }
 
                 Mesh working = Object.Instantiate(source);
@@ -224,6 +252,15 @@ namespace TheHammerOfOden
                     Source = source.vertices
                 });
             }
+
+            // Said every time a piece is taken up, because the interesting cases are the ones
+            // that look like a broken curve from the outside and are not one.
+            HammerOfOdenPlugin.Debug(
+                $"Bend captured {Active.Count} of {total} mesh(es) on '{Utils.GetPrefabName(piece)}'"
+                + (unreadable > 0 ? $"; {unreadable} unreadable" : string.Empty)
+                + (batched > 0 ? $"; {batched} STATIC-BATCHED and will not visibly change" : string.Empty)
+                + (hidden > 0 ? $"; {hidden} not currently drawn" : string.Empty)
+                + ".");
         }
 
         private static void Bend(GameObject piece, float radians, int axis, int rise)
