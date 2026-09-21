@@ -87,7 +87,18 @@ again - so editing those in place would look right to you and leave the piece ex
 was for every other player until their world reloaded. Placing a new piece is something every
 client already knows how to draw.
 
-Two consequences follow. The piece comes back at full health, so damage and wear are wiped. And a
+While you are editing, the original stands down: it loses its collision and is drawn faintly, so
+you can see where it is without it blocking the space you are trying to move into. Without that, a
+small nudge or a slight rescale is the one change you cannot make, because the placement check
+sees the original sitting in the way and refuses.
+
+That has a cost worth knowing. Valheim works out what holds a building up from the colliders
+actually present, so for the length of an edit the piece supports nothing. Editing a wall that a
+roof is resting on can drop the roof, if the game happens to recalculate support in that window.
+The window is short and collision returns the instant the edit ends by any route, but
+`EditRemovesCollision` turns it off for anyone who would rather not risk it on load-bearing work.
+
+Two further consequences. The piece comes back at full health, so damage and wear are wiped. And a
 chest, sign or item stand with something in it is refused rather than quietly emptied, since the
 replacement is built from the prefab and the prefab knows nothing about what was inside.
 

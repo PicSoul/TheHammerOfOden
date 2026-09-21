@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using HarmonyLib;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -61,6 +62,19 @@ namespace TheHammerOfOden
 
         private static ZDOID _original = ZDOID.None;
         private static string _originalPrefab;
+
+        /// <summary>
+        /// Colliders switched off for the duration of the edit, so they can be switched back on
+        /// if the edit is abandoned.
+        /// </summary>
+        /// <remarks>
+        /// Remembered rather than re-derived, because only the ones that were on get turned back
+        /// on. A piece may ship with a collider already disabled and re-enabling it would be a
+        /// change the player never asked for and would never connect to having edited something.
+        /// </remarks>
+        private static readonly List<Collider> Suppressed = new List<Collider>();
+
+        private static bool _tinted;
 
         internal static bool IsEditing => _original != ZDOID.None;
 
@@ -129,6 +143,8 @@ namespace TheHammerOfOden
 
             RotationState.MatchPiece(piece);
             ScaleState.MatchPiece(piece);
+
+            Ghost(piece.gameObject);
 
             HammerOfOdenPlugin.Debug(
                 $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
@@ -218,6 +234,8 @@ namespace TheHammerOfOden
                 return;
             }
 
+            Unghost(instance);
+
             if (!view.IsOwner())
             {
                 view.ClaimOwnership();
@@ -248,6 +266,8 @@ namespace TheHammerOfOden
             }
 
             HammerOfOdenPlugin.Debug($"Edit of {_original} cancelled.");
+
+            Unghost(Original);
             Clear();
 
             if (player != null && message != null)
@@ -258,8 +278,85 @@ namespace TheHammerOfOden
 
         internal static void Clear()
         {
+            // Anything still on the list belongs to a piece that has gone out of the world
+            // under us. The colliders went with it, so this is only tidying the bookkeeping.
+            Suppressed.Clear();
+            _tinted = false;
+
             _original = ZDOID.None;
             _originalPrefab = null;
+        }
+
+        /// <summary>
+        /// Takes the piece being edited out of the way: no collision, and faint enough to see
+        /// past while still showing where it stands.
+        /// </summary>
+        /// <remarks>
+        /// Collision is the point. A piece cannot be nudged a few centimetres or scaled slightly
+        /// while its own former self is still solid in the same space - the placement check sees
+        /// the original and refuses, and the change you came to make is the one change you
+        /// cannot make. Since the piece is about to be replaced anyway, nothing is lost by
+        /// standing it down early.
+        ///
+        /// It is worth knowing what that costs, because structural support is decided by
+        /// Physics.OverlapBox against the colliders actually present: for as long as the edit
+        /// lasts, the piece holds nothing up. Editing a wall a roof is resting on can therefore
+        /// drop the roof if the game recalculates support in that window. The window is short
+        /// and the colliders come back the moment the edit ends by any route, but the setting is
+        /// there for anyone who would rather not take that chance on a load-bearing piece.
+        ///
+        /// The fade goes through Valheim's own per-object material system, the one that turns a
+        /// ghost red when it cannot be placed, so no shared material is touched and no piece
+        /// elsewhere in the world changes colour. Whether the alpha reads as see-through depends
+        /// on the shader the piece uses; the darkening does not, so even where alpha is ignored
+        /// the piece still reads as stood down rather than solid.
+        /// </remarks>
+        private static void Ghost(GameObject piece)
+        {
+            if (piece == null)
+            {
+                return;
+            }
+
+            if (ModConfig.EditRemovesCollision.Value)
+            {
+                foreach (Collider collider in piece.GetComponentsInChildren<Collider>(true))
+                {
+                    if (collider == null || !collider.enabled)
+                    {
+                        continue;
+                    }
+
+                    collider.enabled = false;
+                    Suppressed.Add(collider);
+                }
+            }
+
+            if (MaterialMan.instance != null)
+            {
+                MaterialMan.instance.SetValue(piece, ShaderProps._Color, ModConfig.EditGhostTint.Value);
+                _tinted = true;
+            }
+        }
+
+        private static void Unghost(GameObject piece)
+        {
+            foreach (Collider collider in Suppressed)
+            {
+                if (collider != null)
+                {
+                    collider.enabled = true;
+                }
+            }
+
+            Suppressed.Clear();
+
+            if (_tinted && piece != null && MaterialMan.instance != null)
+            {
+                MaterialMan.instance.ResetValue(piece, ShaderProps._Color);
+            }
+
+            _tinted = false;
         }
     }
 }

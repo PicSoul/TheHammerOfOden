@@ -115,6 +115,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> FreezeKey;
         internal static ConfigEntry<bool> EditPlacedPieces;
         internal static ConfigEntry<KeyboardShortcut> EditKey;
+        internal static ConfigEntry<bool> EditRemovesCollision;
+        internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<bool> ResetOffsetOnUnfreeze;
 
         internal static ConfigEntry<KeyboardShortcut> StationRangeKey;
@@ -678,6 +680,22 @@ namespace TheHammerOfOden
                 + "across rather than being charged twice. Press again to cancel and leave the piece "
                 + "untouched. A chest, sign or item stand holding something is refused rather than "
                 + "quietly emptied.");
+
+            EditRemovesCollision = config.Bind("Edit", "EditRemovesCollision", true,
+                "Stand the piece being edited down while you work on it, so its old self is not "
+                + "solid in the space you are trying to move it into. Without this a small nudge or "
+                + "a slight rescale is the one change you cannot make, because the placement check "
+                + "sees the original and refuses. The cost is that structural support is worked out "
+                + "from the colliders actually present, so for the length of the edit the piece "
+                + "holds nothing up: editing a wall that a roof rests on can drop the roof if the "
+                + "game recalculates support in that window. It is short and the collision comes "
+                + "straight back, but turn this off if you would rather not risk it.");
+
+            EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.45f, 0.6f, 0.8f, 0.25f),
+                "How the piece being edited is drawn: faint enough to see past, solid enough to "
+                + "show where it still stands. Applied through the game's own per-object material "
+                + "system, so no other piece changes. Whether the alpha reads as see-through "
+                + "depends on the piece's shader; the darkening works either way.");
 
             FreezeKey = config.Bind("Freeze", "FreezeKey",
                 new KeyboardShortcut(KeyCode.Keypad0),
