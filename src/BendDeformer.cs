@@ -68,6 +68,23 @@ namespace TheHammerOfOden
         /// at closely.
         /// </remarks>
         private static readonly List<LODGroup> Held = new List<LODGroup>();
+
+        /// <summary>
+        /// Renderers switched off for the duration of a bend because their mesh cannot curve.
+        /// </summary>
+        /// <remarks>
+        /// Holding LOD groups at full detail was aimed at the right mesh and missed. A piece's
+        /// coarse stand-in is not always inside an LODGroup - Valheim has its own ways of
+        /// switching one in - so forcing the group proved nothing and the box kept drawing. The
+        /// straight bars across a bent wall are its eight corners lifted onto the arc with flat
+        /// faces still spanning between them.
+        ///
+        /// Counting slices settles it without having to know which system owns the mesh. Two
+        /// slices means two rings of vertices and nothing in between, and no arithmetic makes
+        /// that curve. Such a mesh is hidden while the piece is bent and comes back the moment
+        /// it is straightened.
+        /// </remarks>
+        private static readonly List<Renderer> Flattened = new List<Renderer>();
         private static GameObject _appliedTo;
         private static float _appliedAngle = float.NaN;
         private static int _appliedAxis = -1;
@@ -224,6 +241,16 @@ namespace TheHammerOfOden
             }
 
             Held.Clear();
+
+            foreach (Renderer renderer in Flattened)
+            {
+                if (renderer != null)
+                {
+                    renderer.enabled = true;
+                }
+            }
+
+            Flattened.Clear();
         }
 
         /// <summary>Pins every LOD group on the piece to full detail.</summary>
@@ -374,7 +401,7 @@ namespace TheHammerOfOden
 
                 entry.Filter.sharedMesh = entry.Working;
 
-                ReportDetail(entry, root, axis, length);
+                HideIfItCannotCurve(entry, root, axis);
             }
         }
 
@@ -392,13 +419,8 @@ namespace TheHammerOfOden
         /// fits a wall whose planks curve while its rails stay straight: same maths, same piece,
         /// different subdivision.
         /// </remarks>
-        private static void ReportDetail(Deformed entry, Transform root, int axis, float length)
+        private static void HideIfItCannotCurve(Deformed entry, Transform root, int axis)
         {
-            if (!ModConfig.DebugEnabled)
-            {
-                return;
-            }
-
             Transform local = entry.Filter.transform;
 
             // Bucketed at a centimetre: exact float equality would count a slice twice for
@@ -411,13 +433,18 @@ namespace TheHammerOfOden
             }
 
             Renderer renderer = entry.Filter.GetComponent<Renderer>();
-            bool drawn = entry.Filter.gameObject.activeInHierarchy
-                && renderer != null && renderer.enabled;
+
+            bool canCurve = slices.Count > Mathf.Max(2, ModConfig.BendMinimumSlices.Value);
+
+            if (!canCurve && renderer != null && renderer.enabled)
+            {
+                renderer.enabled = false;
+                Flattened.Add(renderer);
+            }
 
             HammerOfOdenPlugin.Debug(
-                $"    {(drawn ? "DRAWN " : "hidden")} {entry.Filter.name}: "
-                + $"{entry.Source.Length} verts in {slices.Count} slice(s) along the bend"
-                + (slices.Count <= 2 ? "  <- too few to curve" : string.Empty));
+                $"    {entry.Filter.name}: {entry.Source.Length} verts in {slices.Count} slice(s)"
+                + (canCurve ? string.Empty : " - too few to curve, hidden while bent"));
         }
 
         /// <summary>

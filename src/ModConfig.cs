@@ -122,6 +122,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> BendResetKey;
         internal static ConfigEntry<float> BendStep;
         internal static ConfigEntry<float> BendMaximum;
+        internal static ConfigEntry<int> BendMinimumSlices;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -719,6 +720,15 @@ namespace TheHammerOfOden
                 + "0.362 of its length at around 267 degrees, by which point it has curled back "
                 + "through itself and is a ring rather than a building piece."));
 
+            BendMinimumSlices = config.Bind("Bend", "MinimumSlices", 3,
+                "How many rings of vertices a mesh needs along the bend before it is curved rather "
+                + "than hidden. A deformer can only move vertices that exist: a coarse stand-in mesh "
+                + "has eight corners and nothing between them, so bending it lifts the corners onto "
+                + "the curve and leaves flat faces spanning between - which is what draws straight "
+                + "bars across a bent wall. Those meshes are hidden while the piece is bent and come "
+                + "back the instant it is straightened. Raise this if something still looks faceted; "
+                + "lower it to keep coarse meshes visible.");
+
             BendNever = Synced(config.Bind("Bend", "NeverBendable", "",
                 "Prefab names that must never be bent, whatever they are made of, separated by commas. "
                 + "The measurement is a good guess rather than a promise, and this is how to correct it "
@@ -741,16 +751,17 @@ namespace TheHammerOfOden
                 + "game recalculates support in that window. It is short and the collision comes "
                 + "straight back, but turn this off if you would rather not risk it.");
 
-            EditHidesPiece = config.Bind("Edit", "EditHidesPiece", true,
-                "Hide the piece being edited and mark where it stood with a translucent box. The "
-                + "piece itself cannot be faded - Valheim's shader treats alpha as a cutout, so a "
-                + "piece is either solid or gone - and a solid recoloured piece is no easier to see "
-                + "past than the original. The box is drawn with a shader that does blend, so it can "
-                + "be see-through. Turn this off to keep the piece visible and only tint it.");
+            EditHidesPiece = config.Bind("Edit", "EditGhostMaterial", true,
+                "Draw the piece being edited with a see-through material instead of its own. Its "
+                + "shape is kept exactly - every plank and edge is still there to line up against - "
+                + "while the material is one that actually blends. Valheim's piece shader cannot "
+                + "fade: it treats alpha as a cutout, so recolouring the piece leaves it just as "
+                + "solid. Turn this off to keep the piece's real materials and only tint it.");
 
-            EditGhostBoxColor = config.Bind("Edit", "EditGhostBoxColor", new Color(0.3f, 1f, 0.45f, 0.25f),
-                "Colour of that box. Green by default so it cannot be confused with the blue the "
-                + "hammer paints on whatever it is pointed at. Raise the alpha to make it more solid.");
+            EditGhostBoxColor = config.Bind("Edit", "EditGhostColour", new Color(0.3f, 1f, 0.45f, 0.35f),
+                "Colour the piece being edited is drawn in. Green by default so it cannot be confused "
+                + "with the blue the hammer paints on whatever it is pointed at. Raise the alpha to "
+                + "make it more solid, lower it to see further past it.");
 
             EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.55f, 0.7f, 1f, 0.5f),
                 "How the piece being edited is drawn. The colour works; the alpha does not blend. "

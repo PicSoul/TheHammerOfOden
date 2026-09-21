@@ -74,9 +74,6 @@ namespace TheHammerOfOden
         /// </remarks>
         private static readonly List<Collider> Suppressed = new List<Collider>();
 
-        /// <summary>Renderers switched off for the edit, so only the ones we hid come back.</summary>
-        private static readonly List<Renderer> Hidden = new List<Renderer>();
-
         private static bool _tinted;
 
         internal static bool IsEditing => _original != ZDOID.None;
@@ -149,7 +146,7 @@ namespace TheHammerOfOden
 
             Ghost(piece.gameObject);
             Tint(piece.gameObject);
-            EditGhostBox.Show(piece.gameObject);
+            EditGhostMaterial.Apply(piece.gameObject);
 
             HammerOfOdenPlugin.Debug(
                 $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
@@ -286,7 +283,6 @@ namespace TheHammerOfOden
             // Anything still on the list belongs to a piece that has gone out of the world
             // under us. The colliders went with it, so this is only tidying the bookkeeping.
             Suppressed.Clear();
-            Hidden.Clear();
             _tinted = false;
 
             _original = ZDOID.None;
@@ -334,22 +330,6 @@ namespace TheHammerOfOden
             if (piece == null)
             {
                 return;
-            }
-
-            // Hidden rather than tinted, where the box is standing in for it. The renderers
-            // that were already off stay off, the same way the colliders do.
-            if (ModConfig.EditHidesPiece.Value)
-            {
-                foreach (Renderer renderer in piece.GetComponentsInChildren<Renderer>(true))
-                {
-                    if (renderer == null || !renderer.enabled || EditGhostBox.IsMarker(renderer))
-                    {
-                        continue;
-                    }
-
-                    renderer.enabled = false;
-                    Hidden.Add(renderer);
-                }
             }
 
             if (ModConfig.EditRemovesCollision.Value)
@@ -401,17 +381,7 @@ namespace TheHammerOfOden
 
         private static void Unghost(GameObject piece)
         {
-            EditGhostBox.Hide();
-
-            foreach (Renderer renderer in Hidden)
-            {
-                if (renderer != null)
-                {
-                    renderer.enabled = true;
-                }
-            }
-
-            Hidden.Clear();
+            EditGhostMaterial.Restore();
 
             foreach (Collider collider in Suppressed)
             {
