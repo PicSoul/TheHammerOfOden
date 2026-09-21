@@ -105,12 +105,29 @@ namespace TheHammerOfOden
             int solid = 0;
             foreach (Collider collider in colliders)
             {
+                if (collider == null)
+                {
+                    continue;
+                }
+
                 // Triggers are not collision; they are the volumes a piece uses to notice you.
                 // Counting them would exclude perfectly plain pieces for having a comfort range.
-                if (collider != null && !collider.isTrigger)
+                if (collider.isTrigger)
                 {
-                    solid++;
+                    continue;
                 }
+
+                // Nor is a collider inside a switched-off worn or broken variant. Valheim keeps
+                // those as inactive children, so a piece that is one plain slab can report three
+                // colliders - one real and two waiting for damage that has not happened. Only
+                // what is actually colliding counts, which is also the only thing a rebuilt
+                // collision shape would have to replace.
+                if (!collider.gameObject.activeInHierarchy || !collider.enabled)
+                {
+                    continue;
+                }
+
+                solid++;
             }
 
             if (solid == 0)

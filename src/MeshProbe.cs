@@ -164,7 +164,9 @@ namespace TheHammerOfOden
             Collider[] colliders = piece.GetComponentsInChildren<Collider>(true);
             report.AppendLine("  colliders   : " + colliders.Length);
 
-            Dictionary<string, int> kinds = new Dictionary<string, int>();
+            // Listed rather than counted. A piece that reports three colliders may be three
+            // working parts, or one part and two copies of it sitting inside switched-off worn
+            // and broken variants - and those are opposite answers to whether it may bend.
             foreach (Collider collider in colliders)
             {
                 string kind = collider.GetType().Name;
@@ -177,14 +179,28 @@ namespace TheHammerOfOden
                     }
                 }
 
-                kinds.TryGetValue(kind, out int count);
-                kinds[kind] = count + 1;
+                bool live = collider.gameObject.activeInHierarchy && collider.enabled;
+
+                report.AppendLine(
+                    "    - " + kind
+                    + (collider.isTrigger ? " [trigger]" : string.Empty)
+                    + (live ? " [live]" : " [inactive]")
+                    + "  size " + collider.bounds.size.ToString("0.##")
+                    + "  at " + Path(collider.transform, piece.transform));
+            }
+        }
+
+        /// <summary>Where a child sits in the piece, so a duplicate can be told from a part.</summary>
+        private static string Path(Transform child, Transform root)
+        {
+            string path = child.name;
+
+            for (Transform t = child.parent; t != null && t != root; t = t.parent)
+            {
+                path = t.name + "/" + path;
             }
 
-            foreach (KeyValuePair<string, int> kind in kinds)
-            {
-                report.AppendLine("    - " + kind.Key + " x" + kind.Value);
-            }
+            return path;
         }
 
         private static void DescribeSnapPoints(Piece piece, StringBuilder report)
