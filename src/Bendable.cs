@@ -117,12 +117,11 @@ namespace TheHammerOfOden
                     continue;
                 }
 
-                // Nor is a collider inside a switched-off worn or broken variant. Valheim keeps
-                // those as inactive children, so a piece that is one plain slab can report three
-                // colliders - one real and two waiting for damage that has not happened. Only
-                // what is actually colliding counts, which is also the only thing a rebuilt
-                // collision shape would have to replace.
-                if (!collider.gameObject.activeInHierarchy || !collider.enabled)
+                // Nor is a collider that belongs to a damaged version of the piece. Valheim keeps
+                // worn and broken states as separate child objects and shows one at a time, so a
+                // piece that is one plain slab reports three colliders - one real, two waiting for
+                // damage that has not happened.
+                if (IsDamagedVariant(piece, collider.transform))
                 {
                     continue;
                 }
@@ -184,6 +183,43 @@ namespace TheHammerOfOden
 
             reason = null;
             return true;
+        }
+
+        /// <summary>
+        /// Whether a child belongs to the worn or broken version of a piece.
+        /// </summary>
+        /// <remarks>
+        /// Asked of WearNTear rather than inferred from what happens to be switched on. Which
+        /// state is active depends on how damaged the piece is, on whether this is a ghost -
+        /// where WearNTear has not run at all - and on whether some other mod has taken wear out
+        /// of the game entirely, which plenty of building players do. Judging by activity would
+        /// mean a piece that is bendable on one machine and refused on another, for reasons
+        /// neither player could see. The prefab's own idea of which children are damage states
+        /// does not move.
+        /// </remarks>
+        private static bool IsDamagedVariant(GameObject piece, Transform child)
+        {
+            WearNTear wear = piece.GetComponent<WearNTear>();
+            if (wear == null)
+            {
+                return false;
+            }
+
+            for (Transform t = child; t != null; t = t.parent)
+            {
+                if ((wear.m_worn != null && t.gameObject == wear.m_worn)
+                    || (wear.m_broken != null && t.gameObject == wear.m_broken))
+                {
+                    return true;
+                }
+
+                if (t.gameObject == piece)
+                {
+                    break;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Splits the exception lists once per change, since this is asked per piece.</summary>

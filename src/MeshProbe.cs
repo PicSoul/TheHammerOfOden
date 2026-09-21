@@ -185,9 +185,32 @@ namespace TheHammerOfOden
                     "    - " + kind
                     + (collider.isTrigger ? " [trigger]" : string.Empty)
                     + (live ? " [live]" : " [inactive]")
+                    + (DamageVariant(piece, collider.transform) is string state ? " [" + state + " state]" : string.Empty)
                     + "  size " + collider.bounds.size.ToString("0.##")
                     + "  at " + Path(collider.transform, piece.transform));
             }
+        }
+
+        /// <summary>
+        /// Which damage state a child belongs to, asked of the prefab rather than read off what
+        /// happens to be switched on - a mod that removes wear, or a piece that is simply
+        /// undamaged, would otherwise make the same piece read differently on another machine.
+        /// </summary>
+        private static string DamageVariant(Piece piece, Transform child)
+        {
+            WearNTear wear = piece.GetComponent<WearNTear>();
+            if (wear == null)
+            {
+                return null;
+            }
+
+            for (Transform t = child; t != null && t != piece.transform; t = t.parent)
+            {
+                if (wear.m_worn != null && t.gameObject == wear.m_worn) { return "worn"; }
+                if (wear.m_broken != null && t.gameObject == wear.m_broken) { return "broken"; }
+            }
+
+            return null;
         }
 
         /// <summary>Where a child sits in the piece, so a duplicate can be told from a part.</summary>
