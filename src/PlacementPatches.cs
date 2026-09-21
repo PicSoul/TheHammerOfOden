@@ -115,10 +115,10 @@ namespace TheHammerOfOden
             HandleResets();
             HandleStandaloneCopyKey(__instance);
 
-            HandleBendKeys(__instance);
+            HandleBendKeys(__instance, ___m_placementGhost);
 
             // Before rotation, which otherwise consumes the wheel for yaw.
-            if (!HandleStationRange(__instance) && !HandleBend(__instance))
+            if (!HandleStationRange(__instance) && !HandleBend(__instance, ___m_placementGhost))
             {
                 HandleRotation();
             }
@@ -493,11 +493,11 @@ namespace TheHammerOfOden
         /// Changes a nearby station's build range with the wheel.
         /// </summary>
         /// <returns>True if the wheel was used for this, so rotation should leave it alone.</returns>
-        private static void HandleBendKeys(Player player)
+        private static void HandleBendKeys(Player player, GameObject ghost)
         {
             if (Pressed(ModConfig.BendAxisKey.Value))
             {
-                BendState.CycleAxis(player);
+                BendState.CycleRise(player, ghost);
             }
 
             if (Pressed(ModConfig.BendResetKey.Value))
@@ -510,7 +510,7 @@ namespace TheHammerOfOden
         /// Bends the piece in hand while the modifier is held.
         /// </summary>
         /// <returns>True if the wheel was used for this, so rotation should leave it alone.</returns>
-        private static bool HandleBend(Player player)
+        private static bool HandleBend(Player player, GameObject ghost)
         {
             if (!IsHeld(ModConfig.BendModifierKey))
             {
@@ -519,7 +519,7 @@ namespace TheHammerOfOden
 
             // Held means the wheel is spoken for, movement or not, so a held modifier cannot
             // rotate the piece on a still frame.
-            BendState.HandleScroll(player, ZInput.GetMouseScrollWheel());
+            BendState.HandleScroll(player, ghost, ZInput.GetMouseScrollWheel());
             return true;
         }
 

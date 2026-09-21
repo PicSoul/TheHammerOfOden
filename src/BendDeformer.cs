@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -51,6 +51,81 @@ namespace TheHammerOfOden
         private static GameObject _appliedTo;
         private static float _appliedAngle = float.NaN;
         private static int _appliedAxis = -1;
+        private static int _appliedRise = -1;
+
+        private static Vector3 _min;
+        private static Vector3 _max;
+        private static bool _measured;
+
+        /// <summary>The piece's own axis that it runs longest along: 0 x, 1 y, 2 z.</summary>
+        internal static int LongestAxis(GameObject piece)
+        {
+            Prepare(piece);
+
+            if (!_measured)
+            {
+                return 0;
+            }
+
+            Vector3 size = _max - _min;
+            if (size.x >= size.y && size.x >= size.z) { return 0; }
+            return size.y >= size.z ? 1 : 2;
+        }
+
+        /// <summary>
+        /// How far this piece may bend on these axes before it folds through itself.
+        /// </summary>
+        /// <remarks>
+        /// A vertex sitting at distance d from the neutral axis lands at radius R - d. Once R
+        /// drops below the furthest d that radius goes negative, and the inside of the curve
+        /// turns through itself - a wall crossing its own planks rather than curving.
+        /// Since R is length divided by angle, the angle where that happens is length over d.
+        ///
+        /// This is exactly why bending a wall towards its own height went wrong at around a
+        /// hundred degrees: measured that way the furthest vertex is a metre from the middle,
+        /// which puts the ceiling at two radians. Bent towards its thickness instead, d is a
+        /// tenth of that and the ceiling is far past anywhere useful.
+        /// </remarks>
+        internal static float MaximumDegrees(GameObject piece, int axis, int rise)
+        {
+            Prepare(piece);
+
+            if (!_measured)
+            {
+                return 180f;
+            }
+
+            Vector3 size = _max - _min;
+            float length = size[axis];
+            float reach = size[rise] * 0.5f;
+
+            if (length <= 0.001f || reach <= 0.001f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Min(180f, length / reach * Mathf.Rad2Deg);
+        }
+
+        internal static Vector3 Size(GameObject piece)
+        {
+            Prepare(piece);
+            return _measured ? _max - _min : Vector3.one;
+        }
+
+        private static void Prepare(GameObject piece)
+        {
+            if (piece == null || _appliedTo == piece)
+            {
+                return;
+            }
+
+            Release();
+            Capture(piece);
+            _appliedTo = piece;
+            _appliedAngle = float.NaN;
+            Measure(piece.transform);
+        }
 
         /// <summary>
         /// Bends a piece, or restores it when the angle is zero.
@@ -58,7 +133,7 @@ namespace TheHammerOfOden
         /// <param name="piece">The object to curve - a placement ghost, or a placed piece.</param>
         /// <param name="degrees">Total turn from one end to the other.</param>
         /// <param name="axis">Which of the piece's own axes runs along its length: 0 x, 1 y, 2 z.</param>
-        internal static void Apply(GameObject piece, float degrees, int axis)
+        internal static void Apply(GameObject piece, float degrees, int axis, int rise)
         {
             if (piece == null)
             {
@@ -66,22 +141,18 @@ namespace TheHammerOfOden
                 return;
             }
 
-            if (_appliedTo != piece)
-            {
-                // A different object: let the old one go before taking hold of this one.
-                Release();
-                Capture(piece);
-                _appliedTo = piece;
-                _appliedAngle = float.NaN;
-            }
+            Prepare(piece);
 
-            if (Mathf.Approximately(_appliedAngle, degrees) && _appliedAxis == axis)
+            if (Mathf.Approximately(_appliedAngle, degrees)
+                && _appliedAxis == axis
+                && _appliedRise == rise)
             {
                 return;
             }
 
             _appliedAngle = degrees;
             _appliedAxis = axis;
+            _appliedRise = rise;
 
             if (Mathf.Abs(degrees) < 0.01f)
             {
@@ -89,7 +160,7 @@ namespace TheHammerOfOden
                 return;
             }
 
-            Bend(piece, degrees * Mathf.Deg2Rad, axis);
+            Bend(piece, degrees * Mathf.Deg2Rad, axis, rise);
         }
 
         /// <summary>Puts every mesh back and forgets the piece.</summary>
@@ -109,6 +180,8 @@ namespace TheHammerOfOden
             _appliedTo = null;
             _appliedAngle = float.NaN;
             _appliedAxis = -1;
+            _appliedRise = -1;
+            _measured = false;
         }
 
         private static void Restore()
@@ -153,11 +226,14 @@ namespace TheHammerOfOden
             }
         }
 
-        private static void Bend(GameObject piece, float radians, int axis)
+        private static void Bend(GameObject piece, float radians, int axis, int rise)
         {
             Transform root = piece.transform;
 
-            if (!Extent(root, axis, out float min, out float max) || max - min < 0.001f)
+            float min = _min[axis];
+            float max = _max[axis];
+
+            if (!_measured || max - min < 0.001f)
             {
                 return;
             }
@@ -165,10 +241,10 @@ namespace TheHammerOfOden
             float length = max - min;
             float radius = length / radians;
 
-            // The piece bends towards one of its other two axes. Local up is the natural choice
-            // for a beam or a wall lying along x or z; a piece measured along its own up has to
-            // fall back to z, since it cannot bend towards the way it already runs.
-            int rise = axis == 1 ? 2 : 1;
+            // Both the line the piece is measured along and the one it curves towards run
+            // through its middle, not through wherever the mesh happens to have its origin.
+            float midAlong = (min + max) * 0.5f;
+            float midRise = (_min[rise] + _max[rise]) * 0.5f;
 
             foreach (Deformed entry in Active)
             {
@@ -185,14 +261,14 @@ namespace TheHammerOfOden
                     // Into the piece's space, where the arc is defined.
                     Vector3 p = root.InverseTransformPoint(local.TransformPoint(entry.Source[i]));
 
-                    float along = p[axis] - (min + max) * 0.5f;
-                    float offset = p[rise];
+                    float along = p[axis] - midAlong;
+                    float offset = p[rise] - midRise;
 
                     float angle = along / radius;
                     float armLength = radius - offset;
 
-                    p[axis] = armLength * Mathf.Sin(angle);
-                    p[rise] = radius - armLength * Mathf.Cos(angle);
+                    p[axis] = midAlong + armLength * Mathf.Sin(angle);
+                    p[rise] = midRise + radius - armLength * Mathf.Cos(angle);
 
                     vertices[i] = local.InverseTransformPoint(root.TransformPoint(p));
                 }
@@ -206,18 +282,23 @@ namespace TheHammerOfOden
         }
 
         /// <summary>
-        /// How far the piece runs along the chosen axis, measured in the piece's own space.
+        /// The piece's size on all three of its own axes, measured once.
         /// </summary>
         /// <remarks>
         /// Taken across every mesh at once rather than per mesh. The arc has to be shared: one
-        /// radius for the whole piece, or its planks and beams would each curve around their own
-        /// centre and come apart.
+        /// extent, one radius, one curve for the whole piece, or its planks and beams would each
+        /// bend around their own centre and pull apart.
+        ///
+        /// All three axes, because which one is the length is a question about the piece and not
+        /// something a caller can be trusted to know. A log pole runs along its own y and is a
+        /// fifth of a metre across x; bending it on x wrapped it round a radius of a tenth of a
+        /// metre, which is precisely the knot it turned into.
         /// </remarks>
-        private static bool Extent(Transform root, int axis, out float min, out float max)
+        private static void Measure(Transform root)
         {
-            min = float.MaxValue;
-            max = float.MinValue;
-            bool any = false;
+            _min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            _max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            _measured = false;
 
             foreach (Deformed entry in Active)
             {
@@ -230,14 +311,12 @@ namespace TheHammerOfOden
 
                 foreach (Vector3 vertex in entry.Source)
                 {
-                    float v = root.InverseTransformPoint(local.TransformPoint(vertex))[axis];
-                    if (v < min) { min = v; }
-                    if (v > max) { max = v; }
-                    any = true;
+                    Vector3 p = root.InverseTransformPoint(local.TransformPoint(vertex));
+                    _min = Vector3.Min(_min, p);
+                    _max = Vector3.Max(_max, p);
+                    _measured = true;
                 }
             }
-
-            return any;
         }
     }
 }

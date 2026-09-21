@@ -20,3 +20,6 @@ desktop.ini
 
 # local safety copies
 _backup/
+
+# Screenshots for working through a problem. Useful in the moment, not worth carrying.
+Screenshots/

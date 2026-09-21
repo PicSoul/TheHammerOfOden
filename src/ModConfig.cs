@@ -696,11 +696,12 @@ namespace TheHammerOfOden
                 + "is held, and a fifth that persists invisibly is how you bend something you meant "
                 + "to rotate.");
 
-            BendAxisKey = config.Bind("Bend", "BendAxisKey",
+            BendAxisKey = config.Bind("Bend", "BendDirectionKey",
                 new KeyboardShortcut(KeyCode.Keypad3),
-                "Step through which of the piece's own axes runs along its length, and so which way "
-                + "the curve runs. The piece bends towards its own up, or towards its depth when its "
-                + "length already is its up.");
+                "Swap which way the piece curves. It always bends along its longest side - that is "
+                + "measured, not chosen, because bending a pole across its thickness is not something "
+                + "anyone wants - which leaves exactly two directions it can curve towards. For a wall "
+                + "they are a round tower wall and an archway.");
 
             BendResetKey = config.Bind("Bend", "BendResetKey",
                 new KeyboardShortcut(KeyCode.KeypadPeriod),
