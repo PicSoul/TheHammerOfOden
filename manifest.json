@@ -1,0 +1,9 @@
+{
+  "name": "TheHammerOfOden",
+  "version_number": "0.1.0",
+  "website_url": "https://github.com/PicSoul/TheHammerOfOden",
+  "description": "Pitch, roll and sink any building piece, pin it in mid-air, lay a whole run in one go and take it back if it was wrong, and build from a camera that flies. One mod in place of several.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2350"
+  ]
+}
