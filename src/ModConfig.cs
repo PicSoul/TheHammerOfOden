@@ -137,6 +137,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> CameraRange;
         internal static ConfigEntry<float> CameraSensitivity;
         internal static ConfigEntry<bool> InvertCameraY;
+        internal static ConfigEntry<bool> CameraAboveGround;
+        internal static ConfigEntry<float> CameraGroundClearance;
         internal static ConfigEntry<bool> CameraLight;
         internal static ConfigEntry<float> CameraLightIntensity;
         internal static ConfigEntry<float> CameraLightRange;
@@ -700,6 +702,18 @@ namespace TheHammerOfOden
 
             InvertCameraY = config.Bind("Build Camera", "InvertY", false,
                 "Invert vertical mouse movement while flying.");
+
+            CameraAboveGround = config.Bind("Build Camera", "KeepAboveGround", true,
+                "Stop the camera sinking below the terrain. It still passes freely through "
+                + "walls, roofs and anything else you have built - flying inside a building to "
+                + "see what you are doing is most of the point - but under the ground there is "
+                + "nothing to look at and no way to tell which way is up.");
+
+            CameraGroundClearance = config.Bind("Build Camera", "GroundClearance", 0.5f,
+                new ConfigDescription(
+                    "How far above the terrain the camera is held, in metres. A little clearance "
+                    + "stops the near plane clipping into the ground on a slope.",
+                    new AcceptableValueRange<float>(0f, 5f)));
 
             CameraLight = config.Bind("Build Camera", "Light", true,
                 "Carry a light with the camera, so you can see what you are building at night. "

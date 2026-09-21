@@ -90,7 +90,18 @@ namespace TheHammerOfOden
 
         private static float _nextScan;
         private static int _pieceMask = -1;
-        private static readonly Collider[] Nearby = new Collider[32];
+
+        /// <summary>
+        /// Room for everything a sphere in a built-up base can touch.
+        /// </summary>
+        /// <remarks>
+        /// OverlapSphereNonAlloc fills the buffer and silently drops the rest, so a small one
+        /// does not mean "the nearest few" - it means an arbitrary subset. Thirty-two slots
+        /// inside a house are used up by floors and beams before the door is reached, which
+        /// made opening work in a doorway and fail in a hallway, and look like a timer.
+        /// </remarks>
+        private static readonly Collider[] Nearby = new Collider[256];
+        private static bool _warnedFull;
         private static readonly RaycastHit[] Hits = new RaycastHit[16];
 
         /// <summary>
@@ -210,7 +221,7 @@ namespace TheHammerOfOden
         {
             into.Clear();
 
-            int found = Physics.OverlapSphereNonAlloc(where, range, Nearby, Mask());
+            int found = Sphere(where, range);
 
             for (int i = 0; i < found; i++)
             {
@@ -239,8 +250,7 @@ namespace TheHammerOfOden
 
             float reach = ModConfig.DoorPairDistance.Value;
 
-            int found = Physics.OverlapSphereNonAlloc(
-                door.transform.position, reach, Nearby, Mask());
+            int found = Sphere(door.transform.position, reach);
 
             for (int i = 0; i < found; i++)
             {
@@ -413,14 +423,38 @@ namespace TheHammerOfOden
             return true;
         }
 
+        /// <summary>
+        /// Layers a door can be on, and no more.
+        /// </summary>
+        /// <remarks>
+        /// Default and static_solid were in here and should not have been: they carry terrain,
+        /// rocks and most of the world, so every query came back full of things that could
+        /// never be a door and crowded out the one that was.
+        /// </remarks>
         private static int Mask()
         {
             if (_pieceMask == -1)
             {
-                _pieceMask = LayerMask.GetMask("piece", "piece_nonsolid", "Default", "static_solid");
+                _pieceMask = LayerMask.GetMask("piece", "piece_nonsolid");
             }
 
             return _pieceMask;
+        }
+
+        /// <summary>Says so, once, if a query ever fills the buffer and drops results.</summary>
+        private static int Sphere(Vector3 centre, float radius)
+        {
+            int found = Physics.OverlapSphereNonAlloc(centre, radius, Nearby, Mask());
+
+            if (found >= Nearby.Length && !_warnedFull)
+            {
+                _warnedFull = true;
+                HammerOfOdenPlugin.Error(
+                    $"A door search filled its {Nearby.Length}-collider buffer, so some doors "
+                    + "may be missed. Lower AutoOpenRange, or report this.");
+            }
+
+            return found;
         }
     }
 }

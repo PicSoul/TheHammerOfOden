@@ -159,6 +159,7 @@ namespace TheHammerOfOden
             _position += move * (speed * dt);
 
             Tether(player);
+            KeepAboveGround();
             Sweep(player);
         }
 
@@ -243,6 +244,43 @@ namespace TheHammerOfOden
             if (offset.magnitude > limit)
             {
                 _position = anchor + offset.normalized * limit;
+            }
+        }
+
+        /// <summary>
+        /// Stops the camera sinking into the ground, while leaving it free of everything else.
+        /// </summary>
+        /// <remarks>
+        /// Terrain only, deliberately. Passing through your own walls and roofs is most of
+        /// what the camera is for - you fly inside the building to see what you are doing -
+        /// but under the ground there is nothing to see and no way to tell which way is up.
+        ///
+        /// Heightmap.GetHeight reads the terrain and nothing else. ZoneSystem.GetSolidHeight
+        /// is the obvious neighbour and would be wrong here: it counts static objects too, so
+        /// the camera would be stopped by the very walls it is supposed to pass through.
+        ///
+        /// Applied after the tether, so the tether cannot pull the camera back underground
+        /// after this has lifted it out.
+        /// </remarks>
+        private static void KeepAboveGround()
+        {
+            if (!ModConfig.CameraAboveGround.Value)
+            {
+                return;
+            }
+
+            // Unloaded ground has no height to ask about; leaving the camera where it is
+            // beats clamping it to a figure that does not exist yet.
+            if (!Heightmap.GetHeight(_position, out float ground))
+            {
+                return;
+            }
+
+            float floor = ground + ModConfig.CameraGroundClearance.Value;
+
+            if (_position.y < floor)
+            {
+                _position.y = floor;
             }
         }
 
