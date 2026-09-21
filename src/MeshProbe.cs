@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
@@ -31,11 +31,11 @@ namespace TheHammerOfOden
     {
         internal static void Dump(Player player)
         {
-            Piece piece = SurfacePlacement.LookingAt(player);
+            Piece piece = Aiming(player);
             if (piece == null)
             {
-                HammerOfOdenPlugin.Info("Mesh probe: not looking at a piece.");
-                Notify.Show(player, "Mesh probe: look at a piece first");
+                HammerOfOdenPlugin.Info("Mesh probe: nothing under the crosshair.");
+                Notify.Show(player, "Mesh probe: aim at a piece first");
                 return;
             }
 
@@ -53,6 +53,24 @@ namespace TheHammerOfOden
 
             HammerOfOdenPlugin.Info(report.ToString());
             Notify.Show(player, "Mesh probe written to the log");
+        }
+
+        /// <summary>
+        /// The piece the player means.
+        /// </summary>
+        /// <remarks>
+        /// With a build tool out, this is the piece Valheim is already highlighting - the one a
+        /// hammer would repair or remove. It is set by UpdateWearNTearHover, which raycasts from
+        /// the camera on the removal mask and stops at the placement distance, so there is no
+        /// ambiguity about which piece is meant: the game has drawn an outline round it.
+        ///
+        /// Without a build tool there is no highlight and no hovering piece, so the same ray is
+        /// cast directly. The probe is worth being able to use with empty hands, since the
+        /// question it answers is about a piece's geometry and has nothing to do with building.
+        /// </remarks>
+        private static Piece Aiming(Player player)
+        {
+            return player.GetHoveringPiece() ?? SurfacePlacement.LookingAt(player);
         }
 
         private static void DescribeMeshes(Piece piece, StringBuilder report)
