@@ -69,6 +69,28 @@ Neighbouring doors are opened as one, with a single swing direction measured fro
 
 **If you use another mod's auto-close, turn one of them off.**
 
+### Editing a placed piece
+
+| Action | Control |
+|---|---|
+| Take the piece you're looking at back into the ghost | **Left Alt + E** |
+| Cancel and leave it untouched | **Left Alt + E** again |
+
+Its rotation and size come with it, so you start from what is already there rather than from a
+fresh piece. Change whatever you like with the usual controls - rotate, scale, nudge, freeze - and
+place to apply. The original comes down as the new one goes up, and the materials move across
+rather than being charged twice.
+
+The piece is rebuilt rather than altered where it stands, and that is not a shortcut. A built
+piece's position and angle are read out of its record once, when it spawns, and never looked at
+again - so editing those in place would look right to you and leave the piece exactly where it
+was for every other player until their world reloaded. Placing a new piece is something every
+client already knows how to draw.
+
+Two consequences follow. The piece comes back at full health, so damage and wear are wiped. And a
+chest, sign or item stand with something in it is refused rather than quietly emptied, since the
+replacement is built from the prefab and the prefab knows nothing about what was inside.
+
 ### Build camera
 
 | Action | Control |

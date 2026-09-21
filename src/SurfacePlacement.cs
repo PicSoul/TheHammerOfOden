@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -98,6 +98,31 @@ namespace TheHammerOfOden
         /// failure here disables surface placement and says so, in keeping with patches
         /// being applied one class at a time so that one break costs one feature.
         /// </remarks>
+        /// <summary>
+        /// The placed piece the player is pointing at, or null.
+        /// </summary>
+        /// <remarks>
+        /// Shared rather than re-rolled, because the interesting part of "what am I looking at"
+        /// is not the raycast: it is the layer mask, the reach and the water handling that
+        /// Valheim applies around it, and a hand-rolled ray would have to guess at all three
+        /// and would drift from the game's answer the moment any of them changed.
+        /// </remarks>
+        internal static Piece LookingAt(Player player)
+        {
+            if (RayTest == null || player == null)
+            {
+                return null;
+            }
+
+            if (!RayTest(player, out Vector3 _, out Vector3 _,
+                    out Piece piece, out Heightmap _, out Collider _, false))
+            {
+                return null;
+            }
+
+            return piece;
+        }
+
         private static PieceRayTestCall ResolveRayTest()
         {
             try

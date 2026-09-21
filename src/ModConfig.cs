@@ -113,6 +113,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> ResetOffsetKey;
 
         internal static ConfigEntry<KeyboardShortcut> FreezeKey;
+        internal static ConfigEntry<bool> EditPlacedPieces;
+        internal static ConfigEntry<KeyboardShortcut> EditKey;
         internal static ConfigEntry<bool> ResetOffsetOnUnfreeze;
 
         internal static ConfigEntry<KeyboardShortcut> StationRangeKey;
@@ -180,6 +182,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> DebugParticles;
         internal static ConfigEntry<KeyboardShortcut> DebugMistKey;
         internal static ConfigEntry<KeyboardShortcut> DebugPatchesKey;
+        internal static ConfigEntry<KeyboardShortcut> DebugMeshKey;
 
         internal static bool IsEnabled => Enabled != null && Enabled.Value;
         internal static bool DebugEnabled => DebugLogging != null && DebugLogging.Value;
@@ -659,6 +662,23 @@ namespace TheHammerOfOden
                 "Return to normal size when you select a different piece. Off keeps your scale across "
                 + "pieces, which is useful when building a set to match.");
 
+            EditPlacedPieces = Synced(config.Bind("Edit", "EditPlacedPieces", true,
+                "Let a built piece be taken back into the placement ghost to be changed. The piece is "
+                + "rebuilt rather than altered where it stands, because a built piece's position and "
+                + "angle are read once when it spawns and never again - editing those in place would "
+                + "look right to you and leave the piece where it was for everyone else. Synced, "
+                + "because rebuilding a piece is a placement like any other and a server should be "
+                + "able to say no to it."));
+
+            EditKey = config.Bind("Edit", "EditKey",
+                new KeyboardShortcut(KeyCode.E, KeyCode.LeftAlt),
+                "Look at a built piece and press to take it into the ghost, with its rotation and "
+                + "size already loaded. Change whatever you like using the usual controls, then place "
+                + "to apply; the original comes down as the new one goes up, and the materials move "
+                + "across rather than being charged twice. Press again to cancel and leave the piece "
+                + "untouched. A chest, sign or item stand holding something is refused rather than "
+                + "quietly emptied.");
+
             FreezeKey = config.Bind("Freeze", "FreezeKey",
                 new KeyboardShortcut(KeyCode.Keypad0),
                 "Pin the piece where it is so you can walk around it and look at it from "
@@ -1058,6 +1078,15 @@ namespace TheHammerOfOden
                 + "order their patches run. A stack trace cannot tell you this: Harmony compiles "
                 + "all of a method's patches into one dynamic method, so an exception from any "
                 + "of them shows the same single frame. Harmony does know, and this asks it.");
+
+            DebugMeshKey = config.Bind("Debug", "DebugMeshKey",
+                new KeyboardShortcut(KeyCode.F9),
+                "Look at a piece and press to write what it is made of to the log: every mesh "
+                + "and whether it can be read at runtime, the collider types, the snap point "
+                + "count and the shader. This exists to answer one question - whether a piece "
+                + "could be bent into an arch - because a mesh imported with Read/Write disabled "
+                + "cannot have its vertices touched at all, and that is worth measuring rather "
+                + "than assuming either way.");
 
             DebugLogging = config.Bind("Debug", "DebugLogging", false,
                 "Write placement diagnostics to the BepInEx log.");

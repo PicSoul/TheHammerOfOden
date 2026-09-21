@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -175,7 +175,7 @@ namespace TheHammerOfOden
         /// The per-level amounts on a Requirement belong to crafting recipes.
         /// </remarks>
         /// <returns>True if the materials were handed over, so vanilla must not drop them too.</returns>
-        private static bool Refund(Piece piece)
+        internal static bool Refund(Piece piece)
         {
             Player player = Player.m_localPlayer;
 

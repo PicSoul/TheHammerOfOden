@@ -73,6 +73,11 @@ namespace TheHammerOfOden
             // is vanilla's own build permission, so it has to be right either way.
             StationRange.RefreshAll();
 
+            if (PressedWithModifiers(ModConfig.EditKey.Value))
+            {
+                PlacementEdit.Toggle(__instance);
+            }
+
             // Every frame rather than on a change: the covering station can change by
             // walking, and its range by another player adjusting it.
             PlacementReach.Apply(__instance, ref ___m_maxPlaceDistance);
@@ -1063,12 +1068,22 @@ namespace TheHammerOfOden
         }
 
         [HarmonyPostfix]
-        private static void Postfix(Piece piece, Quaternion rot, bool cheated)
+        private static void Postfix(Player __instance, Piece piece, Quaternion rot, bool cheated)
         {
-            if (ModConfig.IsEnabled)
+            if (!ModConfig.IsEnabled)
             {
-                Zooping.QueueRun(piece, rot, cheated);
+                return;
             }
+
+            // After the new piece exists, so whatever the old one was supporting has something
+            // to hold on to before it goes. A zoop run is not an edit - only the first
+            // placement replaces anything, and Zooping is what places the rest.
+            if (!Zooping.IsPlacing)
+            {
+                PlacementEdit.CommitAfterPlacement(__instance);
+            }
+
+            Zooping.QueueRun(piece, rot, cheated);
         }
     }
 
@@ -1176,6 +1191,11 @@ namespace TheHammerOfOden
             if (buildPieces == null)
             {
                 PlacementReach.Restore(ref ___m_maxPlaceDistance);
+
+                // Leaving build mode abandons the edit rather than finishing it. The ghost is
+                // gone, so there is nothing left to place, and a remembered id would fire
+                // against whatever was next placed instead.
+                PlacementEdit.Cancel(null, null);
                 FreePlacement.Reset();
                 SurfacePlacement.Reset();
                 PlacementFreeze.Reset();

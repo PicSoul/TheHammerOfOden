@@ -227,6 +227,16 @@ namespace TheHammerOfOden
             {
                 PatchInspector.Dump();
             }
+
+            KeyboardShortcut mesh = ModConfig.DebugMeshKey?.Value ?? default(KeyboardShortcut);
+
+            if (mesh.MainKey != KeyCode.None
+                && Player.m_localPlayer != null
+                && ZInput.instance != null
+                && ZInput.GetKeyDown(mesh.MainKey, true))
+            {
+                MeshProbe.Dump(Player.m_localPlayer);
+            }
         }
 
         private void OnDestroy()
@@ -234,6 +244,7 @@ namespace TheHammerOfOden
             try { _harmony?.UnpatchSelf(); } catch { }
             _harmony = null;
             PlacementUndo.Clear();
+            PlacementEdit.Clear();
             HammerGlow.Forget();
             RotationGizmo.Destroy();
             SnapPointMarkers.Destroy();
