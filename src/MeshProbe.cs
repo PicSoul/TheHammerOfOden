@@ -79,15 +79,21 @@ namespace TheHammerOfOden
             report.AppendLine("  mesh filters: " + filters.Length);
 
             int readable = 0;
+            int withMesh = 0;
 
             foreach (MeshFilter filter in filters)
             {
                 Mesh mesh = filter.sharedMesh;
                 if (mesh == null)
                 {
-                    report.AppendLine("    - " + filter.name + ": no mesh");
+                    // A MeshFilter with nothing in it. Counting this against readability once
+                    // reported a wall as "26 of 27" and made a clean result look like a
+                    // problem, which is the opposite of what a probe is for.
+                    report.AppendLine("    - " + filter.name + ": no mesh (empty filter)");
                     continue;
                 }
+
+                withMesh++;
 
                 // The whole question, in one property. Asking for vertexCount is safe either
                 // way; asking for vertices would log a Unity error when it is false, which is
@@ -120,9 +126,9 @@ namespace TheHammerOfOden
                 report.AppendLine("  skinned renderers: " + skinned.Length + " (these bend by rig, not by vertex)");
             }
 
-            report.AppendLine(readable == filters.Length && filters.Length > 0
-                ? "  VERDICT: every mesh is readable - vertex deformation is on the table."
-                : "  VERDICT: " + readable + " of " + filters.Length
+            report.AppendLine(readable == withMesh && withMesh > 0
+                ? "  VERDICT: all " + withMesh + " meshes readable - vertex deformation is on the table."
+                : "  VERDICT: " + readable + " of " + withMesh
                   + " readable - anything not readable cannot be deformed vertex by vertex.");
         }
 

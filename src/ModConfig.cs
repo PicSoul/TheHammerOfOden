@@ -117,6 +117,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> EditKey;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
+        internal static ConfigEntry<Color> EditGhostGlow;
         internal static ConfigEntry<bool> ResetOffsetOnUnfreeze;
 
         internal static ConfigEntry<KeyboardShortcut> StationRangeKey;
@@ -691,11 +692,17 @@ namespace TheHammerOfOden
                 + "game recalculates support in that window. It is short and the collision comes "
                 + "straight back, but turn this off if you would rather not risk it.");
 
-            EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.45f, 0.6f, 0.8f, 0.25f),
-                "How the piece being edited is drawn: faint enough to see past, solid enough to "
-                + "show where it still stands. Applied through the game's own per-object material "
-                + "system, so no other piece changes. Whether the alpha reads as see-through "
-                + "depends on the piece's shader; the darkening works either way.");
+            EditGhostTint = config.Bind("Edit", "EditGhostTint", new Color(0.18f, 0.22f, 0.32f, 1f),
+                "How the piece being edited is drawn, so it shows where it stands without being "
+                + "mistaken for something solid. Valheim's piece shader is opaque, so alpha here "
+                + "does nothing - a piece is made to recede by darkening it rather than by making "
+                + "it see-through. Applied through the game's own per-object material system, so "
+                + "no other piece in the world changes.");
+
+            EditGhostGlow = config.Bind("Edit", "EditGhostGlow", new Color(0.10f, 0.16f, 0.28f, 1f),
+                "A faint light of its own for the piece being edited, which is what stops the "
+                + "darkening reading as simply unlit and makes it read as set aside instead. Black "
+                + "for none.");
 
             FreezeKey = config.Bind("Freeze", "FreezeKey",
                 new KeyboardShortcut(KeyCode.Keypad0),

@@ -307,9 +307,12 @@ namespace TheHammerOfOden
         ///
         /// The fade goes through Valheim's own per-object material system, the one that turns a
         /// ghost red when it cannot be placed, so no shared material is touched and no piece
-        /// elsewhere in the world changes colour. Whether the alpha reads as see-through depends
-        /// on the shader the piece uses; the darkening does not, so even where alpha is ignored
-        /// the piece still reads as stood down rather than solid.
+        /// elsewhere in the world changes colour.
+        ///
+        /// It darkens rather than fades. Custom/Piece is an opaque shader, so alpha on _Color is
+        /// simply ignored - tried first, and it did nothing at all in game. What does work is
+        /// pulling the colour down and giving it a little emission of its own, which reads as set
+        /// aside instead of merely unlit.
         /// </remarks>
         private static void Ghost(GameObject piece)
         {
@@ -335,6 +338,7 @@ namespace TheHammerOfOden
             if (MaterialMan.instance != null)
             {
                 MaterialMan.instance.SetValue(piece, ShaderProps._Color, ModConfig.EditGhostTint.Value);
+                MaterialMan.instance.SetValue(piece, ShaderProps._EmissionColor, ModConfig.EditGhostGlow.Value);
                 _tinted = true;
             }
         }
@@ -354,6 +358,7 @@ namespace TheHammerOfOden
             if (_tinted && piece != null && MaterialMan.instance != null)
             {
                 MaterialMan.instance.ResetValue(piece, ShaderProps._Color);
+                MaterialMan.instance.ResetValue(piece, ShaderProps._EmissionColor);
             }
 
             _tinted = false;
