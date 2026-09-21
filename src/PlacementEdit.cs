@@ -145,6 +145,7 @@ namespace TheHammerOfOden
             ScaleState.MatchPiece(piece);
 
             Ghost(piece.gameObject);
+            Tint(piece.gameObject);
 
             HammerOfOdenPlugin.Debug(
                 $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
@@ -313,6 +314,15 @@ namespace TheHammerOfOden
         /// simply ignored - tried first, and it did nothing at all in game. What does work is
         /// pulling the colour down and giving it a little emission of its own, which reads as set
         /// aside instead of merely unlit.
+        ///
+        /// Darkening once was not enough either, and the reason is worth keeping. The piece being
+        /// edited is also the piece the hammer is aimed at, so WearNTear.Highlight runs on it
+        /// every frame - setting the same two properties to its own support colour and then
+        /// scheduling ResetHighlight to clear them a fifth of a second later. Two systems writing
+        /// one property, which is the door openers all over again. The answer is the same: own
+        /// both ends rather than tune around them. HighlightPatch stands the vanilla highlight
+        /// down for this one piece, and the colour is reasserted every frame so nothing that was
+        /// already scheduled can undo it.
         /// </remarks>
         private static void Ghost(GameObject piece)
         {
@@ -335,12 +345,37 @@ namespace TheHammerOfOden
                 }
             }
 
-            if (MaterialMan.instance != null)
+        }
+
+        /// <summary>Asserts the edit colour. Cheap, and called every frame on purpose.</summary>
+        private static void Tint(GameObject piece)
+        {
+            if (piece == null || MaterialMan.instance == null)
             {
-                MaterialMan.instance.SetValue(piece, ShaderProps._Color, ModConfig.EditGhostTint.Value);
-                MaterialMan.instance.SetValue(piece, ShaderProps._EmissionColor, ModConfig.EditGhostGlow.Value);
-                _tinted = true;
+                return;
             }
+
+            MaterialMan.instance.SetValue(piece, ShaderProps._Color, ModConfig.EditGhostTint.Value);
+            MaterialMan.instance.SetValue(piece, ShaderProps._EmissionColor, ModConfig.EditGhostGlow.Value);
+            _tinted = true;
+        }
+
+        /// <summary>
+        /// Keeps the edited piece looking edited, against anything else writing the same
+        /// properties. Driven from the placement path, which already runs every frame.
+        /// </summary>
+        internal static void Tick()
+        {
+            if (IsEditing)
+            {
+                Tint(Original);
+            }
+        }
+
+        /// <summary>Whether this is the piece currently being edited.</summary>
+        internal static bool IsBeingEdited(GameObject candidate)
+        {
+            return IsEditing && candidate != null && Original == candidate;
         }
 
         private static void Unghost(GameObject piece)

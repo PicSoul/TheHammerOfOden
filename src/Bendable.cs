@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -117,7 +117,41 @@ namespace TheHammerOfOden
                 return false;
             }
 
-            if (piece.GetComponentInChildren<MeshFilter>(true) == null)
+            // Anything you can use is not plain structure, whatever it is built from. A chest
+            // and a chair both carry a single collider and both came back bendable on the first
+            // rule, which was wrong in a way that would only have shown up as a bent chest.
+            if (piece.GetComponentInChildren<Interactable>(true) != null)
+            {
+                reason = "is something you interact with";
+                return false;
+            }
+
+            MeshFilter[] filters = piece.GetComponentsInChildren<MeshFilter>(true);
+            int meshes = 0;
+
+            foreach (MeshFilter filter in filters)
+            {
+                Mesh mesh = filter.sharedMesh;
+                if (mesh == null)
+                {
+                    continue;
+                }
+
+                meshes++;
+
+                // Decided here rather than discovered halfway through a bend. A mesh imported
+                // without Read/Write hands back an empty vertex array, so a piece holding even
+                // one of them would come out partly curved and partly straight. The darkwood
+                // roof is exactly that case: twenty-one of its twenty-four meshes cannot be
+                // read, and the first rule called it bendable.
+                if (!mesh.isReadable)
+                {
+                    reason = "has meshes that cannot be read at runtime";
+                    return false;
+                }
+            }
+
+            if (meshes == 0)
             {
                 reason = "has no mesh to bend";
                 return false;

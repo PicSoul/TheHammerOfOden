@@ -73,6 +73,8 @@ namespace TheHammerOfOden
             // is vanilla's own build permission, so it has to be right either way.
             StationRange.RefreshAll();
 
+            PlacementEdit.Tick();
+
             if (PressedWithModifiers(ModConfig.EditKey.Value))
             {
                 PlacementEdit.Toggle(__instance);
