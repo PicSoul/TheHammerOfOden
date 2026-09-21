@@ -117,6 +117,11 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> EditKey;
         internal static ConfigEntry<string> BendNever;
         internal static ConfigEntry<string> BendAlways;
+        internal static ConfigEntry<KeyboardShortcut> BendModifierKey;
+        internal static ConfigEntry<KeyboardShortcut> BendAxisKey;
+        internal static ConfigEntry<KeyboardShortcut> BendResetKey;
+        internal static ConfigEntry<float> BendStep;
+        internal static ConfigEntry<float> BendMaximum;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -683,6 +688,33 @@ namespace TheHammerOfOden
                 + "across rather than being charged twice. Press again to cancel and leave the piece "
                 + "untouched. A chest, sign or item stand holding something is refused rather than "
                 + "quietly emptied.");
+
+            BendModifierKey = config.Bind("Bend", "BendModifierKey",
+                new KeyboardShortcut(KeyCode.Keypad1),
+                "Hold and turn the wheel to bend the piece in hand. A held modifier rather than a "
+                + "mode you switch on, because the wheel already means four things depending on what "
+                + "is held, and a fifth that persists invisibly is how you bend something you meant "
+                + "to rotate.");
+
+            BendAxisKey = config.Bind("Bend", "BendAxisKey",
+                new KeyboardShortcut(KeyCode.Keypad3),
+                "Step through which of the piece's own axes runs along its length, and so which way "
+                + "the curve runs. The piece bends towards its own up, or towards its depth when its "
+                + "length already is its up.");
+
+            BendResetKey = config.Bind("Bend", "BendResetKey",
+                new KeyboardShortcut(KeyCode.KeypadPeriod),
+                "Straighten the piece in hand.");
+
+            BendStep = config.Bind("Bend", "Step", 5f,
+                "Degrees of bend per notch of the wheel.");
+
+            BendMaximum = Synced(config.Bind("Bend", "Maximum", 180f,
+                "How far a piece may be bent, in degrees from end to end. 180 is a half circle: a "
+                + "straight beam becomes an arch with its ends pointing straight up, rising about "
+                + "0.318 of its own length. That is the practical ceiling - an arc's rise peaks at "
+                + "0.362 of its length at around 267 degrees, by which point it has curled back "
+                + "through itself and is a ring rather than a building piece."));
 
             BendNever = Synced(config.Bind("Bend", "NeverBendable", "",
                 "Prefab names that must never be bent, whatever they are made of, separated by commas. "

@@ -115,8 +115,10 @@ namespace TheHammerOfOden
             HandleResets();
             HandleStandaloneCopyKey(__instance);
 
+            HandleBendKeys(__instance);
+
             // Before rotation, which otherwise consumes the wheel for yaw.
-            if (!HandleStationRange(__instance))
+            if (!HandleStationRange(__instance) && !HandleBend(__instance))
             {
                 HandleRotation();
             }
@@ -491,6 +493,36 @@ namespace TheHammerOfOden
         /// Changes a nearby station's build range with the wheel.
         /// </summary>
         /// <returns>True if the wheel was used for this, so rotation should leave it alone.</returns>
+        private static void HandleBendKeys(Player player)
+        {
+            if (Pressed(ModConfig.BendAxisKey.Value))
+            {
+                BendState.CycleAxis(player);
+            }
+
+            if (Pressed(ModConfig.BendResetKey.Value))
+            {
+                BendState.Reset(player, true);
+            }
+        }
+
+        /// <summary>
+        /// Bends the piece in hand while the modifier is held.
+        /// </summary>
+        /// <returns>True if the wheel was used for this, so rotation should leave it alone.</returns>
+        private static bool HandleBend(Player player)
+        {
+            if (!IsHeld(ModConfig.BendModifierKey))
+            {
+                return false;
+            }
+
+            // Held means the wheel is spoken for, movement or not, so a held modifier cannot
+            // rotate the piece on a still frame.
+            BendState.HandleScroll(player, ZInput.GetMouseScrollWheel());
+            return true;
+        }
+
         private static bool HandleStationRange(Player player)
         {
             if (!IsHeld(ModConfig.StationRangeKey))
@@ -758,6 +790,7 @@ namespace TheHammerOfOden
             if (Scalable.Allows(___m_placementGhost))
             {
                 ScaleState.ApplyTo(___m_placementGhost);
+                BendState.ApplyTo(___m_placementGhost);
             }
 
             // Deliberately not gated on the above: the nudge is the only way to move a
@@ -961,12 +994,15 @@ namespace TheHammerOfOden
                 return vanilla;
             }
 
-            KeyboardShortcut shortcut = ModConfig.StationRangeKey.Value;
+            return ClaimsWheel(ModConfig.StationRangeKey.Value)
+                || ClaimsWheel(ModConfig.BendModifierKey.Value)
+                ? 0f
+                : vanilla;
+        }
 
-            bool claimed = shortcut.MainKey != KeyCode.None
-                && ZInput.GetKey(shortcut.MainKey, true);
-
-            return claimed ? 0f : vanilla;
+        private static bool ClaimsWheel(KeyboardShortcut shortcut)
+        {
+            return shortcut.MainKey != KeyCode.None && ZInput.GetKey(shortcut.MainKey, true);
         }
     }
 
@@ -1258,6 +1294,8 @@ namespace TheHammerOfOden
             PlacementFreeze.Reset();
             ScaleState.ForgetGhost();
             Scalable.Forget();
+            BendState.ForgetGhost();
+            Bendable.Forget();
 
             // The ghost is rebuilt after every placement as well as on changing piece, so
             // resetting here unconditionally threw the scale away the moment it was used.

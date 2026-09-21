@@ -245,6 +245,7 @@ namespace TheHammerOfOden
             _harmony = null;
             PlacementUndo.Clear();
             PlacementEdit.Clear();
+            BendDeformer.Release();
             HammerGlow.Forget();
             RotationGizmo.Destroy();
             SnapPointMarkers.Destroy();
