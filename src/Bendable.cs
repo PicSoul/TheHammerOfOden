@@ -160,12 +160,10 @@ namespace TheHammerOfOden
                 return false;
             }
 
-            if (solid > 1)
+            if (solid > 1 && !TileOneSolid(volumes))
             {
-                reason = "is built from " + solid + " colliders, so it has moving or working parts";
+                reason = "is built from " + solid + " separate parts, so it has moving or working bits";
 
-                // Printed because "two colliders" is the refusal most likely to be wrong, and the
-                // numbers say at a glance whether they are two parts or one shape counted twice.
                 foreach (Bounds seen in volumes)
                 {
                     HammerOfOdenPlugin.Debug(
@@ -224,6 +222,54 @@ namespace TheHammerOfOden
 
             reason = null;
             return true;
+        }
+
+        /// <summary>
+        /// Whether several collision boxes are really one solid shape cut into pieces.
+        /// </summary>
+        /// <remarks>
+        /// Counting colliders was a stand-in for "does this have moving or working parts", and it
+        /// is wrong in both directions. The 4x2 stone wall carries two boxes, each four by one by
+        /// one, stacked a metre apart: together they are the wall, and it is as plain a slab as
+        /// the 1x1 that carries a single box. A step ladder also carries several boxes and they
+        /// are rungs - small, spread through a tall thin space, most of which is air.
+        ///
+        /// What separates them is how much of the space they span they actually fill. Boxes that
+        /// tile one solid leave nothing over; parts scattered through a volume leave most of it
+        /// empty. Rebuilding collision for a slab cut in two is no harder than for a slab, which
+        /// is the practical question underneath all of this.
+        ///
+        /// Approximate on purpose. Overlapping boxes can push the ratio past one and boxes at an
+        /// angle to each other will read lower than they deserve; both are safe directions, since
+        /// the worst case is a piece that has to be named in AlwaysBendable.
+        /// </remarks>
+        private static bool TileOneSolid(List<Bounds> volumes)
+        {
+            if (volumes.Count == 0)
+            {
+                return false;
+            }
+
+            Bounds whole = volumes[0];
+            float filled = 0f;
+
+            foreach (Bounds box in volumes)
+            {
+                whole.Encapsulate(box);
+                filled += box.size.x * box.size.y * box.size.z;
+            }
+
+            float span = whole.size.x * whole.size.y * whole.size.z;
+            if (span <= 0.0001f)
+            {
+                return false;
+            }
+
+            float ratio = filled / span;
+            HammerOfOdenPlugin.Debug(
+                $"    {volumes.Count} volumes fill {ratio:0.##} of the space they span.");
+
+            return ratio >= Mathf.Clamp01(ModConfig.BendSolidFill.Value);
         }
 
         /// <summary>

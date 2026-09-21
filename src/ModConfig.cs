@@ -124,6 +124,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> BendMaximum;
         internal static ConfigEntry<int> BendMinimumSlices;
         internal static ConfigEntry<float> BendSegment;
+        internal static ConfigEntry<float> BendSolidFill;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -728,6 +729,14 @@ namespace TheHammerOfOden
                 + "rigidly, while its rails span the whole piece and have to curve across all of it. "
                 + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
                 + "metre piece.");
+
+            BendSolidFill = config.Bind("Bend", "SolidFill", 0.8f,
+                "How much of the space a piece's collision boxes span they must actually fill before "
+                + "several of them count as one solid shape. The 4x2 stone wall is two stacked boxes "
+                + "that together are simply the wall, and fill all of it; a step ladder is six small "
+                + "boxes spread through a tall thin space that is mostly air. Rebuilding collision "
+                + "for a slab cut in two is no harder than for a slab, so the first should bend and "
+                + "the second should not. Lower this to let more loosely built pieces through.");
 
             BendMinimumSlices = config.Bind("Bend", "MinimumSlices", 3,
                 "How many rings of vertices a mesh needs along the bend before it is curved rather "
