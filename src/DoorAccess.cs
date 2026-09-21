@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -100,7 +100,10 @@ namespace TheHammerOfOden
         /// inside a house are used up by floors and beams before the door is reached, which
         /// made opening work in a doorway and fail in a hallway, and look like a timer.
         /// </remarks>
-        private static readonly Collider[] Nearby = new Collider[256];
+        private static Collider[] Nearby = new Collider[256];
+
+        /// <summary>Where growing stops, so a pathological case cannot eat memory forever.</summary>
+        private const int MaximumBuffer = 4096;
         private static bool _warnedFull;
         private static readonly RaycastHit[] Hits = new RaycastHit[16];
 
@@ -441,20 +444,52 @@ namespace TheHammerOfOden
             return _pieceMask;
         }
 
-        /// <summary>Says so, once, if a query ever fills the buffer and drops results.</summary>
+        /// <summary>
+        /// Every collider within reach, growing the buffer rather than dropping any.
+        /// </summary>
+        /// <remarks>
+        /// OverlapSphereNonAlloc fills what it is given and silently discards the rest, so a full
+        /// buffer is indistinguishable from a search that found exactly that many - which is why
+        /// this counts as full whenever it comes back with no room left, and asks again with
+        /// twice the room.
+        ///
+        /// Starting at 256 and warning was the previous answer, on the reasoning that anywhere
+        /// dense enough to fill it was pathological. A real base filled it, which settles that:
+        /// a well built hall has hundreds of colliders within five metres, and a door that fails
+        /// to open because the hall around it is impressive is a bad trade. So it grows instead,
+        /// once per base, and stays grown.
+        ///
+        /// Bounded all the same. Doubling without a ceiling turns a mistake somewhere else into
+        /// an allocation that never stops, and being told is better than being quietly starved.
+        /// </remarks>
         private static int Sphere(Vector3 centre, float radius)
         {
-            int found = Physics.OverlapSphereNonAlloc(centre, radius, Nearby, Mask());
-
-            if (found >= Nearby.Length && !_warnedFull)
+            while (true)
             {
-                _warnedFull = true;
-                HammerOfOdenPlugin.Error(
-                    $"A door search filled its {Nearby.Length}-collider buffer, so some doors "
-                    + "may be missed. Lower AutoOpenRange, or report this.");
-            }
+                int found = Physics.OverlapSphereNonAlloc(centre, radius, Nearby, Mask());
 
-            return found;
+                if (found < Nearby.Length)
+                {
+                    return found;
+                }
+
+                if (Nearby.Length >= MaximumBuffer)
+                {
+                    if (!_warnedFull)
+                    {
+                        _warnedFull = true;
+                        HammerOfOdenPlugin.Error(
+                            $"A door search filled even a {Nearby.Length}-collider buffer, so some "
+                            + "doors may be missed. Lower AutoOpenRange, or report this.");
+                    }
+
+                    return found;
+                }
+
+                Nearby = new Collider[Nearby.Length * 2];
+                HammerOfOdenPlugin.Debug(
+                    $"Door search buffer grown to {Nearby.Length}; this base is denser than the last.");
+            }
         }
     }
 }

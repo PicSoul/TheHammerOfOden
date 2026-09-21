@@ -122,6 +122,29 @@ namespace TheHammerOfOden
                             ? renderer.sharedMaterial.shader.name
                             : "none"));
                 }
+
+                // Why a part might not follow a deformation even though its mesh was bent.
+                // Static batching bakes geometry into a shared buffer and draws from that, so
+                // replacing the filter's mesh changes nothing on screen. An inactive object or
+                // a disabled renderer is not drawn at all, so bending it is wasted work rather
+                // than a fault. Both are invisible from the outside and both look identical to
+                // "the maths is wrong", which is the trap this is here to spring.
+                bool batched = renderer != null && renderer.isPartOfStaticBatch;
+                bool drawn = filter.gameObject.activeInHierarchy && renderer != null && renderer.enabled;
+
+                if (batched || !drawn)
+                {
+                    report.AppendLine(
+                        "      NOTE: " + (batched ? "static-batched" : "")
+                        + (batched && !drawn ? ", " : "")
+                        + (!drawn ? "not drawn right now" : ""));
+                }
+
+                LODGroup lod = filter.GetComponentInParent<LODGroup>();
+                if (lod != null)
+                {
+                    report.AppendLine("      part of LODGroup '" + lod.name + "'");
+                }
             }
 
             SkinnedMeshRenderer[] skinned = piece.GetComponentsInChildren<SkinnedMeshRenderer>(true);
