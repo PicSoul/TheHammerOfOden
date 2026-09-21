@@ -48,6 +48,26 @@ namespace TheHammerOfOden
         }
 
         private static readonly List<Deformed> Active = new List<Deformed>();
+
+        /// <summary>
+        /// LOD groups held at full detail while a piece is bent.
+        /// </summary>
+        /// <remarks>
+        /// A low-detail stand-in is a box: twenty-four vertices, two slices along its length,
+        /// nothing in between. A deformer can only move vertices that exist, so bending one
+        /// lifts its eight corners onto the arc and leaves the edges running dead straight
+        /// between them. Drawn over a curved high-detail mesh, those straight edges are exactly
+        /// the two rails that would not bend on the wood wall, and the frame the thatch appeared
+        /// to sit on without curving. Neither was ever a separate part; both were the silhouette
+        /// of a box that could not follow.
+        ///
+        /// Holding the group at LOD0 costs a little distant performance on bent pieces and makes
+        /// the artefact impossible. Subdividing the low meshes instead would keep the LODs, and
+        /// is the better answer for genuinely low-poly high meshes - a log pole has six slices
+        /// and bends visibly faceted - but it is a great deal more work for a mesh nobody looks
+        /// at closely.
+        /// </remarks>
+        private static readonly List<LODGroup> Held = new List<LODGroup>();
         private static GameObject _appliedTo;
         private static float _appliedAngle = float.NaN;
         private static int _appliedAxis = -1;
@@ -160,6 +180,7 @@ namespace TheHammerOfOden
                 return;
             }
 
+            HoldDetail(piece);
             Bend(piece, degrees * Mathf.Deg2Rad, axis, rise);
         }
 
@@ -192,6 +213,43 @@ namespace TheHammerOfOden
                 {
                     entry.Filter.sharedMesh = entry.Original;
                 }
+            }
+
+            foreach (LODGroup group in Held)
+            {
+                if (group != null)
+                {
+                    group.ForceLOD(-1);
+                }
+            }
+
+            Held.Clear();
+        }
+
+        /// <summary>Pins every LOD group on the piece to full detail.</summary>
+        private static void HoldDetail(GameObject piece)
+        {
+            if (Held.Count > 0)
+            {
+                return;
+            }
+
+            foreach (LODGroup group in piece.GetComponentsInChildren<LODGroup>(true))
+            {
+                if (group == null)
+                {
+                    continue;
+                }
+
+                group.ForceLOD(0);
+                Held.Add(group);
+            }
+
+            if (Held.Count > 0)
+            {
+                HammerOfOdenPlugin.Debug(
+                    $"Bend held {Held.Count} LOD group(s) at full detail; their low meshes are "
+                    + "boxes and cannot follow a curve.");
             }
         }
 
