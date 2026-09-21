@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 
@@ -27,6 +27,16 @@ namespace TheHammerOfOden
     {
         /// <summary>Distinct from anything vanilla stores, so nothing else reads or writes it.</summary>
         private const string Key = "HoO_rangeBuild";
+
+        /// <summary>How often a station is asked whether somebody else has moved its range.</summary>
+        /// <remarks>
+        /// Two seconds is slower than a keystroke and far faster than noticing. The cost is one
+        /// ZDO lookup per live station per tick, so the interval matters less than the fact that
+        /// it is not per frame.
+        /// </remarks>
+        private const float RefreshInterval = 2f;
+
+        private static float _nextRefresh;
 
         private static readonly AccessTools.FieldRef<List<CraftingStation>> AllStations =
             ResolveAllStations();
@@ -193,6 +203,83 @@ namespace TheHammerOfOden
         }
 
         /// <summary>
+        /// Picks up range changes made by other players.
+        /// </summary>
+        /// <remarks>
+        /// m_rangeBuild is a plain field on the component and vanilla never sends it anywhere, so
+        /// the ZDO is the only copy that travels. Writing it was enough to make the change persist
+        /// and survive a reload, and not enough to make it visible: another player's client had
+        /// already read the ZDO once at Start and had no reason to look again. The range would
+        /// then be right for whoever changed it and wrong for everyone standing next to them,
+        /// until the zone happened to reload.
+        ///
+        /// Re-reading is the whole fix. The value is already replicated - Valheim syncs the ZDO
+        /// itself - so nothing has to be sent, and no RPC is invented for it. An RPC would also
+        /// have made every player without this mod log a warning for each change, since an
+        /// unregistered method on ZNetView is a warning rather than a shrug.
+        ///
+        /// Driven from the placement path, because a player who is not building has no use for a
+        /// build range, and rate-limited so it costs nothing to call every frame.
+        /// </remarks>
+        internal static void RefreshAll()
+        {
+            if (Time.time < _nextRefresh)
+            {
+                return;
+            }
+
+            _nextRefresh = Time.time + RefreshInterval;
+
+            List<CraftingStation> stations = AllStations?.Invoke();
+            if (stations == null)
+            {
+                return;
+            }
+
+            foreach (CraftingStation station in stations)
+            {
+                ApplyStored(station);
+            }
+        }
+
+        /// <summary>
+        /// Reads the stored range for one station and applies it, if there is one.
+        /// </summary>
+        /// <returns>True when a stored range was found and applied.</returns>
+        private static bool ApplyStored(CraftingStation station)
+        {
+            if (station == null)
+            {
+                return false;
+            }
+
+            ZNetView view = station.GetComponentInParent<ZNetView>();
+            if (view == null || !view.IsValid())
+            {
+                return false;
+            }
+
+            float stored = view.GetZDO().GetFloat(Key, 0f);
+            if (stored <= 0f)
+            {
+                // Never customised. Leaving the prefab's own range alone is the right answer,
+                // and clamping zero would silently widen every vanilla workbench in the world.
+                return false;
+            }
+
+            float applied = Mathf.Clamp(
+                stored, ModConfig.StationRangeMin.Value, ModConfig.StationRangeMax.Value);
+
+            if (Mathf.Approximately(station.m_rangeBuild, applied))
+            {
+                return true;
+            }
+
+            station.m_rangeBuild = applied;
+            return true;
+        }
+
+        /// <summary>
         /// The largest build range among the stations whose circle the player is standing in.
         /// </summary>
         /// <remarks>
@@ -256,27 +343,11 @@ namespace TheHammerOfOden
                 return;
             }
 
-            ZNetView view = station.GetComponentInParent<ZNetView>();
-            if (view == null || !view.IsValid())
+            if (ApplyStored(station))
             {
                 HammerOfOdenPlugin.Debug(
-                    $"Station '{station.name}' has no usable ZNetView at Awake; range not restored.");
-                return;
+                    $"Restored '{station.m_name}' build range to {station.m_rangeBuild:0.##}m.");
             }
-
-            float stored = view.GetZDO().GetFloat(Key, 0f);
-            if (stored <= 0f)
-            {
-                return;
-            }
-
-            float applied = Mathf.Clamp(
-                stored, ModConfig.StationRangeMin.Value, ModConfig.StationRangeMax.Value);
-
-            station.m_rangeBuild = applied;
-
-            HammerOfOdenPlugin.Debug(
-                $"Restored '{station.m_name}' build range to {applied:0.##}m (stored {stored:0.##}).");
         }
     }
 }

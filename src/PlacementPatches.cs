@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections.Generic;
 using BepInEx.Configuration;
@@ -67,6 +67,11 @@ namespace TheHammerOfOden
             {
                 return;
             }
+
+            // Before anything asks a station how far it reaches. Not inside the reach
+            // extension, which a player may have switched off: the range another player set
+            // is vanilla's own build permission, so it has to be right either way.
+            StationRange.RefreshAll();
 
             // Every frame rather than on a change: the covering station can change by
             // walking, and its range by another player adjusting it.
