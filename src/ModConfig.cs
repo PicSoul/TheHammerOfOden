@@ -1,4 +1,4 @@
-﻿using BepInEx.Configuration;
+using BepInEx.Configuration;
 using ServerSync;
 using UnityEngine;
 
@@ -760,8 +760,7 @@ namespace TheHammerOfOden
                 + "exceptions would put an icon on nearly everything, which says nothing.");
 
             BendableMarkerColour = config.Bind("Bend", "MarkColour", new Color(0.55f, 0.85f, 1f, 0.85f),
-                "Colour of that arch. Sits in the opposite corner from the game's own upgrade arrow, "
-                + "since a piece can be both.");
+                "Colour of that arch. Sits in the top right corner of the piece icon.");
 
             BendCurvesGhostSnapPoints = config.Bind("Bend", "CurveGhostSnapPoints", true,
                 "Move the preview's snap points round the curve, so a bent piece snaps where it "
