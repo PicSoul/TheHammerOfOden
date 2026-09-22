@@ -1093,30 +1093,27 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
-    /// Marks the pieces that can be bent, as the build menu is filled in.
+    /// Marks a piece as bendable as its button in the build menu is set up.
     /// </summary>
     /// <remarks>
-    /// A postfix on the method that fills the grid, so the marks are refreshed whenever the
-    /// icons are - changing category, opening the menu, unlocking a recipe. The piece list is
-    /// the one vanilla itself just used, so the pairing of icon to piece is its pairing rather
-    /// than a guess at it.
+    /// Setup is called once per button each time one is handed a piece, and the buttons come
+    /// from a pool, so this catches every piece however the menu is filled - opening it,
+    /// changing category, searching, scrolling. No pairing by position and no reaching into a
+    /// private list, because the button already knows which piece it is showing.
     /// </remarks>
-    [HarmonyPatch(typeof(Hud), "UpdatePieceList")]
-    internal static class HudUpdatePieceListPatch
+    [HarmonyPatch(typeof(BuildUiPieceButton), nameof(BuildUiPieceButton.Setup))]
+    internal static class BuildUiPieceButtonSetupPatch
     {
         [HarmonyPostfix]
-        private static void Postfix(Hud __instance, Player player)
+        private static void Postfix(BuildUiPieceButton __instance)
         {
             try
             {
-                // Asked for again rather than injected. The list vanilla uses here is a local,
-                // not a field - GetBuildPieces is where it comes from, and calling it returns
-                // the same list in the same order, which is what the pairing depends on.
-                BendMenuMarker.Apply(__instance, player?.GetBuildPieces());
+                BendMenuMarker.Apply(__instance);
             }
             catch (System.Exception ex)
             {
-                HammerOfOdenPlugin.Debug("Could not mark bendable pieces: " + ex.Message);
+                HammerOfOdenPlugin.Debug("Could not mark a bendable piece: " + ex.Message);
             }
         }
     }

@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Reflection;
+﻿using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,295 +11,147 @@ namespace TheHammerOfOden
     /// <remarks>
     /// Whether a piece bends is not something to find out by trying. It depends on how the piece
     /// is built - one solid shape, nothing you can use, a main mesh the game lets a mod read -
-    /// and none of that is visible from the outside. Without a mark the only way to know is to
-    /// select a piece, hold the modifier, turn the wheel and read a refusal.
+    /// and none of that shows from the outside. Without a mark the only way to know is to select
+    /// a piece, hold the modifier, turn the wheel and read a refusal.
     ///
     /// Marked on what can bend rather than what cannot, because the bendable set is much the
     /// smaller: doors, gates, ladders, chests, workbenches, anything interactive and everything
-    /// whose meshes are sealed are all out. Marking the exceptions would mean an icon on almost
-    /// every piece, which is the same as marking nothing.
+    /// whose meshes are sealed are all out. Marking the exceptions would put a badge on almost
+    /// every piece, which says the same as marking nothing.
     ///
-    /// The game already does exactly this for station upgrades - every icon carries a child it
-    /// switches on for pieces with m_isUpgrade - so this follows that, in the opposite corner so
-    /// the two never sit on top of each other.
+    /// Hung off BuildUiPieceButton, which is the menu the game actually draws.
+    /// Hud.UpdatePieceList looks like the right place and is not: it still fills a grid of icons
+    /// under a window called SelectionWindow, and that window is switched off in Hud.Awake and
+    /// never switched back on. Everything about marking it worked - the icons were found, the
+    /// right pieces chosen, the badges built and made active - and none of it could be seen,
+    /// because the window has been dead since the build menu was rewritten. Nothing in the logs
+    /// said so, because nothing had gone wrong.
+    ///
+    /// The new button is a better place in every way: each one is configured on its own rather
+    /// than by position in a list, its Piece is public, and it carries the upgrade arrow that a
+    /// badge can be copied from.
     /// </remarks>
     internal static class BendMenuMarker
     {
         private const string MarkerName = "HoO_bendable";
 
-        private static readonly FieldInfo IconsField = AccessTools.Field(typeof(Hud), "m_pieceIcons");
+        private static readonly FieldInfo UpgradeArrowField =
+            AccessTools.Field(typeof(BuildUiPieceButton), "m_upgradeArrow");
 
-        private static FieldInfo _rootField;
-        private static string _lastShape;
-        private static bool _diagLogged;
-        private static GameObject _firstMarked;
-        private static Sprite _arch;
+        private static Sprite _medallion;
 
-        /// <summary>
-        /// Switches a mark on for every icon showing a piece that bends.
-        /// </summary>
-        /// <remarks>
-        /// The icons and the pieces are paired by position in their lists, which is how vanilla
-        /// pairs them a few lines earlier - the same index reads the same piece. Anything past
-        /// the end of the piece list is an empty slot in the grid.
-        /// </remarks>
-        internal static void Apply(Hud hud, List<Piece> pieces)
+        /// <summary>Puts the mark on a button, or takes it off, as that button is set up.</summary>
+        internal static void Apply(BuildUiPieceButton button)
         {
-            if (hud == null || pieces == null)
+            if (button == null)
             {
                 return;
             }
 
-            bool show = ModConfig.IsEnabled && ModConfig.ShowBendableMarker.Value;
+            bool show = ModConfig.IsEnabled
+                && ModConfig.ShowBendableMarker.Value
+                && button.Piece != null
+                && Bendable.Allows(button.Piece.gameObject);
 
-            if (IconsField == null)
-            {
-                if (_lastShape != "no-field")
-                {
-                    _lastShape = "no-field";
-                    HammerOfOdenPlugin.Error(
-                        "Hud.m_pieceIcons was not found, so bendable pieces will not be marked. "
-                        + "Valheim has probably changed. Everything else is unaffected.");
-                }
-
-                return;
-            }
-
-            if (!(IconsField.GetValue(hud) is IList icons))
-            {
-                if (_lastShape != "no-list")
-                {
-                    _lastShape = "no-list";
-                    HammerOfOdenPlugin.Error(
-                        "The build menu's icon list could not be read, so bendable pieces will not "
-                        + "be marked. Everything else is unaffected.");
-                }
-
-                return;
-            }
-
-            int marked = 0;
-            int roots = 0;
-
-            for (int i = 0; i < icons.Count; i++)
-            {
-                GameObject root = RootOf(icons[i]);
-                if (root == null)
-                {
-                    continue;
-                }
-
-                roots++;
-
-                if (!show)
-                {
-                    Transform existing = root.transform.Find(MarkerName);
-                    if (existing != null && existing.gameObject.activeSelf)
-                    {
-                        existing.gameObject.SetActive(false);
-                    }
-                    continue;
-                }
-
-                bool bendable = i < pieces.Count
-                    && pieces[i] != null
-                    && Bendable.Allows(pieces[i].gameObject);
-
-                if (bendable)
-                {
-                    marked++;
-                }
-
-                GameObject marker = Marker(root);
-                if (bendable)
-                {
-                    marker.transform.SetAsLastSibling();
-                    Image image = marker.GetComponent<Image>();
-                    if (image != null)
-                    {
-                        Color c = ModConfig.BendableMarkerColour.Value;
-                        if (c.a < 0.1f) c.a = 0.85f;
-                        image.color = c;
-                    }
-                }
-                marker.SetActive(bendable);
-
-                if (bendable && _firstMarked == null)
-                {
-                    _firstMarked = marker;
-                }
-            }
+            Transform existing = button.transform.Find(MarkerName);
 
             if (!show)
             {
+                if (existing != null)
+                {
+                    existing.gameObject.SetActive(false);
+                }
+
                 return;
             }
 
-            if (!_diagLogged && _firstMarked != null)
+            GameObject marker = existing != null ? existing.gameObject : Build(button);
+            if (marker != null)
             {
-                // Latched only once something is actually on screen. UpdatePieceList runs while
-                // the menu is closed too, and a marker described then is correctly invisible -
-                // which reads exactly like the fault being looked for.
-                _diagLogged = _firstMarked.activeInHierarchy;
-                Describe(_firstMarked);
-                _firstMarked = null;
-            }
-
-            // Said once per shape of the answer, not per redraw. Between "the postfix never
-            // runs", "the icons cannot be reached" and "nothing qualifies" there is no way to
-            // tell from an empty menu which one happened.
-            string shape = $"{icons.Count}/{roots}/{pieces.Count}/{marked}";
-            if (shape != _lastShape)
-            {
-                _lastShape = shape;
-                HammerOfOdenPlugin.Debug(
-                    $"Bend marker: {icons.Count} icon slot(s), {roots} reachable, "
-                    + $"{pieces.Count} piece(s) listed, {marked} marked bendable.");
+                marker.SetActive(true);
             }
         }
 
         /// <summary>
-        /// Everything about a marker that is switched on, since one that is switched off says
-        /// nothing about whether the rest works.
+        /// Builds the badge, copied from the upgrade arrow the button already carries.
         /// </summary>
         /// <remarks>
-        /// The first attempt at this reported slot zero, which is whatever piece happens to sit
-        /// at the top left and is usually not bendable - so it reported a marker correctly
-        /// switched off and looked like a fault. What is wanted is one that should be visible
-        /// and is not.
+        /// Cloned rather than built from nothing, so it inherits the canvas renderer, material
+        /// and layer the game uses for that arrow instead of those being guessed at - then
+        /// mirrored to the opposite corner, since a piece can be both an upgrade and bendable.
         /// </remarks>
-        private static void Describe(GameObject marker)
+        private static GameObject Build(BuildUiPieceButton button)
         {
-            RectTransform rect = marker.GetComponent<RectTransform>();
-            Image image = marker.GetComponent<Image>();
-            CanvasRenderer canvas = marker.GetComponent<CanvasRenderer>();
+            GameObject arrow = UpgradeArrowField?.GetValue(button) is Image image
+                ? image.gameObject
+                : null;
 
-            System.Text.StringBuilder parts = new System.Text.StringBuilder();
-            foreach (Component c in marker.GetComponents<Component>())
-            {
-                parts.Append(c.GetType().Name).Append(' ');
-            }
-
-            // Which ancestor is switched off, if the marker is not showing. activeInHierarchy
-            // being false says only that something above it is inactive, not which.
-            string offAt = "none";
-            for (Transform t = marker.transform; t != null; t = t.parent)
-            {
-                if (!t.gameObject.activeSelf)
-                {
-                    offAt = t.name;
-                }
-            }
-
-            Transform clip = marker.transform;
-            string masks = string.Empty;
-            while (clip != null)
-            {
-                if (clip.GetComponent<Mask>() != null) { masks += "Mask(" + clip.name + ") "; }
-                if (clip.GetComponent<RectMask2D>() != null) { masks += "RectMask2D(" + clip.name + ") "; }
-                if (clip.GetComponent<CanvasGroup>() is CanvasGroup g) { masks += $"CanvasGroup({clip.name} a={g.alpha}) "; }
-                clip = clip.parent;
-            }
-
-            HammerOfOdenPlugin.Info(
-                $"[BendMarker] an active marker on '{marker.transform.parent?.name}': "
-                + $"activeInHierarchy={marker.activeInHierarchy}, children={marker.transform.childCount}, "
-                + $"components=[{parts.ToString().Trim()}], "
-                + $"image={(image == null ? "none" : $"enabled={image.enabled} sprite={image.sprite?.name} rect={image.sprite?.rect} colour={image.color} alpha={image.color.a}")}, "
-                + $"canvasAlpha={(canvas == null ? -1f : canvas.GetAlpha())}, "
-                + $"worldRect={(rect == null ? "none" : rect.rect.ToString())}, scale={marker.transform.lossyScale}, "
-                + $"ancestors=[{masks.Trim()}], highestInactiveAncestor={offAt}");
-        }
-
-        /// <summary>The icon's own GameObject, read from a class the game keeps private.</summary>
-        private static GameObject RootOf(object icon)
-        {
-            if (icon == null)
-            {
-                return null;
-            }
-
-            if (_rootField == null)
-            {
-                _rootField = AccessTools.Field(icon.GetType(), "m_go");
-                if (_rootField == null)
-                {
-                    HammerOfOdenPlugin.Error(
-                        "The build menu's icon layout has changed, so bendable pieces will not be "
-                        + "marked. Everything else is unaffected.");
-                    return null;
-                }
-            }
-
-            return _rootField.GetValue(icon) as GameObject;
-        }
-
-        /// <summary>
-        /// Finds the mark on an icon, adding it the first time.
-        /// </summary>
-        /// <remarks>
-        /// Clones Valheim's own upgrade badge to inherit its exact canvas renderer, material, and
-        /// layer configuration, then mirrors it to the top-right corner with the arch sprite.
-        /// </remarks>
-        private static GameObject Marker(GameObject iconRoot)
-        {
-            Transform existing = iconRoot.transform.Find(MarkerName);
-            if (existing != null)
-            {
-                return existing.gameObject;
-            }
-
-            Transform upgrade = iconRoot.transform.Find("upgrade");
             GameObject marker;
 
-            if (upgrade != null)
+            if (arrow != null)
             {
-                marker = Object.Instantiate(upgrade.gameObject, iconRoot.transform, false);
+                marker = Object.Instantiate(arrow, button.transform, false);
                 marker.name = MarkerName;
-                marker.layer = iconRoot.layer;
 
-                RectTransform rect = marker.GetComponent<RectTransform>();
-                if (upgrade is RectTransform model)
+                if (arrow.transform is RectTransform model && marker.transform is RectTransform rect)
                 {
                     rect.anchorMin = new Vector2(1f - model.anchorMax.x, model.anchorMin.y);
                     rect.anchorMax = new Vector2(1f - model.anchorMin.x, model.anchorMax.y);
                     rect.pivot = new Vector2(1f - model.pivot.x, model.pivot.y);
-                    rect.anchoredPosition = new Vector2(-3f, -3f);
-                    rect.sizeDelta = new Vector2(22f, 22f);
+                    rect.anchoredPosition = new Vector2(-model.anchoredPosition.x, model.anchoredPosition.y);
+                    rect.sizeDelta = model.sizeDelta;
+                    rect.localScale = model.localScale;
                 }
             }
             else
             {
+                // Nothing to copy from, so a plain badge in the top right.
                 marker = new GameObject(MarkerName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                marker.layer = iconRoot.layer;
-                marker.transform.SetParent(iconRoot.transform, false);
+                marker.layer = button.gameObject.layer;
+                marker.transform.SetParent(button.transform, false);
 
-                RectTransform rect = marker.GetComponent<RectTransform>();
-                rect.anchorMin = new Vector2(1f, 1f);
-                rect.anchorMax = new Vector2(1f, 1f);
-                rect.pivot = new Vector2(1f, 1f);
+                RectTransform rect = (RectTransform)marker.transform;
+                rect.anchorMin = Vector2.one;
+                rect.anchorMax = Vector2.one;
+                rect.pivot = Vector2.one;
                 rect.anchoredPosition = new Vector2(-3f, -3f);
-                rect.sizeDelta = new Vector2(22f, 22f);
+                rect.sizeDelta = new Vector2(20f, 20f);
             }
 
-            marker.transform.localScale = Vector3.one;
             marker.transform.SetAsLastSibling();
 
-            Image image = marker.GetComponent<Image>();
-            if (image != null)
+            if (marker.GetComponent<Image>() is Image badge)
             {
-                image.sprite = Arch();
-                image.type = Image.Type.Simple;
-                image.raycastTarget = false;
-                Color c = ModConfig.BendableMarkerColour.Value;
-                if (c.a < 0.1f) c.a = 0.85f;
-                image.color = c;
-                image.maskable = true;
-                image.RecalculateMasking();
-                image.RecalculateClipping();
+                badge.sprite = Medallion();
+                badge.type = Image.Type.Simple;
+                badge.preserveAspect = true;
+                badge.raycastTarget = false;
+                badge.color = ModConfig.BendableMarkerColour.Value;
             }
 
             return marker;
+        }
+
+        private static Sprite Medallion()
+        {
+            if (_medallion != null)
+            {
+                return _medallion;
+            }
+
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear
+            };
+
+            texture.LoadImage(System.Convert.FromBase64String(MedallionPngBase64));
+
+            _medallion = Sprite.Create(
+                texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            _medallion.name = "HoO_BendMedallion";
+
+            return _medallion;
         }
 
         private const string MedallionPngBase64 =
@@ -329,33 +179,5 @@ namespace TheHammerOfOden
             + "1XBK1BBGPSzVZFJEESJvVpOvLsYabaJ2UFpAqalIE0WI+4z5IMnRJWoGlQonNVWpouqqUXZgcp9B2xrtFExm2lSw1+/vHNmxa89u"
             + "c22wGX7/2ClOzAeiZlk7du35U9Ksy+/v/AjAx3ZkO2IxKG1LZUOR1sXSBtK6XN5AWv9hIhRp+5cZM9L2T1ORkJZ/m0u1P05OYQpI"
             + "b/wHXwi864ivXqIAAAAASUVORK5CYII=";
-
-        /// <summary>
-        /// A small arch medallion badge, decoded from PNG.
-        /// </summary>
-        /// <remarks>
-        /// Features a dark slate circular backing with a clean rim and a bright white arch.
-        /// When tinted by the Image component, the white arch glows in the configured color
-        /// while the dark medallion background guarantees high contrast against all piece icons.
-        /// </remarks>
-        private static Sprite Arch()
-        {
-            if (_arch != null)
-            {
-                return _arch;
-            }
-
-            byte[] bytes = System.Convert.FromBase64String(MedallionPngBase64);
-            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
-            {
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear
-            };
-
-            texture.LoadImage(bytes);
-            _arch = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-            _arch.name = "HoO_BendMedallion";
-            return _arch;
-        }
     }
 }
