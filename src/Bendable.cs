@@ -31,6 +31,22 @@ namespace TheHammerOfOden
         private static bool _cached;
         private static string _cachedReason;
 
+        /// <summary>
+        /// Verdicts by object, because the build menu asks about every piece at once.
+        /// </summary>
+        /// <remarks>
+        /// A single last-asked slot is right while the question is only ever about the piece in
+        /// hand. Marking the menu asks about a hundred pieces every time it refreshes, which
+        /// turned that slot into a miss every time and re-measured the lot on every keystroke.
+        /// Prefabs are stable objects, so remembering the answer costs one dictionary and saves
+        /// all of it.
+        /// </remarks>
+        private static readonly Dictionary<GameObject, KeyValuePair<bool, string>> Verdicts =
+            new Dictionary<GameObject, KeyValuePair<bool, string>>();
+
+        /// <summary>Prefabs already explained, so a refusal is logged once and not per frame.</summary>
+        private static readonly HashSet<string> Explained = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         private static string _listSource;
         private static readonly HashSet<string> Never = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> Always = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -69,11 +85,19 @@ namespace TheHammerOfOden
                 return;
             }
 
-            _cached = IsAllowed(piece, out _cachedReason);
+            if (Verdicts.TryGetValue(piece, out KeyValuePair<bool, string> known))
+            {
+                _cached = known.Key;
+                _cachedReason = known.Value;
+                return;
+            }
 
-            // A refusal is a fact about a prefab, so it is worth having in the log rather than
-            // only in a message that has already scrolled past by the time anyone asks why.
-            if (!_cached)
+            _cached = IsAllowed(piece, out _cachedReason);
+            Verdicts[piece] = new KeyValuePair<bool, string>(_cached, _cachedReason);
+
+            // A refusal is a fact about a prefab, so it belongs in the log - once. Saying it
+            // again every time the build menu redraws buried everything else in the file.
+            if (!_cached && Explained.Add(Utils.GetPrefabName(piece)))
             {
                 HammerOfOdenPlugin.Debug(
                     $"Bend refused '{Utils.GetPrefabName(piece)}': {_cachedReason}.");
@@ -132,7 +156,11 @@ namespace TheHammerOfOden
                     continue;
                 }
 
-                Bounds box = collider.bounds;
+                if (!VolumeOf(collider, piece.transform, out Bounds box))
+                {
+                    continue;
+                }
+
                 bool duplicate = false;
 
                 foreach (Bounds seen in volumes)
@@ -248,6 +276,82 @@ namespace TheHammerOfOden
         }
 
         /// <summary>
+        /// A collider's extent in the piece's own space, computed rather than queried.
+        /// </summary>
+        /// <remarks>
+        /// Collider.bounds is a world-space box Unity only fills in for a collider that is
+        /// actually in the scene. Asking a prefab for it hands back zeros - which is why every
+        /// piece in the build menu measured as nothing, filled none of the space it spanned and
+        /// was refused. The ghost gave sensible answers throughout because a ghost is a real
+        /// object; nothing was wrong with the rule, only with what it was being told.
+        ///
+        /// So the shape is worked out from what the collider itself is set to, which reads the
+        /// same whether the object is standing in the world or sitting in a prefab.
+        /// </remarks>
+        private static bool VolumeOf(Collider collider, Transform root, out Bounds bounds)
+        {
+            bounds = new Bounds();
+
+            Vector3 centre;
+            Vector3 size;
+
+            switch (collider)
+            {
+                case BoxCollider box:
+                    centre = box.center;
+                    size = box.size;
+                    break;
+
+                case SphereCollider sphere:
+                    centre = sphere.center;
+                    size = Vector3.one * sphere.radius * 2f;
+                    break;
+
+                case CapsuleCollider capsule:
+                    centre = capsule.center;
+                    size = Vector3.one * capsule.radius * 2f;
+                    size[Mathf.Clamp(capsule.direction, 0, 2)] = capsule.height;
+                    break;
+
+                case MeshCollider mesh when mesh.sharedMesh != null:
+                    centre = mesh.sharedMesh.bounds.center;
+                    size = mesh.sharedMesh.bounds.size;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            Transform local = collider.transform;
+            Vector3 half = size * 0.5f;
+            bool any = false;
+
+            // Every corner, since a collider on a rotated child does not stay a box once it is
+            // expressed in the piece's frame.
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = centre + Vector3.Scale(half, new Vector3(
+                    (i & 1) == 0 ? -1f : 1f,
+                    (i & 2) == 0 ? -1f : 1f,
+                    (i & 4) == 0 ? -1f : 1f));
+
+                Vector3 p = root.InverseTransformPoint(local.TransformPoint(corner));
+
+                if (!any)
+                {
+                    bounds = new Bounds(p, Vector3.zero);
+                    any = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(p);
+                }
+            }
+
+            return any;
+        }
+
+        /// <summary>
         /// Whether several collision boxes are really one solid shape cut into pieces.
         /// </summary>
         /// <remarks>
@@ -347,6 +451,10 @@ namespace TheHammerOfOden
 
             Fill(Never, ModConfig.BendNever.Value);
             Fill(Always, ModConfig.BendAlways.Value);
+
+            // Verdicts already reached were reached under the old lists.
+            Verdicts.Clear();
+            Explained.Clear();
         }
 
         private static void Fill(HashSet<string> into, string raw)
