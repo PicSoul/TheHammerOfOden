@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -32,6 +32,7 @@ namespace TheHammerOfOden
         private static readonly FieldInfo IconsField = AccessTools.Field(typeof(Hud), "m_pieceIcons");
 
         private static FieldInfo _rootField;
+        private static string _lastShape;
         private static Sprite _arch;
 
         /// <summary>
@@ -45,15 +46,39 @@ namespace TheHammerOfOden
         internal static void Apply(Hud hud, List<Piece> pieces)
         {
             if (!ModConfig.IsEnabled || !ModConfig.ShowBendableMarker.Value
-                || hud == null || pieces == null || IconsField == null)
+                || hud == null || pieces == null)
             {
+                return;
+            }
+
+            if (IconsField == null)
+            {
+                if (_lastShape != "no-field")
+                {
+                    _lastShape = "no-field";
+                    HammerOfOdenPlugin.Error(
+                        "Hud.m_pieceIcons was not found, so bendable pieces will not be marked. "
+                        + "Valheim has probably changed. Everything else is unaffected.");
+                }
+
                 return;
             }
 
             if (!(IconsField.GetValue(hud) is IList icons))
             {
+                if (_lastShape != "no-list")
+                {
+                    _lastShape = "no-list";
+                    HammerOfOdenPlugin.Error(
+                        "The build menu's icon list could not be read, so bendable pieces will not "
+                        + "be marked. Everything else is unaffected.");
+                }
+
                 return;
             }
+
+            int marked = 0;
+            int roots = 0;
 
             for (int i = 0; i < icons.Count; i++)
             {
@@ -63,11 +88,30 @@ namespace TheHammerOfOden
                     continue;
                 }
 
+                roots++;
+
                 bool bendable = i < pieces.Count
                     && pieces[i] != null
                     && Bendable.Allows(pieces[i].gameObject);
 
+                if (bendable)
+                {
+                    marked++;
+                }
+
                 Marker(root).SetActive(bendable);
+            }
+
+            // Said once per shape of the answer, not per redraw. Between "the postfix never
+            // runs", "the icons cannot be reached" and "nothing qualifies" there is no way to
+            // tell from an empty menu which one happened.
+            string shape = $"{icons.Count}/{roots}/{pieces.Count}/{marked}";
+            if (shape != _lastShape)
+            {
+                _lastShape = shape;
+                HammerOfOdenPlugin.Debug(
+                    $"Bend marker: {icons.Count} icon slot(s), {roots} reachable, "
+                    + $"{pieces.Count} piece(s) listed, {marked} marked bendable.");
             }
         }
 
