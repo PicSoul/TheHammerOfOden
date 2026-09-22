@@ -129,6 +129,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> BendSolidFill;
         internal static ConfigEntry<bool> BendRelaxesPlacement;
         internal static ConfigEntry<bool> BendRebuildsCollision;
+        internal static ConfigEntry<bool> BendCurvesGhostSnapPoints;
         internal static ConfigEntry<float> BendCollisionTolerance;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
@@ -748,6 +749,14 @@ namespace TheHammerOfOden
                 + "rigidly, while its rails span the whole piece and have to curve across all of it. "
                 + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
                 + "metre piece.");
+
+            BendCurvesGhostSnapPoints = config.Bind("Bend", "CurveGhostSnapPoints", false,
+                "Move the preview's snap points round the curve as well as the built piece's. Off, "
+                + "because the game positions a snapped ghost by lining one of its snap points up "
+                + "with one on the target - so moving them moves the ghost, which moves them again, "
+                + "and the piece wanders while you are trying to bend it. Off means the preview "
+                + "snaps as though the piece were straight; the piece you place still has its "
+                + "anchors on the curve, so what you build against it connects properly.");
 
             BendRebuildsCollision = Synced(config.Bind("Bend", "RebuildCollision", true,
                 "Rebuild a bent piece's collision as a chain of boxes following the curve. Without "

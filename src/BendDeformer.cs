@@ -484,7 +484,19 @@ namespace TheHammerOfOden
                 HideIfItCannotCurve(entry, root, axis);
             }
 
-            BendAnchors(root, radius, axis, rise, midAlong, midRise);
+            // Not on the ghost. Vanilla positions a snapped ghost by lining its chosen snap
+            // point up with one on the target, so moving those points moves the ghost - and the
+            // ghost is what is being bent, so every notch of the wheel shifted the piece, which
+            // moved the points again. That is the wild wandering: a loop, not a broken curve.
+            //
+            // The built piece still gets curved anchors, because there the geometry is settled
+            // and nothing is aligning against it while it changes. The cost is that the preview
+            // snaps as though the piece were straight, which is worth paying for a ghost that
+            // holds still while you decide.
+            if (ModConfig.BendCurvesGhostSnapPoints.Value)
+            {
+                BendAnchors(root, radius, axis, rise, midAlong, midRise);
+            }
 
             BendCollision.Apply(
                 piece, radians * Mathf.Rad2Deg, axis, rise, _min, _max,
