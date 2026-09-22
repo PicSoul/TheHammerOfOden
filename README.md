@@ -4,7 +4,9 @@
 
 Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, sink it into another piece, stretch it, lay it flat against a wall, pin it in the air and walk around it, lay a whole run of it in one go, take that run back if it was wrong, and see precisely what it is going to snap to.
 
-> **Status: early.** Everything below works and is in daily use, but this has not been released yet.
+> **Status: early.** Everything below works and is in daily use in single player. Multiplayer is
+> what this release exists to test, and the mod has to be on the server and on every client -
+> see Multiplayer below for why.
 
 ## Multiplayer
 
