@@ -128,6 +128,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> BendSegment;
         internal static ConfigEntry<float> BendSolidFill;
         internal static ConfigEntry<bool> BendRelaxesPlacement;
+        internal static ConfigEntry<bool> BendRebuildsCollision;
+        internal static ConfigEntry<float> BendCollisionTolerance;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -746,6 +748,17 @@ namespace TheHammerOfOden
                 + "rigidly, while its rails span the whole piece and have to curve across all of it. "
                 + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
                 + "metre piece.");
+
+            BendRebuildsCollision = Synced(config.Bind("Bend", "RebuildCollision", true,
+                "Rebuild a bent piece's collision as a chain of boxes following the curve. Without "
+                + "it a bent piece keeps the straight box it started as, which you can walk through "
+                + "and which the game judges placement against instead of the shape on screen."));
+
+            BendCollisionTolerance = config.Bind("Bend", "CollisionTolerance", 0.05f,
+                "How far the rebuilt collision may stray from the true curve, in metres. The box "
+                + "count follows from this rather than being fixed, so a gentle bend costs two boxes "
+                + "where a semicircle costs four. Five centimetres is close enough not to be felt; "
+                + "ends and middle alone would leave a nine centimetre gap you could catch a foot in.");
 
             BendRelaxesPlacement = Synced(config.Bind("Bend", "RelaxPlacementRules", true,
                 "Set aside the rules about what a bent piece may rest on, while it is bent. Those "

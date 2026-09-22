@@ -39,6 +39,8 @@ namespace TheHammerOfOden
         internal const string ChoiceKey = "HoO_bendChoice";
 
         private readonly List<Mesh> _owned = new List<Mesh>();
+        private readonly List<GameObject> _collision = new List<GameObject>();
+        private readonly List<Collider> _silenced = new List<Collider>();
 
         private float _degrees;
         private int _axis;
@@ -183,6 +185,8 @@ namespace TheHammerOfOden
 
             CurveAnchors(root, radius, midAlong, midRise);
 
+            BendCollision.Apply(gameObject, _degrees, _axis, _rise, min, max, _collision, _silenced);
+
             HammerOfOdenPlugin.Debug(
                 $"Restored a {_degrees:0.#} degree bend on '{Utils.GetPrefabName(gameObject)}'.");
         }
@@ -268,6 +272,11 @@ namespace TheHammerOfOden
             }
 
             _owned.Clear();
+
+            // The boxes are children and go with the object; the list is only bookkeeping. The
+            // colliders that were switched off are going too, so there is nothing to put back.
+            _collision.Clear();
+            _silenced.Clear();
         }
     }
 }

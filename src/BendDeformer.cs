@@ -115,6 +115,9 @@ namespace TheHammerOfOden
         }
 
         private static readonly List<Anchor> Anchors = new List<Anchor>();
+
+        private static readonly List<GameObject> CollisionBoxes = new List<GameObject>();
+        private static readonly List<Collider> SilencedColliders = new List<Collider>();
         private static GameObject _appliedTo;
         private static float _appliedAngle = float.NaN;
         private static int _appliedAxis = -1;
@@ -295,6 +298,8 @@ namespace TheHammerOfOden
                     anchor.Point.localRotation = anchor.LocalRotation;
                 }
             }
+
+            BendCollision.Restore(CollisionBoxes, SilencedColliders);
         }
 
         /// <summary>Pins every LOD group on the piece to full detail.</summary>
@@ -480,6 +485,10 @@ namespace TheHammerOfOden
             }
 
             BendAnchors(root, radius, axis, rise, midAlong, midRise);
+
+            BendCollision.Apply(
+                piece, radians * Mathf.Rad2Deg, axis, rise, _min, _max,
+                CollisionBoxes, SilencedColliders);
         }
 
         /// <summary>
