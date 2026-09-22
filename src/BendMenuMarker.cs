@@ -139,7 +139,10 @@ namespace TheHammerOfOden
 
             if (!_diagLogged && _firstMarked != null)
             {
-                _diagLogged = true;
+                // Latched only once something is actually on screen. UpdatePieceList runs while
+                // the menu is closed too, and a marker described then is correctly invisible -
+                // which reads exactly like the fault being looked for.
+                _diagLogged = _firstMarked.activeInHierarchy;
                 Describe(_firstMarked);
                 _firstMarked = null;
             }
@@ -179,6 +182,17 @@ namespace TheHammerOfOden
                 parts.Append(c.GetType().Name).Append(' ');
             }
 
+            // Which ancestor is switched off, if the marker is not showing. activeInHierarchy
+            // being false says only that something above it is inactive, not which.
+            string offAt = "none";
+            for (Transform t = marker.transform; t != null; t = t.parent)
+            {
+                if (!t.gameObject.activeSelf)
+                {
+                    offAt = t.name;
+                }
+            }
+
             Transform clip = marker.transform;
             string masks = string.Empty;
             while (clip != null)
@@ -196,7 +210,7 @@ namespace TheHammerOfOden
                 + $"image={(image == null ? "none" : $"enabled={image.enabled} sprite={image.sprite?.name} rect={image.sprite?.rect} colour={image.color} alpha={image.color.a}")}, "
                 + $"canvasAlpha={(canvas == null ? -1f : canvas.GetAlpha())}, "
                 + $"worldRect={(rect == null ? "none" : rect.rect.ToString())}, scale={marker.transform.lossyScale}, "
-                + $"ancestors=[{masks.Trim()}]");
+                + $"ancestors=[{masks.Trim()}], highestInactiveAncestor={offAt}");
         }
 
         /// <summary>The icon's own GameObject, read from a class the game keeps private.</summary>
