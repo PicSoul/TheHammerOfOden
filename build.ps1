@@ -22,6 +22,7 @@
 [CmdletBinding()]
 param(
     [switch]$Install,
+    [switch]$SkipPatchCheck,
     [switch]$Disable,
     [switch]$Enable,
     [string]$Profile = "1.0 Release Client Mods"
@@ -134,6 +135,39 @@ Ok "compiled"
 
 $dll = "$root\bin\Release\TheHammerOfOden.dll"
 if (-not (Test-Path $dll)) { Fail "expected output missing: $dll" }
+
+# ------------------------------------------------------- verify patch targets
+# Every Harmony target named by a string is checked against the installed game. The
+# compiler cannot check those, and a wrong one is silent: patching class by class means a
+# bad target costs one feature rather than the whole mod, so the feature simply never
+# works and the log says so where nobody is reading. It has happened twice here - a
+# PlacePiece overload that does not exist, and CraftingStation.Awake, which does not
+# either - and both times the feature was written, shipped and tested while its patch had
+# never applied once. See tools/PatchCheck.
+if (-not $SkipPatchCheck) {
+    Write-Host "`nverifying patch targets against the installed game..." -ForegroundColor Cyan
+
+    $props = @{}
+    if (Test-Path "$root\Local.props") {
+        $local = [xml](Get-Content "$root\Local.props")
+        foreach ($pg in $local.Project.PropertyGroup) {
+            foreach ($node in $pg.ChildNodes) { if ($node.NodeType -eq "Element") { $props[$node.Name] = $node.InnerText } }
+        }
+    }
+    $valheim = $props["ValheimInstall"]
+    if (-not $valheim) { $valheim = $env:VALHEIM_INSTALL }
+    if (-not $valheim) { $valheim = "C:\Program Files (x86)\Steam\steamapps\common\Valheim" }
+
+    $bepinex = $props["BepInExCore"]
+    if ($bepinex) { $bepinex = $bepinex.Replace('$(AppData)', $env:APPDATA) }
+    if (-not $bepinex) { $bepinex = $env:BEPINEX_CORE }
+    if (-not $bepinex) { $bepinex = "$valheim\BepInEx\core" }
+
+    $checkOutput = & dotnet run --project "$root\tools\PatchCheck\patchcheck.csproj" -c Release -- `
+        $dll "$valheim\valheim_Data\Managed" $bepinex 2>&1
+    if ($LASTEXITCODE -ne 0) { $checkOutput; Fail "one or more patch targets do not exist in this build of Valheim" }
+    Ok ($checkOutput | Select-String "patch targets checked" | Select-Object -First 1).ToString().Trim()
+}
 
 # --------------------------------------------------------------------- stage
 $stage = "$root\package"

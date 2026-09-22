@@ -6,6 +6,13 @@
   -->
   <Import Project="Local.props" Condition="Exists('Local.props')" />
 
+  <!-- The patch checker is a separate console app with its own project; keep its source
+       out of the mod's compile. -->
+  <ItemGroup>
+    <Compile Remove="tools/**" />
+    <None Remove="tools/**" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>TheHammerOfOden</AssemblyName>
