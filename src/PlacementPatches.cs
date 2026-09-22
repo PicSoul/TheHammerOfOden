@@ -1166,6 +1166,7 @@ namespace TheHammerOfOden
 
             // Measured now, while the ghost still exists to measure.
             Zooping.Remember(___m_placementGhost, pos);
+            BendState.Remember(___m_placementGhost);
         }
 
         [HarmonyPostfix]
@@ -1207,6 +1208,7 @@ namespace TheHammerOfOden
             if (ModConfig.IsEnabled)
             {
                 ScaleState.ApplyToPlaced(__instance);
+                BendState.ApplyToPlaced(__instance);
                 PlacementUndo.Record(__instance);
             }
         }
@@ -1230,6 +1232,7 @@ namespace TheHammerOfOden
             if (ModConfig.IsEnabled)
             {
                 ScalePersistence.Restore(__instance);
+                BentPiece.Restore(__instance);
             }
         }
     }

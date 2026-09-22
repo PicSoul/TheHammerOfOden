@@ -33,6 +33,10 @@ namespace TheHammerOfOden
         private static float _degrees;
         private static int _rise = -1;
 
+        private static float _pendingDegrees;
+        private static int _pendingAxis;
+        private static int _pendingRise;
+
         internal static float Degrees => _degrees;
 
         internal static bool IsBent => Mathf.Abs(_degrees) >= 0.01f;
@@ -179,6 +183,43 @@ namespace TheHammerOfOden
             }
 
             BendDeformer.Apply(ghost, _degrees, AxisFor(ghost), RiseFor(ghost));
+        }
+
+        /// <summary>
+        /// Carries the bend onto the piece that actually gets built.
+        /// </summary>
+        /// <remarks>
+        /// PlacePiece builds from the prefab rather than from the ghost, so the curve on screen
+        /// is not inherited and has to be applied again to the new object - the same reason the
+        /// scale has to be. The axes are worked out from the ghost while it still exists, since
+        /// they are a measurement of the piece and the fresh instance would give the same answer
+        /// at more cost.
+        /// </remarks>
+        internal static void Remember(GameObject ghost)
+        {
+            _pendingDegrees = 0f;
+
+            if (!IsBent || ghost == null || !Bendable.Allows(ghost))
+            {
+                return;
+            }
+
+            // Taken now, while the ghost is still there to measure. By the time the built piece
+            // exists the ghost has been rebuilt, and the axes are a measurement of the thing
+            // that was in hand rather than a setting that can be looked up afterwards.
+            _pendingDegrees = _degrees;
+            _pendingAxis = AxisFor(ghost);
+            _pendingRise = RiseFor(ghost);
+        }
+
+        internal static void ApplyToPlaced(Piece piece)
+        {
+            if (piece == null || Mathf.Abs(_pendingDegrees) < 0.01f)
+            {
+                return;
+            }
+
+            BentPiece.Attach(piece.gameObject, _pendingDegrees, _pendingAxis, _pendingRise);
         }
 
         /// <summary>Lets go of the ghost's meshes when the ghost goes.</summary>
