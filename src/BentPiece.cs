@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using HarmonyLib;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -187,6 +188,13 @@ namespace TheHammerOfOden
 
             BendCollision.Apply(gameObject, _degrees, _axis, _rise, min, max, _collision, _silenced);
 
+            // WearNTear works out support from a collider list it caches once, and these boxes
+            // did not exist when it did. Clearing the cache makes it gather them on its next
+            // look - the field is read lazily, so nothing has to be called to force it, and a
+            // piece whose collision was rebuilt would otherwise hold the building up with
+            // shapes that are now switched off.
+            ForgetCachedColliders();
+
             HammerOfOdenPlugin.Debug(
                 $"Restored a {_degrees:0.#} degree bend on '{Utils.GetPrefabName(gameObject)}'.");
         }
@@ -259,6 +267,24 @@ namespace TheHammerOfOden
             }
 
             return any;
+        }
+
+        private static readonly AccessTools.FieldRef<WearNTear, Collider[]> CachedColliders =
+            AccessTools.FieldRefAccess<WearNTear, Collider[]>("m_colliders");
+
+        private void ForgetCachedColliders()
+        {
+            WearNTear wear = GetComponent<WearNTear>();
+            if (wear == null)
+            {
+                return;
+            }
+
+            try { CachedColliders(wear) = null; }
+            catch (System.Exception ex)
+            {
+                HammerOfOdenPlugin.Debug("Could not clear the cached collider list: " + ex.Message);
+            }
         }
 
         private void OnDestroy()

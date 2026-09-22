@@ -116,8 +116,6 @@ namespace TheHammerOfOden
 
         private static readonly List<Anchor> Anchors = new List<Anchor>();
 
-        private static readonly List<GameObject> CollisionBoxes = new List<GameObject>();
-        private static readonly List<Collider> SilencedColliders = new List<Collider>();
         private static GameObject _appliedTo;
         private static float _appliedAngle = float.NaN;
         private static int _appliedAxis = -1;
@@ -299,7 +297,6 @@ namespace TheHammerOfOden
                 }
             }
 
-            BendCollision.Restore(CollisionBoxes, SilencedColliders);
         }
 
         /// <summary>Pins every LOD group on the piece to full detail.</summary>
@@ -443,6 +440,18 @@ namespace TheHammerOfOden
             float length = max - min;
             float radius = length / radians;
 
+            // Every figure the curve is built from, each time it is rebuilt. Wild movement is
+            // either the ghost being repositioned under us or the arc being computed from
+            // different numbers frame to frame, and these two lines tell those apart: the
+            // position says whether the piece moved, the length and radius say whether the
+            // measurement did.
+            HammerOfOdenPlugin.Debug(
+                $"Bend {radians * Mathf.Rad2Deg:0.#}deg axis {axis} rise {rise} "
+                + $"len {length:0.###} radius {radius:0.###} "
+                + $"mid {(min + max) * 0.5f:0.###} "
+                + $"ghost at {piece.transform.position.ToString("0.##")} "
+                + $"meshes {Active.Count}");
+
             // Both the line the piece is measured along and the one it curves towards run
             // through its middle, not through wherever the mesh happens to have its origin.
             float midAlong = (min + max) * 0.5f;
@@ -498,9 +507,17 @@ namespace TheHammerOfOden
                 BendAnchors(root, radius, axis, rise, midAlong, midRise);
             }
 
-            BendCollision.Apply(
-                piece, radians * Mathf.Rad2Deg, axis, rise, _min, _max,
-                CollisionBoxes, SilencedColliders);
+            // Not on the ghost, and this is why it wandered. A ghost's colliders are
+            // measured by things that hold onto them - surface placement caches the array it
+            // found and slides the piece until that geometry touches the surface - so replacing
+            // them every notch of the wheel left it measuring against boxes that had been
+            // destroyed and missing the ones that had not existed yet. The answer it got was
+            // arbitrary, and the piece went wherever that answer pointed.
+            //
+            // The built piece is where collision has to be right anyway: it is what you walk on
+            // and what the game tests the next piece against. A ghost only needs a shape to
+            // clip-test, and the straight box it already has does that without being churned
+            // sixty times a second.
         }
 
         /// <summary>

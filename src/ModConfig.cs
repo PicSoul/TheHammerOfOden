@@ -750,18 +750,18 @@ namespace TheHammerOfOden
                 + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
                 + "metre piece.");
 
-            BendCurvesGhostSnapPoints = config.Bind("Bend", "CurveGhostSnapPoints", false,
-                "Move the preview's snap points round the curve as well as the built piece's. Off, "
-                + "because the game positions a snapped ghost by lining one of its snap points up "
-                + "with one on the target - so moving them moves the ghost, which moves them again, "
-                + "and the piece wanders while you are trying to bend it. Off means the preview "
-                + "snaps as though the piece were straight; the piece you place still has its "
-                + "anchors on the curve, so what you build against it connects properly.");
+            BendCurvesGhostSnapPoints = config.Bind("Bend", "CurveGhostSnapPoints", true,
+                "Move the preview's snap points round the curve, so a bent piece snaps where it "
+                + "looks like it should rather than where it would have if it were straight. This "
+                + "was suspected of making the piece wander while being bent and was not the cause; "
+                + "that was the collision being rebuilt on the preview, which no longer happens.");
 
             BendRebuildsCollision = Synced(config.Bind("Bend", "RebuildCollision", true,
-                "Rebuild a bent piece's collision as a chain of boxes following the curve. Without "
-                + "it a bent piece keeps the straight box it started as, which you can walk through "
-                + "and which the game judges placement against instead of the shape on screen."));
+                "Rebuild a bent piece's collision as a chain of boxes following the curve. Applies "
+                + "to pieces you have built, not to the preview - a preview's colliders are measured "
+                + "by things that hold onto them, and replacing those on every notch of the wheel is "
+                + "what made the piece wander. Without this a built arch keeps the straight box it "
+                + "started as, which you can walk through."));
 
             BendCollisionTolerance = config.Bind("Bend", "CollisionTolerance", 0.05f,
                 "How far the rebuilt collision may stray from the true curve, in metres. The box "
