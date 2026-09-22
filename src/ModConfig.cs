@@ -127,6 +127,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<int> BendMinimumSlices;
         internal static ConfigEntry<float> BendSegment;
         internal static ConfigEntry<float> BendSolidFill;
+        internal static ConfigEntry<bool> BendRelaxesPlacement;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
         internal static ConfigEntry<Color> EditGhostGlow;
@@ -745,6 +746,15 @@ namespace TheHammerOfOden
                 + "rigidly, while its rails span the whole piece and have to curve across all of it. "
                 + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
                 + "metre piece.");
+
+            BendRelaxesPlacement = Synced(config.Bind("Bend", "RelaxPlacementRules", true,
+                "Set aside the rules about what a bent piece may rest on, while it is bent. Those "
+                + "checks run against the collider, and a curved piece's collider is still the "
+                + "straight box it started as - so the game is judging a shape that is no longer on "
+                + "screen, and an arch whose feet reach the ground is refused because the box they "
+                + "came from does not. It sets aside the same rules surface placement does and no "
+                + "more: no-build zones, other players' land and standing on somebody are still "
+                + "refused. Expect this to stop being needed once collision follows the curve."));
 
             BendSolidFill = config.Bind("Bend", "SolidFill", 0.8f,
                 "How much of the space a piece's collision boxes span they must actually fill before "

@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
@@ -32,7 +32,10 @@ namespace TheHammerOfOden
         Surface = 1,
 
         /// <summary>Pinned in place; aiming no longer has anything to do with it.</summary>
-        Frozen = 2
+        Frozen = 2,
+
+        /// <summary>Curved, so the rules are being applied to a shape that is no longer there.</summary>
+        Bent = 3
     }
 
     /// <summary>
@@ -78,6 +81,13 @@ namespace TheHammerOfOden
             // Tied to free placement for the same reason clipping is: it is the one moment
             // the player has explicitly said they know better than the game. Surface
             // placement is the same statement made a different way.
+            //
+            // A bent piece is a third. Vanilla is not being overruled there so much as
+            // corrected: the checks run against the collider, and a curved piece's collider is
+            // still the straight box it started as, so the game is judging a shape that is no
+            // longer on screen. An arch whose feet reach the ground is refused because the box
+            // they came from does not. This is a stopgap and should go once collision follows
+            // the curve, at which point vanilla's answer will be the right one again.
             if (source == PlacementSource.Aim && !FreePlacement.IsActiveNow())
             {
                 return;
@@ -132,6 +142,7 @@ namespace TheHammerOfOden
             {
                 case PlacementSource.Surface: return "Surface placement";
                 case PlacementSource.Frozen: return "Freeze";
+                case PlacementSource.Bent: return "Bend";
                 default: return "Free placement";
             }
         }

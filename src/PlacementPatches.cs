@@ -879,7 +879,9 @@ namespace TheHammerOfOden
 
             PlacementSource source = frozen
                 ? PlacementSource.Frozen
-                : onSurface ? PlacementSource.Surface : PlacementSource.Aim;
+                : onSurface ? PlacementSource.Surface
+                : BendState.IsBent && ModConfig.BendRelaxesPlacement.Value ? PlacementSource.Bent
+                : PlacementSource.Aim;
 
             PlacementRules.Apply(__instance, ref ___m_placementStatus, ___m_placementGhost, source);
         }
