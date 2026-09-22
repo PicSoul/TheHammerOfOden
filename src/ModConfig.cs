@@ -29,6 +29,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> CopyRotationOnPieceCopy;
         internal static ConfigEntry<KeyboardShortcut> CopyRotationKey;
         internal static ConfigEntry<bool> CopyScaleOnPieceCopy;
+        internal static ConfigEntry<bool> CopyBendOnPieceCopy;
 
         internal static ConfigEntry<FreePlacementMode> FreePlacement;
         internal static ConfigEntry<KeyboardShortcut> FreePlacementKey;
@@ -366,6 +367,11 @@ namespace TheHammerOfOden
                 KeyboardShortcut.Empty,
                 "Optional separate key to copy the rotation of the piece you are looking at, without "
                 + "also switching to that piece. Leave empty to disable.");
+
+            CopyBendOnPieceCopy = config.Bind("Copy", "CopyBendOnPieceCopy", true,
+                "Take a built piece's curve as well as its angle when you copy or edit it. Read from "
+                + "what the piece recorded rather than measured off it, so copying an arch gives you "
+                + "the same arch rather than something close to it.");
 
             CopyScaleOnPieceCopy = config.Bind("Copy", "CopyScaleOnPieceCopy", true,
                 "When you copy a placed piece, also adopt the size it was built at. Pieces that cannot "

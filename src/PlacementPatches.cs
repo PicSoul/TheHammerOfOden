@@ -834,6 +834,7 @@ namespace TheHammerOfOden
 
             RotationState.MatchPiece(hovering);
             ScaleState.MatchPiece(hovering);
+            BendState.MatchPiece(hovering);
             HammerOfOdenPlugin.Debug($"Copied full rotation from '{hovering.name}' on piece copy.");
         }
     }

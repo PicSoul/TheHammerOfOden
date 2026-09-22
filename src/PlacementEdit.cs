@@ -187,6 +187,7 @@ namespace TheHammerOfOden
 
             RotationState.MatchPiece(piece);
             ScaleState.MatchPiece(piece);
+            BendState.MatchPiece(piece);
 
             Ghost(piece.gameObject);
             Tint(piece.gameObject);

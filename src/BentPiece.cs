@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -27,6 +27,17 @@ namespace TheHammerOfOden
         internal const string AxisKey = "HoO_bendAxis";
         internal const string RiseKey = "HoO_bendRise";
 
+        /// <summary>
+        /// Which of the two directions was chosen, rather than which axis that turned out to be.
+        /// </summary>
+        /// <remarks>
+        /// The axis is what the deformer needs; the choice is what the controls hold. Copying a
+        /// bend off a built piece needs the second, and deriving it from the first would mean
+        /// measuring the built piece - which would hand its meshes to the ghost's deformer and
+        /// take them away from the piece that is standing there using them.
+        /// </remarks>
+        internal const string ChoiceKey = "HoO_bendChoice";
+
         private readonly List<Mesh> _owned = new List<Mesh>();
 
         private float _degrees;
@@ -35,7 +46,7 @@ namespace TheHammerOfOden
         private bool _applied;
 
         /// <summary>Writes the bend onto a piece and curves it, at the moment it is built.</summary>
-        internal static void Attach(GameObject piece, float degrees, int axis, int rise)
+        internal static void Attach(GameObject piece, float degrees, int axis, int rise, int choice)
         {
             if (piece == null || Mathf.Abs(degrees) < 0.01f)
             {
@@ -49,6 +60,7 @@ namespace TheHammerOfOden
                 zdo.Set(DegreesKey, degrees);
                 zdo.Set(AxisKey, axis);
                 zdo.Set(RiseKey, rise);
+                zdo.Set(ChoiceKey, choice);
             }
 
             Apply(piece, degrees, axis, rise);

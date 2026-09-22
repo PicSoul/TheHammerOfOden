@@ -36,6 +36,7 @@ namespace TheHammerOfOden
         private static float _pendingDegrees;
         private static int _pendingAxis;
         private static int _pendingRise;
+        private static int _pendingChoice;
 
         internal static float Degrees => _degrees;
 
@@ -210,6 +211,7 @@ namespace TheHammerOfOden
             _pendingDegrees = _degrees;
             _pendingAxis = AxisFor(ghost);
             _pendingRise = RiseFor(ghost);
+            _pendingChoice = _rise <= 0 ? 0 : 1;
         }
 
         internal static void ApplyToPlaced(Piece piece)
@@ -219,7 +221,43 @@ namespace TheHammerOfOden
                 return;
             }
 
-            BentPiece.Attach(piece.gameObject, _pendingDegrees, _pendingAxis, _pendingRise);
+            BentPiece.Attach(piece.gameObject, _pendingDegrees, _pendingAxis, _pendingRise, _pendingChoice);
+        }
+
+        /// <summary>
+        /// Takes the bend from a piece already standing in the world.
+        /// </summary>
+        /// <remarks>
+        /// Read out of the piece's record rather than measured off it. Measuring would mean
+        /// handing the built piece to the ghost's deformer, which takes ownership of the meshes
+        /// it is given - and those meshes belong to a piece that is standing there using them.
+        ///
+        /// The direction is stored as the choice the controls hold rather than as the axis it
+        /// resolved to, so copying it needs no measurement at all: the same key means the same
+        /// thing on the copy as it did on the original.
+        /// </remarks>
+        internal static void MatchPiece(Piece piece)
+        {
+            if (piece == null || !ModConfig.CopyBendOnPieceCopy.Value)
+            {
+                return;
+            }
+
+            ZNetView view = piece.GetComponent<ZNetView>();
+            if (view == null || !view.IsValid())
+            {
+                return;
+            }
+
+            ZDO zdo = view.GetZDO();
+            float degrees = zdo.GetFloat(BentPiece.DegreesKey, 0f);
+
+            _degrees = Mathf.Abs(degrees) < 0.01f ? 0f : degrees;
+            _rise = zdo.GetInt(BentPiece.ChoiceKey, 0);
+
+            // The ghost in hand is a different object from the one copied, so whatever the
+            // deformer is holding is no longer what should be curved.
+            BendDeformer.Release();
         }
 
         /// <summary>Lets go of the ghost's meshes when the ghost goes.</summary>
