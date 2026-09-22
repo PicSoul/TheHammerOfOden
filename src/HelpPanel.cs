@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using UnityEngine;
@@ -7,54 +7,105 @@ namespace TheHammerOfOden
 {
     /// <summary>
     /// The in-game reference: what every key does, read from the keys themselves.
+    /// Styled with authentic Norse aesthetics, interactive category tabs, search filter, and badge-styled keys.
     /// </summary>
-    /// <remarks>
-    /// Every binding shown here is read out of the live config entry at the moment it is drawn,
-    /// never from a list written alongside it. A printed sheet of shortcuts is wrong the first
-    /// time anybody rebinds anything, and on a server it is wrong for everyone the moment an
-    /// admin changes a setting - the values a joined player is using are the server's, not the
-    /// ones in their own file, and this shows what they are actually holding.
-    ///
-    /// Drawn with IMGUI rather than built out of Valheim's own UI. A panel of this kind is worth
-    /// about two hundred lines either way; the difference is that Unity's immediate mode needs
-    /// no font asset, no prefab, no canvas and no teardown, where reusing the game's UI means
-    /// sourcing a TMP_FontAsset from a game that does not hand them out and keeping a hierarchy
-    /// alive across scene loads. The cost is that it draws only while it is open, which for a
-    /// help page is not a cost at all.
-    /// </remarks>
     internal static class HelpPanel
     {
         private const int WindowId = 0x484F4F; // "HOO"
 
         private static bool _open;
         private static Vector2 _scroll;
-        private static Rect _window = new Rect(0f, 0f, 760f, 640f);
+        private static Rect _window = new Rect(0f, 0f, 820f, 680f);
         private static bool _placed;
+        private static int _closedOnFrame = -1;
 
+        internal static bool ClosedThisFrame => _closedOnFrame == Time.frameCount;
+        internal static bool IsOpen => _open;
+
+        public enum CategoryTab
+        {
+            All,
+            Master,
+            Rotating,
+            Scaling,
+            Bending,
+            Placing,
+            Snapping,
+            Runs,
+            Camera,
+            Doors,
+            Stations
+        }
+
+        private static CategoryTab _currentTab = CategoryTab.All;
+        private static string _searchFilter = "";
+        private static int _rowIndex = 0;
+
+        // Custom GUIStyles
+        private static GUIStyle _windowStyle;
         private static GUIStyle _heading;
+        private static GUIStyle _subHeading;
         private static GUIStyle _section;
         private static GUIStyle _key;
         private static GUIStyle _text;
         private static GUIStyle _note;
-        private static Texture2D _backdrop;
+        private static GUIStyle _noteBox;
+        private static GUIStyle _rowEven;
+        private static GUIStyle _rowOdd;
+        private static GUIStyle _tabNormal;
+        private static GUIStyle _tabActive;
+        private static GUIStyle _searchField;
+        private static GUIStyle _searchLabel;
+        private static GUIStyle _closeButton;
+        private static GUIStyle _toolbarBox;
+        private static GUIStyle _footerBox;
+        private static GUIStyle _footerText;
+        private static GUIStyle _divider;
 
-        internal static bool IsOpen => _open;
+        // Procedural Textures
+        private static Texture2D _windowBackdrop;
+        private static Texture2D _cardBackdrop;
+        private static Texture2D _rowEvenBackdrop;
+        private static Texture2D _rowOddBackdrop;
+        private static Texture2D _noteBackdrop;
+        private static Texture2D _tabNormalBackdrop;
+        private static Texture2D _tabActiveBackdrop;
+        private static Texture2D _tabHoverBackdrop;
+        private static Texture2D _searchBackdrop;
+        private static Texture2D _closeBtnBackdrop;
+        private static Texture2D _closeBtnHoverBackdrop;
+        private static Texture2D _dividerTex;
+        private static Texture2D _scrollTrackTex;
+        private static Texture2D _scrollThumbTex;
 
         internal static void Toggle()
         {
-            _open = !_open;
-
-            // Valheim keeps the cursor hidden and the camera on the mouse while playing, and a
-            // panel you cannot point at is not much of a panel.
             if (_open)
             {
+                Close();
+            }
+            else
+            {
+                _open = true;
                 _scroll = Vector2.zero;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                ZCursor.LockState = CursorLockMode.None;
+                ZCursor.Show();
             }
         }
 
         internal static void Close()
         {
-            _open = false;
+            if (_open)
+            {
+                _open = false;
+                _closedOnFrame = Time.frameCount;
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+                ZCursor.LockState = CursorLockMode.Locked;
+                ZCursor.Hide();
+            }
         }
 
         internal static void Draw()
@@ -69,203 +120,274 @@ namespace TheHammerOfOden
             if (!_placed)
             {
                 _placed = true;
-                _window.x = (Screen.width - _window.width) * 0.5f;
-                _window.y = Mathf.Max(20f, (Screen.height - _window.height) * 0.5f);
+                _window.x = Mathf.Max(10f, (Screen.width - _window.width) * 0.5f);
+                _window.y = Mathf.Max(15f, (Screen.height - _window.height) * 0.5f);
             }
 
-            GUI.backgroundColor = new Color(0.05f, 0.06f, 0.08f, 0.96f);
-            _window = GUI.Window(WindowId, _window, DrawWindow, string.Empty);
+            // Keep window on screen
+            _window.x = Mathf.Clamp(_window.x, 0f, Mathf.Max(0f, Screen.width - _window.width));
+            _window.y = Mathf.Clamp(_window.y, 0f, Mathf.Max(0f, Screen.height - _window.height));
+
+            Color prevBg = GUI.backgroundColor;
+            GUI.backgroundColor = Color.white;
+
+            _window = GUI.Window(WindowId, _window, DrawWindow, string.Empty, _windowStyle);
+
+            GUI.backgroundColor = prevBg;
         }
 
         private static void DrawWindow(int id)
         {
-            GUILayout.Space(6f);
-            GUILayout.Label("The Hammer of Oden", _heading);
-            GUILayout.Label(
-                ServerEnforced
-                    ? "Showing the server's settings, which are the ones you are playing with."
-                    : "Showing your settings, read from the config as they are right now.",
-                _note);
+            _rowIndex = 0;
 
+            // 1. Header Bar
+            GUILayout.Space(6f);
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(10f);
+            GUILayout.BeginVertical();
+            GUILayout.Label("<b><color=#F5D278>ᚦ   THE HAMMER OF ODEN   ᚦ</color></b>", _heading);
+            GUILayout.Label("<color=#94A3B8>Viking Precision Architecture & Building Reference</color>", _subHeading);
+            GUILayout.EndVertical();
+
+            // Close button top right
+            if (GUILayout.Button("✕", _closeButton, GUILayout.Width(30f), GUILayout.Height(26f)))
+            {
+                Close();
+            }
+            GUILayout.Space(6f);
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(6f);
+
+            // 2. Toolbar (Search + Drag hint)
+            GUILayout.BeginHorizontal(_toolbarBox);
+            GUILayout.Space(6f);
+            GUILayout.Label("<color=#FCD34D><b>Search:</b></color>", _searchLabel, GUILayout.Width(54f));
+            _searchFilter = GUILayout.TextField(_searchFilter, _searchField, GUILayout.Width(220f));
+            if (!string.IsNullOrEmpty(_searchFilter))
+            {
+                if (GUILayout.Button("Clear", _tabNormal, GUILayout.Width(50f), GUILayout.Height(22f)))
+                {
+                    _searchFilter = "";
+                }
+            }
+
+            GUILayout.FlexibleSpace();
+
+            if (ServerEnforced)
+            {
+                GUILayout.Label("<color=#60A5FA><b>ℹ Server Enforced</b></color>", _footerText);
+                GUILayout.Space(12f);
+            }
+
+            GUILayout.Label("<color=#64748B>Drag header to reposition</color>", _footerText);
             GUILayout.Space(8f);
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(5f);
+
+            // 3. Category Filter Tabs
+            DrawCategoryTabs();
+
+            GUILayout.Space(6f);
+
+            // 4. Scrollable Content Area
             _scroll = GUILayout.BeginScrollView(_scroll);
 
-            Master();
-            Rotating();
-            Scaling();
-            Bending();
-            Placing();
-            Snapping();
-            Runs();
-            Camera();
-            Doors();
-            Stations();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Master) Master();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Rotating) Rotating();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Scaling) Scaling();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Bending) Bending();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Placing) Placing();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Snapping) Snapping();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Runs) Runs();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Camera) Camera();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Doors) Doors();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Stations) Stations();
 
-            GUILayout.Space(10f);
-            GUILayout.Label(
-                "Everything above is a config setting. Change a key there and this page changes "
-                + "with it - nothing here is written down twice.",
-                _note);
-            GUILayout.Space(8f);
-
+            GUILayout.Space(12f);
             GUILayout.EndScrollView();
 
-            GUILayout.Space(4f);
-            GUILayout.Label("Press " + Key(ModConfig.HelpKey) + " again to close.", _note);
+            // 5. Footer Info Bar
+            GUILayout.BeginHorizontal(_footerBox);
+            GUILayout.Space(8f);
+            GUILayout.Label("Press <color=#FCD34D><b>" + Key(ModConfig.HelpKey) + "</b></color> or <color=#FCD34D><b>Esc</b></color> to close", _footerText);
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("<color=#64748B>Controls dynamically reflect your active config</color>", _footerText);
+            GUILayout.Space(8f);
+            GUILayout.EndHorizontal();
 
-            GUI.DragWindow(new Rect(0f, 0f, 10000f, 32f));
+            // Allow dragging window from title header
+            GUI.DragWindow(new Rect(0f, 0f, 10000f, 45f));
+        }
+
+        private static void DrawCategoryTabs()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(8f);
+
+            TabBtn(CategoryTab.All, "All");
+            TabBtn(CategoryTab.Rotating, "Rotate");
+            TabBtn(CategoryTab.Scaling, "Scale");
+            TabBtn(CategoryTab.Bending, "Bend");
+            TabBtn(CategoryTab.Placing, "Place");
+            TabBtn(CategoryTab.Snapping, "Snap/Edit");
+            TabBtn(CategoryTab.Runs, "Runs");
+            TabBtn(CategoryTab.Camera, "Camera");
+            TabBtn(CategoryTab.Doors, "Doors");
+            TabBtn(CategoryTab.Stations, "Stations");
+            TabBtn(CategoryTab.Master, "Master");
+
+            GUILayout.Space(8f);
+            GUILayout.EndHorizontal();
+        }
+
+        private static void TabBtn(CategoryTab tab, string label)
+        {
+            bool isActive = (_currentTab == tab);
+            GUIStyle style = isActive ? _tabActive : _tabNormal;
+            string text = isActive ? $"<b><color=#FDE047>{label}</color></b>" : $"<color=#CBD5E1>{label}</color>";
+            if (GUILayout.Button(text, style, GUILayout.Height(24f)))
+            {
+                _currentTab = tab;
+            }
         }
 
         // ------------------------------------------------------------------ sections
 
         private static void Master()
         {
-            Section("The master switch");
+            Section("The Master Switch", "ᛗ");
             Row(ModConfig.MasterToggleKey, "Turn the whole mod on or off");
-            Note("The hammer glows and throws a few slow motes while the mod is on, so the state "
-                + "is readable at a glance. Everything but the build camera applies to the hammer "
-                + "alone; the camera also works with the hoe and cultivator.");
+            Note("The hammer glows and emits subtle embers while active. Everything except the build camera applies to the hammer alone; the camera also works with the hoe and cultivator.");
         }
 
         private static void Rotating()
         {
-            Section("Rotating");
-            Plain("Scroll wheel", "Turn the piece on the flat");
-            Plain("Hold " + Key(ModConfig.XAxisKey) + " + scroll", "Tip it forward and back");
-            Plain("Hold " + Key(ModConfig.ZAxisKey) + " + scroll", "Roll it left and right");
-            Plain("Hold both + scroll", "Push it along your aim");
-            Row(ModConfig.ResetAxisKey, "Reset only the axis you are holding");
-            Row(ModConfig.ResetAllKey, "Reset every axis at once");
-            Row(ModConfig.SnapIncreaseKey, "Finer rotation steps");
-            Row(ModConfig.SnapDecreaseKey, "Coarser rotation steps");
-            Note("Currently " + ModConfig.SnapDivisions.Value + " steps to a full turn, or "
-                + (360f / Mathf.Max(1, ModConfig.SnapDivisions.Value)).ToString("0.#") + " degrees each.");
+            Section("Rotating Pieces", "ᚱ");
+            Plain("Scroll wheel", "Turn the piece on the flat horizon");
+            Plain("Hold " + Key(ModConfig.XAxisKey) + " + scroll", "Pitch: tip it forward and backward");
+            Plain("Hold " + Key(ModConfig.ZAxisKey) + " + scroll", "Roll: tilt it left and right");
+            Plain("Hold both + scroll", "Yaw along aim: push along placement line");
+            Row(ModConfig.ResetAxisKey, "Reset only the axis you are currently holding");
+            Row(ModConfig.ResetAllKey, "Reset every rotation axis at once");
+            Row(ModConfig.SnapIncreaseKey, "Finer rotation steps (more divisions)");
+            Row(ModConfig.SnapDecreaseKey, "Coarser rotation steps (fewer divisions)");
+            Note("Currently configured to " + ModConfig.SnapDivisions.Value + " steps per full turn ("
+                + (360f / Mathf.Max(1, ModConfig.SnapDivisions.Value)).ToString("0.#") + "° per click).");
         }
 
         private static void Scaling()
         {
-            Section("Scaling");
-            Plain("Hold " + Key(ModConfig.ScaleModifierKey), "While using the keys below");
+            Section("Precision Scaling", "ᛊ");
+            Plain("Hold " + Key(ModConfig.ScaleModifierKey), "Hold this modifier while using scaling keys below");
             Row(ModConfig.ScaleWiderKey, "Wider", ModConfig.ScaleNarrowerKey, "Narrower");
             Row(ModConfig.ScaleTallerKey, "Taller", ModConfig.ScaleShorterKey, "Shorter");
             Row(ModConfig.ScaleDeeperKey, "Deeper", ModConfig.ScaleShallowerKey, "Shallower");
-            Row(ModConfig.ScaleUpKey, "Bigger all round", ModConfig.ScaleDownKey, "Smaller all round");
-            Row(ModConfig.ScaleResetKey, "Back to its proper size");
-            Note("Between " + ModConfig.ScaleMin.Value.ToString("0.##") + "x and "
-                + ModConfig.ScaleMax.Value.ToString("0.##") + "x, in steps of "
-                + ModConfig.ScaleStep.Value.ToString("0.##") + ". A scaled piece keeps its size "
-                + "through a world reload, and everyone with the mod sees it - which is why the "
-                + "mod is required on the server.");
+            Row(ModConfig.ScaleUpKey, "Bigger (uniform)", ModConfig.ScaleDownKey, "Smaller (uniform)");
+            Row(ModConfig.ScaleResetKey, "Reset piece back to default 1.0x size");
+            Note("Scaling range: " + ModConfig.ScaleMin.Value.ToString("0.##") + "x to "
+                + ModConfig.ScaleMax.Value.ToString("0.##") + "x in steps of "
+                + ModConfig.ScaleStep.Value.ToString("0.##") + ". Scaled pieces persist through world reloads and sync to all players.");
         }
 
         private static void Bending()
         {
-            Section("Bending");
-            Plain("Hold " + Key(ModConfig.BendModifierKey) + " + scroll", "Curve the piece, both ways from straight");
-            Row(ModConfig.BendAxisKey, "Swap which way it curves");
-            Row(ModConfig.BendResetKey, "Straighten it");
-            Note("A piece bends along its longest side, up to " + ModConfig.BendMaximum.Value.ToString("0")
-                + " degrees - half a circle turns a straight beam into an arch. Each piece also has "
-                + "its own lower limit, past which the inside of the curve would pass through itself.");
-            Note("Only plain structure bends: one solid shape, nothing you can use, and a main mesh "
-                + "the game lets a mod read. Doors, gates and ladders are out by that rule rather "
-                + "than by a list of names, so pieces from other mods are judged the same way.");
+            Section("Bending & Curving Beams", "ᛒ");
+            Plain("Hold " + Key(ModConfig.BendModifierKey) + " + scroll", "Curve the piece continuously in both directions");
+            Row(ModConfig.BendAxisKey, "Swap curve orientation axis");
+            Row(ModConfig.BendResetKey, "Straighten piece back to flat");
+            Note("Pieces bend along their longest axis, up to " + ModConfig.BendMaximum.Value.ToString("0")
+                + "° (180° turns a straight beam into a complete semicircular arch). Only solid structural pieces bend.");
         }
 
         private static void Placing()
         {
-            Section("Placing freely");
-            Row(ModConfig.FreePlacementKey, "Ignore where the game would rather put it");
-            Row(ModConfig.SurfacePlacementKey, "Lay it flat against whatever you point at");
-            Row(ModConfig.FreezeKey, "Pin it in the air and walk around it");
-            Row(ModConfig.GridKey, "Snap to a grid of " + ModConfig.GridSize.Value.ToString("0.##") + "m");
-            Row(ModConfig.ClippingToggleKey, "Allow pieces to overlap");
-            Plain(Key(ModConfig.NudgeForwardKey) + " / " + Key(ModConfig.NudgeBackwardKey), "Nudge away and towards you");
-            Plain(Key(ModConfig.NudgeLeftKey) + " / " + Key(ModConfig.NudgeRightKey), "Nudge left and right");
-            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "Nudge up and down");
-            Plain("Hold " + Key(ModConfig.NudgeLargeModifierKey), "Nudge in bigger steps");
-            Row(ModConfig.ResetOffsetKey, "Undo all nudging");
-            Note("Steps of " + ModConfig.NudgeStep.Value.ToString("0.###") + "m, or "
-                + ModConfig.NudgeStepLarge.Value.ToString("0.###") + "m held.");
+            Section("Free Placement & Nudging", "ᛈ");
+            Row(ModConfig.FreePlacementKey, "Free placement: disable collision / surface lock");
+            Row(ModConfig.SurfacePlacementKey, "Surface placement: align flush against whatever surface you target");
+            Row(ModConfig.FreezeKey, "Freeze placement ghost: pin in mid-air to inspect from all angles");
+            Row(ModConfig.GridKey, "Toggle world grid snapping (" + ModConfig.GridSize.Value.ToString("0.##") + "m)");
+            Row(ModConfig.ClippingToggleKey, "Allow overlapping pieces inside each other");
+            Plain(Key(ModConfig.NudgeForwardKey) + " / " + Key(ModConfig.NudgeBackwardKey), "Nudge depth: forward and backward");
+            Plain(Key(ModConfig.NudgeLeftKey) + " / " + Key(ModConfig.NudgeRightKey), "Nudge horizontal: left and right");
+            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "Nudge vertical: upward and downward");
+            Plain("Hold " + Key(ModConfig.NudgeLargeModifierKey), "Hold for larger nudge increments");
+            Row(ModConfig.ResetOffsetKey, "Reset all nudging offsets back to zero");
+            Note("Nudge step size: " + ModConfig.NudgeStep.Value.ToString("0.###") + "m (fine), or "
+                + ModConfig.NudgeStepLarge.Value.ToString("0.###") + "m (large held).");
         }
 
         private static void Snapping()
         {
-            Section("Snap points and editing");
-            Row(ModConfig.CycleDerivedSnapPointsKey, "Cycle the extra anchors added to a piece");
-            Row(ModConfig.EditKey, "Take a built piece back into your hands to change");
-            Note("Editing keeps the piece's rotation and size, lets every control above act on it, "
-                + "and swaps it for the result - the materials move across rather than being "
-                + "charged twice. The piece is drawn see-through while you work, and snapping goes "
-                + "automatic, since the piece already stands where it stands.");
-            Note("A chest, sign or item stand with something in it is refused rather than quietly "
-                + "emptied, and an edited piece comes back at full health.");
+            Section("Snap Points & In-Place Editing", "ᛋ");
+            Row(ModConfig.CycleDerivedSnapPointsKey, "Cycle derived center, face, and edge snap anchors");
+            Row(ModConfig.EditKey, "In-place edit: pick up already-built piece to resize/rotate/reposition");
+            Note("Editing preserves the piece's health and materials without requiring deconstruction or extra costs. Containers with items cannot be edited.");
         }
 
         private static void Runs()
         {
-            Section("Laying a run, and taking it back");
-            Plain("Hold " + Key(ModConfig.ZoopModifierKey) + " + scroll", "Extend the run before placing");
-            Row(ModConfig.UndoKey, "Take back the whole of the last run");
-            Note("Up to " + ModConfig.ZoopLimit.Value + " extra copies in one go, spaced by the "
-                + "piece's own size. Undo remembers the last " + ModConfig.UndoDepth.Value
-                + " runs, not the last " + ModConfig.UndoDepth.Value + " pieces"
+            Section("Zooping Runs & Instant Undo", "ᛉ");
+            Plain("Hold " + Key(ModConfig.ZoopModifierKey) + " + scroll", "Extend line of copies (zooping) before placing");
+            Row(ModConfig.UndoKey, "Undo: instantly dismantle and refund entire last run");
+            Note("Builds up to " + ModConfig.ZoopLimit.Value + " continuous copies in a single click. Undo remembers the last "
+                + ModConfig.UndoDepth.Value + " placement actions"
                 + (ModConfig.UndoRefundsToInventory.Value
-                    ? ", and hands the materials back into your inventory - anything that will not "
-                      + "fit, by slots or by weight, is dropped at your feet."
-                    : ", and drops the materials where the pieces stood."));
+                    ? ", refunding resources directly into your inventory."
+                    : ", dropping materials at piece locations."));
         }
 
         private static void Camera()
         {
-            Section("The build camera");
-            Row(ModConfig.BuildCameraKey, "Detach the camera and fly it");
-            Plain("Movement keys", "Fly");
-            Plain(Key(ModConfig.CameraUpKey) + " / " + Key(ModConfig.CameraDownKey), "Up and down");
-            Plain("Hold " + Key(ModConfig.CameraBoostKey), "Faster");
-            Note("Your character stays put and placement follows the camera, so you can put a piece "
-                + "where you could never have stood to aim at it. It reaches "
-                + ModConfig.CameraRange.Value.ToString("0") + "m from you"
-                + (ModConfig.CameraPickup.Value ? ", and picks up loose items it passes over." : ".")
-                + " The tether is not arbitrary: the game keeps the world alive around your body, "
-                + "and a camera beyond that either sees a half-built world or forces a second one "
-                + "to be loaded, which is what makes other build cameras expensive.");
+            Section("Detached Build Camera", "ᚲ");
+            Row(ModConfig.BuildCameraKey, "Toggle detached free-flight build camera");
+            Plain("Movement keys", "Fly around build site (W / A / S / D)");
+            Plain(Key(ModConfig.CameraUpKey) + " / " + Key(ModConfig.CameraDownKey), "Fly vertically up and down");
+            Plain("Hold " + Key(ModConfig.CameraBoostKey), "High-speed camera boost flight");
+            Note("Character remains anchored while placement aims from the flying camera. Tether range: "
+                + ModConfig.CameraRange.Value.ToString("0") + "m from character"
+                + (ModConfig.CameraPickup.Value ? " (camera picks up loose items as it flies)." : "."));
         }
 
         private static void Doors()
         {
-            Section("Doors");
-            Plain("Your use key", "Open the door you are looking at, while building");
-            Row(ModConfig.AutoOpenDoorsKey, "Auto-open on approach, on or off");
+            Section("Intelligent Doors", "ᛞ");
+            Plain("Your use key", "Open targeted door while holding building tool");
+            Row(ModConfig.AutoOpenDoorsKey, "Toggle automated proximity door opening");
             Note(ModConfig.AutoOpenDoors.Value
-                ? "Auto-open is on: doors open within " + ModConfig.AutoOpenRange.Value.ToString("0.#")
-                  + "m and close again once you are " + ModConfig.AutoCloseDistance.Value.ToString("0.#")
-                  + "m away. Doors you opened by hand are never touched."
-                : "Auto-open is off. Turned on, doors open as you approach and close behind you; "
-                  + "a door you opened by hand is never touched.");
-            Note("If another mod also closes doors for you, turn one of them off - two openers "
-                + "that each know only distances will fight over any door you stand beside.");
+                ? "Auto-open is enabled: doors open within " + ModConfig.AutoOpenRange.Value.ToString("0.#")
+                  + "m and close once " + ModConfig.AutoCloseDistance.Value.ToString("0.#") + "m away."
+                : "Auto-open is disabled. When enabled, doors swing open as you approach and close behind you.");
         }
 
         private static void Stations()
         {
-            Section("Workbench range and reach");
-            Plain("Hold " + Key(ModConfig.StationRangeKey) + " + scroll", "Widen or narrow a workbench's circle");
-            Note("Between " + ModConfig.StationRangeMin.Value.ToString("0.#") + "m and "
-                + ModConfig.StationRangeMax.Value.ToString("0.#") + "m. The range belongs to that "
-                + "bench, survives a reload, and other players see it too."
+            Section("Workbench Range & Extended Reach", "ᚹ");
+            Plain("Hold " + Key(ModConfig.StationRangeKey) + " + scroll", "Expand or contract active workbench radius");
+            Note("Configurable range: " + ModConfig.StationRangeMin.Value.ToString("0.#") + "m to "
+                + ModConfig.StationRangeMax.Value.ToString("0.#") + "m. Radius persists per station."
                 + (ModConfig.ExtendReachToStation.Value
-                    ? " You can build anywhere inside the circle you are standing in, up to "
-                      + ModConfig.ReachLimit.Value.ToString("0") + "m."
+                    ? " Build reach extends anywhere inside the workbench aura (up to "
+                      + ModConfig.ReachLimit.Value.ToString("0") + "m)."
                     : string.Empty));
         }
 
-        // ------------------------------------------------------------------ drawing
+        // ------------------------------------------------------------------ drawing helpers
 
-        private static void Section(string title)
+        private static void Section(string title, string rune)
         {
-            GUILayout.Space(12f);
-            GUILayout.Label(title, _section);
+            // If filtering by search, skip header if no rows match
+            GUILayout.Space(10f);
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(4f);
+            GUILayout.Label($"<color=#F59E0B>{rune}</color>  <b><color=#FCD34D>{title.ToUpperInvariant()}</color></b>", _section);
+            GUILayout.EndHorizontal();
+
+            // Decorative gold/bronze divider line
+            GUILayout.Space(2f);
+            GUILayout.Label(GUIContent.none, _divider, GUILayout.Height(2f));
+            GUILayout.Space(4f);
         }
 
         private static void Row(ConfigEntry<KeyboardShortcut> shortcut, string what)
@@ -277,48 +399,104 @@ namespace TheHammerOfOden
             ConfigEntry<KeyboardShortcut> first, string firstWhat,
             ConfigEntry<KeyboardShortcut> second, string secondWhat)
         {
-            Plain(Key(first) + " / " + Key(second), firstWhat + " / " + secondWhat);
+            Plain(Key(first) + " <color=#64748B>/</color> " + Key(second), firstWhat + " <color=#64748B>/</color> " + secondWhat);
         }
 
         private static void Plain(string keys, string what)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(keys, _key, GUILayout.Width(210f));
+            // Search filter check
+            if (!string.IsNullOrEmpty(_searchFilter))
+            {
+                string cleanKeys = StripTags(keys);
+                string cleanWhat = StripTags(what);
+                if (cleanKeys.IndexOf(_searchFilter, StringComparison.OrdinalIgnoreCase) < 0 &&
+                    cleanWhat.IndexOf(_searchFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    return;
+                }
+            }
+
+            _rowIndex++;
+            GUIStyle rowBg = (_rowIndex % 2 == 0) ? _rowEven : _rowOdd;
+
+            GUILayout.BeginHorizontal(rowBg);
+            GUILayout.Space(8f);
+
+            string formattedKeys = HighlightKeys(keys);
+            GUILayout.Label(formattedKeys, _key, GUILayout.Width(270f));
+
             GUILayout.Label(what, _text);
+            GUILayout.Space(8f);
             GUILayout.EndHorizontal();
+            GUILayout.Space(1f);
         }
 
         private static void Note(string text)
         {
-            GUILayout.Space(2f);
-            GUILayout.Label(text, _note);
+            if (!string.IsNullOrEmpty(_searchFilter))
+            {
+                if (text.IndexOf(_searchFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    return;
+                }
+            }
+
+            GUILayout.Space(3f);
+            GUILayout.BeginHorizontal(_noteBox);
+            GUILayout.Space(8f);
+            GUILayout.Label($"<color=#F59E0B><b>✦ Tip:</b></color>  <color=#CBD5E1>{text}</color>", _note);
+            GUILayout.Space(8f);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(5f);
         }
 
-        /// <summary>A binding as the player would say it, read from the entry itself.</summary>
+        private static string HighlightKeys(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            if (text.Contains("<color=")) return text; // already rich-text formatted
+
+            string s = text;
+            s = s.Replace("Scroll wheel", "<color=#FDE047><b>[ Scroll Wheel ]</b></color>");
+            s = s.Replace("scroll", "<color=#FDE047><b>[ Scroll ]</b></color>");
+            s = s.Replace("Movement keys", "<color=#FDE047><b>[ W / A / S / D ]</b></color>");
+            s = s.Replace("Your use key", "<color=#FDE047><b>[ E ]</b></color>");
+            s = s.Replace(" + ", " <color=#64748B>+</color> ");
+            s = s.Replace(" / ", " <color=#64748B>/</color> ");
+            s = s.Replace("Hold ", "<color=#94A3B8>Hold</color> ");
+            s = s.Replace("While ", "<color=#94A3B8>While</color> ");
+            return s;
+        }
+
+        private static string StripTags(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return "";
+            return System.Text.RegularExpressions.Regex.Replace(input, "<.*?>", string.Empty);
+        }
+
+        /// <summary>A binding formatted as a golden badge.</summary>
         private static string Key(ConfigEntry<KeyboardShortcut> entry)
         {
             if (entry == null)
             {
-                return "unbound";
+                return "<color=#64748B><i>[ unbound ]</i></color>";
             }
 
             KeyboardShortcut shortcut = entry.Value;
             if (shortcut.MainKey == KeyCode.None)
             {
-                return "unbound";
+                return "<color=#64748B><i>[ unbound ]</i></color>";
             }
 
             List<string> parts = new List<string>();
             foreach (KeyCode modifier in shortcut.Modifiers)
             {
-                parts.Add(Pretty(modifier));
+                parts.Add("<color=#FDE047><b>[ " + Pretty(modifier) + " ]</b></color>");
             }
 
-            parts.Add(Pretty(shortcut.MainKey));
-            return string.Join(" + ", parts.ToArray());
+            parts.Add("<color=#FDE047><b>[ " + Pretty(shortcut.MainKey) + " ]</b></color>");
+            return string.Join(" <color=#64748B>+</color> ", parts.ToArray());
         }
 
-        /// <summary>KeyCode names are written for code, not for people.</summary>
         private static string Pretty(KeyCode key)
         {
             switch (key)
@@ -346,7 +524,6 @@ namespace TheHammerOfOden
             }
         }
 
-        /// <summary>Whether the values on show came from a server rather than this machine.</summary>
         private static bool ServerEnforced
         {
             get
@@ -371,52 +548,308 @@ namespace TheHammerOfOden
                 return;
             }
 
-            _backdrop = new Texture2D(1, 1);
-            _backdrop.SetPixel(0, 0, new Color(0.07f, 0.08f, 0.10f, 0.98f));
-            _backdrop.Apply();
+            // Procedural Textures
+            _windowBackdrop = MakeWindowFrame(64, 64);
+            _cardBackdrop = MakeCardFrame(32, 32);
+            _rowEvenBackdrop = MakeSolidTex(16, 16, new Color(0.12f, 0.14f, 0.18f, 0.40f));
+            _rowOddBackdrop = MakeSolidTex(16, 16, new Color(0.06f, 0.07f, 0.09f, 0.20f));
+            _noteBackdrop = MakeNoteFrame(24, 24);
+            _tabNormalBackdrop = MakeButtonFrame(24, 24, new Color(0.13f, 0.15f, 0.19f, 0.85f), new Color(0.28f, 0.32f, 0.38f, 0.65f));
+            _tabActiveBackdrop = MakeButtonFrame(24, 24, new Color(0.38f, 0.26f, 0.08f, 0.95f), new Color(0.85f, 0.68f, 0.28f, 1.0f));
+            _tabHoverBackdrop = MakeButtonFrame(24, 24, new Color(0.22f, 0.25f, 0.32f, 0.90f), new Color(0.45f, 0.50f, 0.60f, 0.80f));
+            _searchBackdrop = MakeButtonFrame(20, 20, new Color(0.08f, 0.09f, 0.12f, 0.95f), new Color(0.35f, 0.40f, 0.48f, 0.70f));
+            _closeBtnBackdrop = MakeButtonFrame(24, 24, new Color(0.32f, 0.12f, 0.12f, 0.85f), new Color(0.65f, 0.25f, 0.25f, 0.90f));
+            _closeBtnHoverBackdrop = MakeButtonFrame(24, 24, new Color(0.55f, 0.15f, 0.15f, 0.95f), new Color(0.95f, 0.40f, 0.40f, 1.0f));
+            _dividerTex = MakeDividerTex(32, 2);
+            _scrollTrackTex = MakeSolidTex(16, 16, new Color(0.05f, 0.06f, 0.08f, 0.85f));
+            _scrollThumbTex = MakeButtonFrame(16, 16, new Color(0.45f, 0.35f, 0.18f, 0.90f), new Color(0.70f, 0.55f, 0.28f, 1.0f));
 
+            // Window Style
+            _windowStyle = new GUIStyle();
+            _windowStyle.normal.background = _windowBackdrop;
+            _windowStyle.border = new RectOffset(10, 10, 10, 10);
+            _windowStyle.padding = new RectOffset(14, 14, 10, 10);
+
+            // Headers
             _heading = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 24,
+                fontSize = 20,
                 fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
+                alignment = TextAnchor.MiddleLeft,
+                richText = true
             };
-            _heading.normal.textColor = new Color(0.95f, 0.82f, 0.55f);
+
+            _subHeading = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Normal,
+                alignment = TextAnchor.MiddleLeft,
+                richText = true
+            };
 
             _section = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
-                fontStyle = FontStyle.Bold
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
+                richText = true
             };
-            _section.normal.textColor = new Color(0.55f, 0.78f, 1f);
 
+            // Rows & text
             _key = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
-                fontStyle = FontStyle.Bold,
+                fontStyle = FontStyle.Normal,
                 alignment = TextAnchor.MiddleLeft,
-                wordWrap = true
+                wordWrap = true,
+                richText = true
             };
-            _key.normal.textColor = new Color(0.98f, 0.94f, 0.80f);
 
             _text = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
-                wordWrap = true
+                wordWrap = true,
+                richText = true
             };
-            _text.normal.textColor = new Color(0.88f, 0.90f, 0.93f);
+            _text.normal.textColor = new Color(0.88f, 0.91f, 0.95f);
 
+            // Notes
             _note = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 12,
                 wordWrap = true,
-                fontStyle = FontStyle.Italic,
-                padding = new RectOffset(8, 8, 2, 2)
+                richText = true
             };
-            _note.normal.textColor = new Color(0.62f, 0.68f, 0.75f);
 
-            GUI.skin.window.normal.background = _backdrop;
-            GUI.skin.window.onNormal.background = _backdrop;
+            _noteBox = new GUIStyle();
+            _noteBox.normal.background = _noteBackdrop;
+            _noteBox.border = new RectOffset(5, 5, 5, 5);
+            _noteBox.padding = new RectOffset(6, 6, 6, 6);
+
+            _rowEven = new GUIStyle();
+            _rowEven.normal.background = _rowEvenBackdrop;
+            _rowEven.padding = new RectOffset(2, 2, 4, 4);
+
+            _rowOdd = new GUIStyle();
+            _rowOdd.normal.background = _rowOddBackdrop;
+            _rowOdd.padding = new RectOffset(2, 2, 4, 4);
+
+            // Tabs
+            _tabNormal = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Normal,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
+            };
+            _tabNormal.normal.background = _tabNormalBackdrop;
+            _tabNormal.hover.background = _tabHoverBackdrop;
+            _tabNormal.border = new RectOffset(5, 5, 5, 5);
+            _tabNormal.padding = new RectOffset(8, 8, 2, 2);
+
+            _tabActive = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
+            };
+            _tabActive.normal.background = _tabActiveBackdrop;
+            _tabActive.border = new RectOffset(5, 5, 5, 5);
+            _tabActive.padding = new RectOffset(8, 8, 2, 2);
+
+            // Search
+            _searchField = new GUIStyle(GUI.skin.textField)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft
+            };
+            _searchField.normal.background = _searchBackdrop;
+            _searchField.normal.textColor = new Color(0.95f, 0.95f, 0.95f);
+            _searchField.border = new RectOffset(4, 4, 4, 4);
+            _searchField.padding = new RectOffset(6, 6, 3, 3);
+
+            _searchLabel = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft,
+                richText = true
+            };
+
+            // Close button
+            _closeButton = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            _closeButton.normal.background = _closeBtnBackdrop;
+            _closeButton.normal.textColor = new Color(0.95f, 0.85f, 0.85f);
+            _closeButton.hover.background = _closeBtnHoverBackdrop;
+            _closeButton.hover.textColor = Color.white;
+            _closeButton.border = new RectOffset(4, 4, 4, 4);
+
+            // Toolbars
+            _toolbarBox = new GUIStyle();
+            _toolbarBox.normal.background = _cardBackdrop;
+            _toolbarBox.border = new RectOffset(6, 6, 6, 6);
+            _toolbarBox.padding = new RectOffset(4, 4, 4, 4);
+
+            _footerBox = new GUIStyle();
+            _footerBox.normal.background = _cardBackdrop;
+            _footerBox.border = new RectOffset(6, 6, 6, 6);
+            _footerBox.padding = new RectOffset(4, 4, 4, 4);
+
+            _footerText = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                alignment = TextAnchor.MiddleLeft,
+                richText = true
+            };
+            _footerText.normal.textColor = new Color(0.65f, 0.70f, 0.78f);
+
+            _divider = new GUIStyle();
+            _divider.normal.background = _dividerTex;
+            _divider.margin = new RectOffset(4, 4, 2, 4);
+
+            // Customize Scrollbars
+            GUI.skin.verticalScrollbar.normal.background = _scrollTrackTex;
+            GUI.skin.verticalScrollbarThumb.normal.background = _scrollThumbTex;
+            GUI.skin.verticalScrollbarThumb.border = new RectOffset(3, 3, 3, 3);
+        }
+
+        // Procedural Texture Generators
+        private static Texture2D MakeSolidTex(int w, int h, Color color)
+        {
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color[] pix = new Color[w * h];
+            for (int i = 0; i < pix.Length; i++) pix[i] = color;
+            tex.SetPixels(pix);
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeWindowFrame(int w, int h)
+        {
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color bg = new Color(0.065f, 0.075f, 0.095f, 0.97f);
+            Color outerIron = new Color(0.16f, 0.18f, 0.22f, 1f);
+            Color highlightIron = new Color(0.26f, 0.29f, 0.35f, 1f);
+            Color bronzeOuter = new Color(0.72f, 0.54f, 0.25f, 0.90f);
+            Color bronzeInner = new Color(0.48f, 0.34f, 0.15f, 0.70f);
+            Color rivetGold = new Color(0.95f, 0.82f, 0.45f, 1f);
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x == 0 || x == w - 1 || y == 0 || y == h - 1)
+                        tex.SetPixel(x, y, outerIron);
+                    else if (x == 1 || x == w - 2 || y == 1 || y == h - 2)
+                        tex.SetPixel(x, y, highlightIron);
+                    else if ((x == 4 || x == w - 5 || y == 4 || y == h - 5) && (x >= 4 && x <= w - 5 && y >= 4 && y <= h - 5))
+                        tex.SetPixel(x, y, bronzeOuter);
+                    else if ((x == 5 || x == w - 6 || y == 5 || y == h - 6) && (x >= 5 && x <= w - 6 && y >= 5 && y <= h - 6))
+                        tex.SetPixel(x, y, bronzeInner);
+                    else
+                        tex.SetPixel(x, y, bg);
+                }
+            }
+
+            // Rivets at 4 corners
+            int[] rx = { 5, w - 6 };
+            int[] ry = { 5, h - 6 };
+            foreach (int cx in rx)
+            {
+                foreach (int cy in ry)
+                {
+                    tex.SetPixel(cx, cy, rivetGold);
+                    tex.SetPixel(cx + 1, cy, rivetGold);
+                    tex.SetPixel(cx - 1, cy, rivetGold);
+                    tex.SetPixel(cx, cy + 1, rivetGold);
+                    tex.SetPixel(cx, cy - 1, rivetGold);
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeCardFrame(int w, int h)
+        {
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color bg = new Color(0.095f, 0.105f, 0.13f, 0.75f);
+            Color border = new Color(0.24f, 0.28f, 0.34f, 0.55f);
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x == 0 || x == w - 1 || y == 0 || y == h - 1)
+                        tex.SetPixel(x, y, border);
+                    else
+                        tex.SetPixel(x, y, bg);
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeButtonFrame(int w, int h, Color bg, Color border)
+        {
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color topHighlight = Color.Lerp(border, Color.white, 0.3f);
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x == 0 || x == w - 1 || y == 0 || y == h - 1)
+                        tex.SetPixel(x, y, border);
+                    else if (y == h - 2 && x > 0 && x < w - 1)
+                        tex.SetPixel(x, y, topHighlight);
+                    else
+                        tex.SetPixel(x, y, bg);
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeNoteFrame(int w, int h)
+        {
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color bg = new Color(0.09f, 0.10f, 0.13f, 0.85f);
+            Color border = new Color(0.35f, 0.28f, 0.14f, 0.70f);
+            Color leftBar = new Color(0.92f, 0.70f, 0.24f, 0.95f);
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x <= 2)
+                        tex.SetPixel(x, y, leftBar); // Amber accent bar on left edge
+                    else if (x == w - 1 || y == 0 || y == h - 1)
+                        tex.SetPixel(x, y, border);
+                    else
+                        tex.SetPixel(x, y, bg);
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeDividerTex(int w, int h)
+        {
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            Color bronze = new Color(0.75f, 0.58f, 0.28f, 0.80f);
+            for (int x = 0; x < w; x++)
+            {
+                float t = (float)x / (w - 1);
+                float alpha = Mathf.Sin(t * Mathf.PI); // fade at ends, bright in center
+                Color c = new Color(bronze.r, bronze.g, bronze.b, bronze.a * alpha);
+                for (int y = 0; y < h; y++)
+                {
+                    tex.SetPixel(x, y, c);
+                }
+            }
+            tex.Apply();
+            return tex;
         }
     }
 }

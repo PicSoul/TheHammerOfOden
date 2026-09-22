@@ -228,12 +228,6 @@ namespace TheHammerOfOden
                 HelpPanel.Toggle();
             }
 
-            // Escape closes it, as it closes everything else in this game.
-            if (HelpPanel.IsOpen && ZInput.GetKeyDown(KeyCode.Escape, true))
-            {
-                HelpPanel.Close();
-            }
-
             KeyboardShortcut key = ModConfig.DebugMistKey?.Value ?? default(KeyboardShortcut);
 
             if (key.MainKey != KeyCode.None

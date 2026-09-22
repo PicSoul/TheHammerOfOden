@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections.Generic;
 using BepInEx.Configuration;
@@ -989,6 +989,11 @@ namespace TheHammerOfOden
         /// <summary>Called from patched IL, receiving the wheel movement vanilla read.</summary>
         internal static float SubstituteScroll(float vanilla)
         {
+            if (HelpPanel.IsOpen)
+            {
+                return 0f;
+            }
+
             if (!ModConfig.IsEnabled || !BuildTool.IsBuildingTool)
             {
                 return vanilla;
@@ -1007,7 +1012,7 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
-    /// Holds the character still while the camera is away.
+    /// Holds the character still while the camera is away or the help panel is open.
     /// </summary>
     /// <remarks>
     /// This gates movement and looking only. Placement input is read elsewhere, so you can
@@ -1019,10 +1024,68 @@ namespace TheHammerOfOden
         [HarmonyPostfix]
         private static void Postfix(ref bool __result)
         {
-            if (ModConfig.IsEnabled && BuildCamera.IsActive)
+            if (HelpPanel.IsOpen || (ModConfig.IsEnabled && BuildCamera.IsActive))
             {
                 __result = false;
             }
+        }
+    }
+
+    /// <summary>
+    /// Keeps the cursor unlocked and visible while the help panel is open.
+    /// </summary>
+    [HarmonyPatch(typeof(GameCamera), "UpdateMouseCapture")]
+    internal static class GameCameraUpdateMouseCapturePatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix()
+        {
+            if (HelpPanel.IsOpen)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                ZCursor.LockState = CursorLockMode.None;
+                ZCursor.Show();
+                return false;
+            }
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Prevents player actions (attacks, building, interactions) while navigating the help panel.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "TakeInput")]
+    internal static class PlayerTakeInputPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ref bool __result)
+        {
+            if (HelpPanel.IsOpen)
+            {
+                __result = false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Closes the help panel on Escape without popping open the Valheim pause menu.
+    /// </summary>
+    [HarmonyPatch(typeof(Menu), "Update")]
+    internal static class MenuUpdatePatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix()
+        {
+            if (HelpPanel.IsOpen || HelpPanel.ClosedThisFrame)
+            {
+                if (HelpPanel.IsOpen && ZInput.GetKeyDown(KeyCode.Escape, true))
+                {
+                    HelpPanel.Close();
+                }
+                return false;
+            }
+            return true;
         }
     }
 
