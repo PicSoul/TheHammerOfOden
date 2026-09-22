@@ -1,4 +1,4 @@
-using BepInEx.Configuration;
+﻿using BepInEx.Configuration;
 using ServerSync;
 using UnityEngine;
 
@@ -1244,21 +1244,21 @@ namespace TheHammerOfOden
 
             DebugMistKey = config.Bind("Debug", "DebugMistKey",
                 new KeyboardShortcut(KeyCode.F10),
-                "Press to list every demister and particle force field near you, with what each "
+                "Needs DebugLogging on. Press to list every demister and particle force field near you, with what each "
                 + "one is set to. For working out what is acting on the Mistlands mist - hold "
                 + "one item, press it, hold another, press it, and compare. Costs a full scene "
                 + "search, so it runs only on the key press and never on a timer.");
 
             DebugPatchesKey = config.Bind("Debug", "DebugPatchesKey",
                 new KeyboardShortcut(KeyCode.F11),
-                "Press to list every mod that has patched the methods involved in dying, in the "
+                "Needs DebugLogging on. Press to list every mod that has patched the methods involved in dying, in the "
                 + "order their patches run. A stack trace cannot tell you this: Harmony compiles "
                 + "all of a method's patches into one dynamic method, so an exception from any "
                 + "of them shows the same single frame. Harmony does know, and this asks it.");
 
             DebugMeshKey = config.Bind("Debug", "DebugMeshKey",
                 new KeyboardShortcut(KeyCode.F9),
-                "Look at a piece and press to write what it is made of to the log: every mesh "
+                "Needs DebugLogging on. Look at a piece and press to write what it is made of to the log: every mesh "
                 + "and whether it can be read at runtime, the collider types, the snap point "
                 + "count and the shader. This exists to answer one question - whether a piece "
                 + "could be bent into an arch - because a mesh imported with Read/Write disabled "
@@ -1266,7 +1266,10 @@ namespace TheHammerOfOden
                 + "than assuming either way.");
 
             DebugLogging = config.Bind("Debug", "DebugLogging", false,
-                "Write placement diagnostics to the BepInEx log.");
+                "Write diagnostics to the BepInEx log, and switch on the three diagnostic keys "
+                + "below. They are off together on purpose: each holds a function key, and a "
+                + "player who is not debugging should not lose one to a tool they will never "
+                + "press. Turn this on and the keys work; turn it off and they are free again.");
         }
     }
 }

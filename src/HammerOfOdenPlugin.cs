@@ -228,6 +228,16 @@ namespace TheHammerOfOden
                 HelpPanel.Toggle();
             }
 
+            // The three below are tools for working out why something is not doing what it
+            // should, and every one of them holds a function key hostage. Kept, because each has
+            // ended an investigation that guessing had prolonged - but switched off with the
+            // rest of the debugging, so a player who never turns that on never loses F9 to F11
+            // and never wonders why a screenshot key stopped working.
+            if (!ModConfig.DebugEnabled)
+            {
+                return;
+            }
+
             KeyboardShortcut key = ModConfig.DebugMistKey?.Value ?? default(KeyboardShortcut);
 
             if (key.MainKey != KeyCode.None
