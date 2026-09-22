@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -120,8 +120,10 @@ namespace TheHammerOfOden
             }
 
             HammerOfOdenPlugin.Debug(
-                $"Bend rebuilt collision as {segments} box(es) for {degrees:0.#} degrees "
-                + $"(radius {radius:0.##}m).");
+                $"Bend rebuilt collision on '{Utils.GetPrefabName(piece)}' as {segments} box(es) "
+                + $"for {degrees:0.#} degrees (radius {radius:0.##}m); solid centre "
+                + $"{solid.center.ToString("0.###")} size {solid.size.ToString("0.###")}, "
+                + $"box size {size.ToString("0.###")}, layer {LayerMask.LayerToName(layer)}.");
         }
 
         internal static void Restore(List<GameObject> created, List<Collider> silenced)

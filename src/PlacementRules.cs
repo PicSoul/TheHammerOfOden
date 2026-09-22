@@ -64,6 +64,8 @@ namespace TheHammerOfOden
     /// </remarks>
     internal static class PlacementRules
     {
+        private static Player.PlacementStatus _lastRefusal = Player.PlacementStatus.Valid;
+
         private static readonly MethodInfo SetGhostValid =
             AccessTools.Method(typeof(Player), "SetPlacementGhostValid", new[] { typeof(bool) });
 
@@ -75,7 +77,19 @@ namespace TheHammerOfOden
         {
             if (!ModConfig.IsEnabled || status == Player.PlacementStatus.Valid)
             {
+                _lastRefusal = Player.PlacementStatus.Valid;
                 return;
+            }
+
+            // Which rule is refusing, said once per change rather than every frame. A bent piece
+            // being placeable sometimes and not others is not something reasoning settles: the
+            // status names the rule outright, and the rules refuse for very different reasons.
+            if (BendState.IsBent && status != _lastRefusal)
+            {
+                _lastRefusal = status;
+                HammerOfOdenPlugin.Debug(
+                    $"Bent piece refused: {status} (source {source}, freedom {FreedomFor(source)}, "
+                    + $"bypassable {CanBypass(status, FreedomFor(source), source)}).");
             }
 
             // Tied to free placement for the same reason clipping is: it is the one moment
