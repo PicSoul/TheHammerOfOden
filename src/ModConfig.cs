@@ -9,6 +9,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> Enabled;
         internal static ConfigEntry<ToolScope> Tools;
         internal static ConfigEntry<KeyboardShortcut> MasterToggleKey;
+        internal static ConfigEntry<KeyboardShortcut> HelpKey;
         internal static ConfigEntry<bool> ShowHammerGlow;
         internal static ConfigEntry<bool> ShowHammerSparks;
         internal static ConfigEntry<float> SparkRate;
@@ -272,6 +273,14 @@ namespace TheHammerOfOden
                 "Turn every feature of this mod on or off at once, without leaving the game. "
                 + "Flips the Enabled setting above, so the choice is remembered. Only read while "
                 + "a build tool is in hand, which is the only time any of it applies.");
+
+            HelpKey = config.Bind("General", "HelpKey", new KeyboardShortcut(KeyCode.F1),
+                "Open the in-game reference: every key this mod uses, read from the settings "
+                + "themselves as they stand, so it cannot drift from what the keys actually do. On a "
+                + "server that enforces its config, it shows the server's values, which are the ones "
+                + "you are playing with rather than the ones in your own file. "
+                + "Note that shudnal's Configuration Manager also opens on F1. If you have it, give "
+                + "one of the two a different key.");
 
             ShowHammerGlow = config.Bind("General", "ShowHammerGlow", true,
                 "Light the hammer while the mod is switched on, so you can see the state of the "

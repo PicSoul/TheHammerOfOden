@@ -209,6 +209,22 @@ namespace TheHammerOfOden
                 DoorAccess.AutoClose(Player.m_localPlayer);
             }
 
+            KeyboardShortcut help = ModConfig.HelpKey?.Value ?? default(KeyboardShortcut);
+
+            if (help.MainKey != KeyCode.None
+                && Player.m_localPlayer != null
+                && ZInput.instance != null
+                && ZInput.GetKeyDown(help.MainKey, true))
+            {
+                HelpPanel.Toggle();
+            }
+
+            // Escape closes it, as it closes everything else in this game.
+            if (HelpPanel.IsOpen && ZInput.GetKeyDown(KeyCode.Escape, true))
+            {
+                HelpPanel.Close();
+            }
+
             KeyboardShortcut key = ModConfig.DebugMistKey?.Value ?? default(KeyboardShortcut);
 
             if (key.MainKey != KeyCode.None
@@ -237,6 +253,11 @@ namespace TheHammerOfOden
             {
                 MeshProbe.Dump(Player.m_localPlayer);
             }
+        }
+
+        private void OnGUI()
+        {
+            HelpPanel.Draw();
         }
 
         private void OnDestroy()

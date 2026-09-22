@@ -186,6 +186,12 @@ namespace TheHammerOfOden
             int meshes = 0;
             int readable = 0;
 
+            // The biggest mesh the piece shows while undamaged is its body - the thing you are
+            // looking at. Whether that one can be read decides the whole question, because
+            // anything unreadable is hidden for the duration of a bend: hiding a distant
+            // stand-in costs nothing, and hiding the body leaves an invisible piece.
+            Mesh body = null;
+
             foreach (MeshFilter filter in filters)
             {
                 Mesh mesh = filter.sharedMesh;
@@ -195,6 +201,12 @@ namespace TheHammerOfOden
                 }
 
                 meshes++;
+
+                if (!IsDamagedVariant(piece, filter.transform)
+                    && (body == null || mesh.vertexCount > body.vertexCount))
+                {
+                    body = mesh;
+                }
 
                 if (mesh.isReadable)
                 {
@@ -217,6 +229,17 @@ namespace TheHammerOfOden
             if (readable == 0)
             {
                 reason = "has no mesh that can be read at runtime";
+                return false;
+            }
+
+            // Judged on the body rather than on a count. Two of the stone fence's six meshes can
+            // be read and it bends perfectly, because the two are the fence and the other four
+            // are its distant stand-in and its broken state. Three of the darkwood roof's
+            // twenty-four can be read and they are the snow lying on it - allowing that one
+            // hid the roof and left the snow, which is how this was found.
+            if (body != null && !body.isReadable)
+            {
+                reason = "its main mesh cannot be read at runtime, so bending would hide the piece";
                 return false;
             }
 
