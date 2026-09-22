@@ -130,6 +130,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> BendRelaxesPlacement;
         internal static ConfigEntry<bool> BendRebuildsCollision;
         internal static ConfigEntry<bool> BendCurvesGhostSnapPoints;
+        internal static ConfigEntry<bool> ShowBendableMarker;
+        internal static ConfigEntry<Color> BendableMarkerColour;
         internal static ConfigEntry<float> BendCollisionTolerance;
         internal static ConfigEntry<bool> EditRemovesCollision;
         internal static ConfigEntry<Color> EditGhostTint;
@@ -749,6 +751,17 @@ namespace TheHammerOfOden
                 + "rigidly, while its rails span the whole piece and have to curve across all of it. "
                 + "Smaller is smoother and costs vertices; 0.15m is about fifteen segments on a two "
                 + "metre piece.");
+
+            ShowBendableMarker = config.Bind("Bend", "MarkBendablePieces", true,
+                "Put a small arch on the build menu icon of every piece that can be bent. Whether a "
+                + "piece bends depends on how it is built and none of that shows from the outside, so "
+                + "without a mark the only way to find out is to select one and try. Marked on what "
+                + "can bend rather than what cannot, because far fewer pieces can - marking the "
+                + "exceptions would put an icon on nearly everything, which says nothing.");
+
+            BendableMarkerColour = config.Bind("Bend", "MarkColour", new Color(0.55f, 0.85f, 1f, 0.85f),
+                "Colour of that arch. Sits in the opposite corner from the game's own upgrade arrow, "
+                + "since a piece can be both.");
 
             BendCurvesGhostSnapPoints = config.Bind("Bend", "CurveGhostSnapPoints", true,
                 "Move the preview's snap points round the curve, so a bent piece snaps where it "

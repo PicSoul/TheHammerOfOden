@@ -1093,6 +1093,35 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
+    /// Marks the pieces that can be bent, as the build menu is filled in.
+    /// </summary>
+    /// <remarks>
+    /// A postfix on the method that fills the grid, so the marks are refreshed whenever the
+    /// icons are - changing category, opening the menu, unlocking a recipe. The piece list is
+    /// the one vanilla itself just used, so the pairing of icon to piece is its pairing rather
+    /// than a guess at it.
+    /// </remarks>
+    [HarmonyPatch(typeof(Hud), "UpdatePieceList")]
+    internal static class HudUpdatePieceListPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(Hud __instance, Player player)
+        {
+            try
+            {
+                // Asked for again rather than injected. The list vanilla uses here is a local,
+                // not a field - GetBuildPieces is where it comes from, and calling it returns
+                // the same list in the same order, which is what the pairing depends on.
+                BendMenuMarker.Apply(__instance, player?.GetBuildPieces());
+            }
+            catch (System.Exception ex)
+            {
+                HammerOfOdenPlugin.Debug("Could not mark bendable pieces: " + ex.Message);
+            }
+        }
+    }
+
+    /// <summary>
     /// Aims placement from the camera rather than from the player's head.
     /// </summary>
     /// <remarks>
