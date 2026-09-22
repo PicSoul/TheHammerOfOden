@@ -322,6 +322,43 @@ namespace TheHammerOfOden
             _logger.LogError(message);
         }
 
+        /// <summary>
+        /// Whether this is a server with nobody looking at it.
+        /// </summary>
+        /// <remarks>
+        /// A dedicated server still spawns every object a client does, so anything hung off
+        /// ZNetView.Awake runs there too - including work whose only purpose is to be looked at.
+        /// Cached after the first successful answer because ZNet outlives the question and this
+        /// is asked once per spawned object.
+        /// </remarks>
+        internal static bool IsHeadless
+        {
+            get
+            {
+                if (_headless.HasValue)
+                {
+                    return _headless.Value;
+                }
+
+                try
+                {
+                    if (ZNet.instance == null)
+                    {
+                        return false;
+                    }
+
+                    _headless = ZNet.instance.IsDedicated();
+                    return _headless.Value;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        private static bool? _headless;
+
         internal static void Debug(string message)
         {
             if (ModConfig.DebugEnabled)

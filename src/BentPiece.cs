@@ -90,6 +90,20 @@ namespace TheHammerOfOden
 
         private static void Apply(GameObject piece, float degrees, int axis, int rise)
         {
+            // Nothing here is worth doing on a server nobody is looking at. The curve is
+            // geometry for the eye, and a dedicated server neither draws it nor runs the physics
+            // that its collision serves - both of those happen on whichever client owns the
+            // piece. Left alone it would subdivide and deform every mesh of every bent piece
+            // that spawns, which on a wall is twenty-six meshes turned into as much as sixteen
+            // times their triangles, for a picture no one will see.
+            //
+            // The record in the ZDO is untouched either way, so a client that loads the piece
+            // still gets its curve.
+            if (HammerOfOdenPlugin.IsHeadless)
+            {
+                return;
+            }
+
             if (piece.GetComponent<BentPiece>() != null)
             {
                 // Already curved. Applying twice would bend the bent copy.
