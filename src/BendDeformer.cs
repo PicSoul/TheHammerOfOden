@@ -85,6 +85,36 @@ namespace TheHammerOfOden
         /// it is straightened.
         /// </remarks>
         private static readonly List<Renderer> Flattened = new List<Renderer>();
+
+        /// <summary>
+        /// A snap point, with where it sat before the piece was bent.
+        /// </summary>
+        /// <remarks>
+        /// A snap point is a bare transform, so bending the meshes leaves every one exactly
+        /// where it was - a piece that looks like an arch and connects like a plank. The ends
+        /// are the whole point of an arch: they are what the next piece attaches to, and until
+        /// they travel round the curve with the geometry an arch is something to look at rather
+        /// than to build with.
+        ///
+        /// Its facing travels too. A snap point carries a rotation and vanilla uses it to decide
+        /// how the next piece sits, so one still pointing the way it did when the piece was
+        /// straight would attach the next piece square to an end that is no longer square.
+        ///
+        /// Both are held in the piece's frame rather than the parent's, because a snap point is
+        /// not always a direct child - some sit inside a sub-object with its own rotation, and
+        /// the arc is defined in the piece's space, not theirs. The original local values are
+        /// kept alongside purely to put things back.
+        /// </remarks>
+        private sealed class Anchor
+        {
+            public Transform Point;
+            public Vector3 LocalPosition;
+            public Quaternion LocalRotation;
+            public Vector3 PositionInPiece;
+            public Quaternion RotationInPiece;
+        }
+
+        private static readonly List<Anchor> Anchors = new List<Anchor>();
         private static GameObject _appliedTo;
         private static float _appliedAngle = float.NaN;
         private static int _appliedAxis = -1;
@@ -218,6 +248,7 @@ namespace TheHammerOfOden
             }
 
             Active.Clear();
+            Anchors.Clear();
             _appliedTo = null;
             _appliedAngle = float.NaN;
             _appliedAxis = -1;
@@ -255,6 +286,15 @@ namespace TheHammerOfOden
             }
 
             Flattened.Clear();
+
+            foreach (Anchor anchor in Anchors)
+            {
+                if (anchor.Point != null)
+                {
+                    anchor.Point.localPosition = anchor.LocalPosition;
+                    anchor.Point.localRotation = anchor.LocalRotation;
+                }
+            }
         }
 
         /// <summary>Pins every LOD group on the piece to full detail.</summary>
@@ -353,6 +393,26 @@ namespace TheHammerOfOden
                 });
             }
 
+            Transform pieceRoot = piece.transform;
+            Quaternion intoPiece = Quaternion.Inverse(pieceRoot.rotation);
+
+            foreach (Transform child in piece.GetComponentsInChildren<Transform>(true))
+            {
+                if (child == null || !child.CompareTag("snappoint"))
+                {
+                    continue;
+                }
+
+                Anchors.Add(new Anchor
+                {
+                    Point = child,
+                    LocalPosition = child.localPosition,
+                    LocalRotation = child.localRotation,
+                    PositionInPiece = pieceRoot.InverseTransformPoint(child.position),
+                    RotationInPiece = intoPiece * child.rotation
+                });
+            }
+
             // Said every time a piece is taken up, because the interesting cases are the ones
             // that look like a broken curve from the outside and are not one.
             HammerOfOdenPlugin.Debug(
@@ -417,6 +477,67 @@ namespace TheHammerOfOden
                 entry.Filter.sharedMesh = entry.Working;
 
                 HideIfItCannotCurve(entry, root, axis);
+            }
+
+            BendAnchors(root, radius, axis, rise, midAlong, midRise);
+        }
+
+        /// <summary>
+        /// Carries the snap points round the same arc, facing and all.
+        /// </summary>
+        /// <remarks>
+        /// The third axis - neither the length nor the direction of the curve - is the axle the
+        /// piece turns about, so that is what a snap point rotates around, by the arc's own
+        /// angle at that point. Which way that turn goes depends on the handedness of the pair
+        /// of axes in play, and getting it backwards leaves snap points facing into the piece
+        /// instead of out of it; it is worked out from the axes rather than assumed.
+        /// </remarks>
+        private static void BendAnchors(
+            Transform root, float radius, int axis, int rise, float midAlong, float midRise)
+        {
+            if (Anchors.Count == 0)
+            {
+                return;
+            }
+
+            int axle = 3 - axis - rise;
+
+            Vector3 spin = Vector3.zero;
+            spin[axle] = 1f;
+
+            Vector3 alongDir = Vector3.zero;
+            alongDir[axis] = 1f;
+
+            Vector3 riseDir = Vector3.zero;
+            riseDir[rise] = 1f;
+
+            float handed = Vector3.Dot(Vector3.Cross(alongDir, riseDir), spin) >= 0f ? -1f : 1f;
+
+            foreach (Anchor anchor in Anchors)
+            {
+                if (anchor.Point == null)
+                {
+                    continue;
+                }
+
+                Vector3 p = anchor.PositionInPiece;
+
+                float along = p[axis] - midAlong;
+                float offset = p[rise] - midRise;
+
+                float angle = along / radius;
+                float armLength = radius - offset;
+
+                p[axis] = midAlong + armLength * Mathf.Sin(angle);
+                p[rise] = midRise + radius - armLength * Mathf.Cos(angle);
+
+                Quaternion turn = Quaternion.AngleAxis(angle * Mathf.Rad2Deg * handed, spin);
+
+                // Written in world space, so a snap point nested inside a rotated sub-object
+                // lands where the piece's own frame says it should rather than where its
+                // parent's frame would put it.
+                anchor.Point.position = root.TransformPoint(p);
+                anchor.Point.rotation = root.rotation * turn * anchor.RotationInPiece;
             }
         }
 
