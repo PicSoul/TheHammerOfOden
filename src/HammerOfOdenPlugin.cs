@@ -211,7 +211,16 @@ namespace TheHammerOfOden
 
             KeyboardShortcut help = ModConfig.HelpKey?.Value ?? default(KeyboardShortcut);
 
+            // Ctrl held means the game, not us. Valheim hides the HUD on Ctrl+F3, and a bare
+            // key that also fires as part of somebody else's combination is the kind of conflict
+            // that gets blamed on whichever mod the player installed most recently.
+            bool claimedByGame = ZInput.instance != null
+                && (ZInput.GetKey(KeyCode.LeftControl, true) || ZInput.GetKey(KeyCode.RightControl, true))
+                && help.Modifiers != null
+                && !new List<KeyCode>(help.Modifiers).Contains(KeyCode.LeftControl);
+
             if (help.MainKey != KeyCode.None
+                && !claimedByGame
                 && Player.m_localPlayer != null
                 && ZInput.instance != null
                 && ZInput.GetKeyDown(help.MainKey, true))
