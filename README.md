@@ -1,4 +1,4 @@
-﻿# The Hammer of Oden
+# The Hammer of Oden
 
 **One mod for Valheim building, in place of several.**
 
@@ -118,8 +118,9 @@ Pieces are bent along their longest side, which is measured rather than chosen; 
 pole bent across its thickness. That leaves the one real choice, which of the other two directions
 it curves towards, and **Keypad 3** swaps it.
 
-Only plain structure may be bent. A piece needs one collider, no moving or usable parts, and
-meshes the game will let a mod read - `moo`'s mesh probe reports which, and the two lists in the
+Only plain structure may be bent, and the build menu says which: a piece that can bend carries a
+small blue arch in the corner of its icon, opposite the game's own upgrade arrow. A piece needs
+one solid shape, no moving or usable parts, and a main mesh the game will let a mod read - `moo`'s mesh probe reports which, and the two lists in the
 config override it either way. The ceiling is half a circle, and each piece also has its own lower
 ceiling past which the inside of the curve would pass through itself.
 
