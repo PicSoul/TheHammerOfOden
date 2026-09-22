@@ -771,12 +771,13 @@ namespace TheHammerOfOden
 
             BendRelaxesPlacement = Synced(config.Bind("Bend", "RelaxPlacementRules", true,
                 "Set aside the rules about what a bent piece may rest on, while it is bent. Those "
-                + "checks run against the collider, and a curved piece's collider is still the "
-                + "straight box it started as - so the game is judging a shape that is no longer on "
-                + "screen, and an arch whose feet reach the ground is refused because the box they "
-                + "came from does not. It sets aside the same rules surface placement does and no "
-                + "more: no-build zones, other players' land and standing on somebody are still "
-                + "refused. Expect this to stop being needed once collision follows the curve."));
+                + "checks run against the preview's collider, and a preview deliberately keeps the "
+                + "straight box it started as - rebuilding collision there is what made the piece "
+                + "wander, since other things measure those colliders while it moves. So the game "
+                + "judges a bent piece by a shape that is not the one on screen, and an arch whose "
+                + "feet reach the ground is refused because the box they came from does not. It sets "
+                + "aside the same rules surface placement does and no more: no-build zones, other "
+                + "players' land and standing on somebody are all still refused."));
 
             BendSolidFill = config.Bind("Bend", "SolidFill", 0.8f,
                 "How much of the space a piece's collision boxes span they must actually fill before "

@@ -440,17 +440,6 @@ namespace TheHammerOfOden
             float length = max - min;
             float radius = length / radians;
 
-            // Every figure the curve is built from, each time it is rebuilt. Wild movement is
-            // either the ghost being repositioned under us or the arc being computed from
-            // different numbers frame to frame, and these two lines tell those apart: the
-            // position says whether the piece moved, the length and radius say whether the
-            // measurement did.
-            HammerOfOdenPlugin.Debug(
-                $"Bend {radians * Mathf.Rad2Deg:0.#}deg axis {axis} rise {rise} "
-                + $"len {length:0.###} radius {radius:0.###} "
-                + $"mid {(min + max) * 0.5f:0.###} "
-                + $"ghost at {piece.transform.position.ToString("0.##")} "
-                + $"meshes {Active.Count}");
 
             // Both the line the piece is measured along and the one it curves towards run
             // through its middle, not through wherever the mesh happens to have its origin.

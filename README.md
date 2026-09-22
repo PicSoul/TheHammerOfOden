@@ -1,4 +1,4 @@
-# The Hammer of Oden
+﻿# The Hammer of Oden
 
 **One mod for Valheim building, in place of several.**
 
@@ -123,11 +123,20 @@ meshes the game will let a mod read - `moo`'s mesh probe reports which, and the 
 config override it either way. The ceiling is half a circle, and each piece also has its own lower
 ceiling past which the inside of the curve would pass through itself.
 
-> **A bent piece stays at full detail.** Valheim's low-detail stand-in for a distant piece is a
-> plain box with no geometry between its corners, so it cannot follow a curve - left alone it
-> draws a straight bar over your arch. Holding the piece at full detail is what stops that, and
-> the cost is that bent pieces do not get cheaper at a distance. Nothing else does this, and
-> unbent pieces are untouched.
+> **Parts too coarse to curve are hidden while a piece is bent.** A deformer can only move
+> vertices that exist, and a piece's low-detail stand-in is a plain box with nothing between its
+> corners - bending it lifts the corners onto the arc and leaves flat faces spanning between,
+> which draws as a straight bar across your arch. Anything with too few rings of vertices along
+> the bend is therefore left undrawn until the piece is straightened again, as is anything whose
+> mesh the game will not let a mod read. Everything else is cut finer first so that it curves
+> properly rather than folding. Unbent pieces are untouched.
+
+Collision is rebuilt to follow the curve on the piece you place, as a short chain of boxes - four
+for a two metre semicircle, at the default accuracy. The preview keeps its original straight
+collision on purpose: a preview's colliders get measured by other things while it moves, and
+replacing them on every notch of the wheel made the piece wander. That is also why a bent piece
+sets the "what may this rest on" rules aside while it is being placed; the game would otherwise
+judge it by a shape that is not the one on screen.
 
 ### Build camera
 
