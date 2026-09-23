@@ -1244,13 +1244,28 @@ namespace TheHammerOfOden
     }
 
     /// <summary>
-    /// Reapplies a stored scale as objects come into the world.
+    /// Puts a piece's stored shape back as it comes into the world.
     /// </summary>
     /// <remarks>
     /// Vanilla only reads the stored scale when the prefab opted into scale syncing, which
     /// build pieces do not. Without this a scaled piece is correct until the zone unloads and
     /// then returns at its original size - including on walking away and back, not only on
-    /// teleporting.
+    /// teleporting. A bend is the mod's own record entirely, so nothing in the base game will
+    /// ever read it back.
+    ///
+    /// Deliberately not behind the master switch, which everything else in the mod is.
+    /// Everything else is a tool: it acts while you hold the hammer, and switching it off
+    /// should hand the keys back and get out of the way. This is not a tool. It is the only
+    /// thing that knows how to rebuild a piece that has already been built, so behind the
+    /// switch a standing arch came back straight after a restart and a scaled piece came back
+    /// its original size.
+    ///
+    /// Nothing was lost when that happened - the curve and the scale sit in the piece's ZDO,
+    /// and nothing on this path writes over them - so the shapes returned as soon as the mod
+    /// was switched on and the zone loaded again. But off should mean the mod stops offering,
+    /// not that the world stops being itself: a player freeing up a keybind has not asked for
+    /// their buildings to change shape, and on a server they would have been the only one
+    /// seeing the straight version, collision included.
     /// </remarks>
     [HarmonyPatch(typeof(ZNetView), "Awake")]
     internal static class ZNetViewAwakePatch
@@ -1258,11 +1273,8 @@ namespace TheHammerOfOden
         [HarmonyPostfix]
         private static void Postfix(ZNetView __instance)
         {
-            if (ModConfig.IsEnabled)
-            {
-                ScalePersistence.Restore(__instance);
-                BentPiece.Restore(__instance);
-            }
+            ScalePersistence.Restore(__instance);
+            BentPiece.Restore(__instance);
         }
     }
 
