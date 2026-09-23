@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using UnityEngine;
@@ -259,7 +259,10 @@ namespace TheHammerOfOden
         {
             Section("The Master Switch", "ᛗ");
             Row(ModConfig.MasterToggleKey, "Turn the whole mod on or off");
-            Note("The hammer glows and emits subtle embers while active. Everything except the build camera applies to the hammer alone; the camera also works with the hoe and cultivator.");
+            Note("The hammer glows and emits subtle embers while active. Everything except the build "
+                + "camera is limited to tools that build, so the hoe, the cultivator and modded terrain "
+                + "tools get the camera and nothing else. Turning the mod off hands back its keys and "
+                + "leaves the game alone - pieces you have already bent or scaled keep their shape.");
         }
 
         private static void Rotating()
@@ -352,13 +355,11 @@ namespace TheHammerOfOden
 
         private static void Doors()
         {
-            Section("Intelligent Doors", "ᛞ");
+            Section("Doors", "ᛞ");
             Plain("Your use key", "Open targeted door while holding building tool");
-            Row(ModConfig.AutoOpenDoorsKey, "Toggle automated proximity door opening");
-            Note(ModConfig.AutoOpenDoors.Value
-                ? "Auto-open is enabled: doors open within " + ModConfig.AutoOpenRange.Value.ToString("0.#")
-                  + "m and close once " + ModConfig.AutoCloseDistance.Value.ToString("0.#") + "m away."
-                : "Auto-open is disabled. When enabled, doors swing open as you approach and close behind you.");
+            Note("Reach: " + ModConfig.DoorReach.Value.ToString("0.#")
+                + "m. Doors only - chests, stations and everything else stay shut off while a "
+                + "build tool is in hand, so nothing opens by accident as you line up a piece.");
         }
 
         private static void Stations()

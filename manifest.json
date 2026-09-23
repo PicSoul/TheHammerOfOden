@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "TheHammerOfOden",
-  "version_number": "0.1.0",
+  "version_number": "0.2.0",
   "website_url": "https://github.com/PicSoul/TheHammerOfOden",
   "description": "Pitch, roll, scale and bend any building piece into an arch. Pin one in mid-air, edit what you already built, lay whole runs in one go and take them back, and build from a camera that flies. One mod in place of several.",
   "dependencies": [

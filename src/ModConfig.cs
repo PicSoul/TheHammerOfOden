@@ -8,6 +8,8 @@ namespace TheHammerOfOden
     {
         internal static ConfigEntry<bool> Enabled;
         internal static ConfigEntry<ToolScope> Tools;
+        internal static ConfigEntry<string> BuildToolTables;
+        internal static ConfigEntry<string> TerrainToolTables;
         internal static ConfigEntry<KeyboardShortcut> MasterToggleKey;
         internal static ConfigEntry<KeyboardShortcut> HelpKey;
         internal static ConfigEntry<bool> ShowHammerGlow;
@@ -178,14 +180,6 @@ namespace TheHammerOfOden
 
         internal static ConfigEntry<bool> OpenDoorsWhileBuilding;
         internal static ConfigEntry<float> DoorReach;
-        internal static ConfigEntry<bool> AutoOpenDoors;
-        internal static ConfigEntry<KeyboardShortcut> AutoOpenDoorsKey;
-        internal static ConfigEntry<float> AutoOpenRange;
-        internal static ConfigEntry<float> AutoOpenInterval;
-        internal static ConfigEntry<bool> AutoCloseDoors;
-        internal static ConfigEntry<float> AutoCloseDistance;
-        internal static ConfigEntry<float> AutoCloseDelay;
-        internal static ConfigEntry<float> DoorPairDistance;
 
         internal static ConfigEntry<KeyboardShortcut> ZoopModifierKey;
         internal static ConfigEntry<int> ZoopLimit;
@@ -326,13 +320,25 @@ namespace TheHammerOfOden
             Tools = config.Bind("General", "Tools", ToolScope.BuildingOnly,
                 new ConfigDescription(
                     "Which tools this mod affects.\n"
-                    + "BuildingOnly: the hammer and anything else that places pieces, but not the "
-                    + "hoe or cultivator. They share Valheim's placement code, which is how a mod "
-                    + "reaches them by accident, and nothing here means much for a levelling "
-                    + "operation. Recognised by the piece being a terrain operation rather than by "
-                    + "the tool's name, so modded hammers still work and modded terrain tools are "
-                    + "still excluded.\n"
-                    + "AllTools: everything that uses the placement ghost."));
+                    + "BuildingOnly: tools that build, which means the hammer and any modded "
+                    + "equivalent. The hoe, the cultivator and modded terrain tools get the build "
+                    + "camera and nothing else - they share Valheim's placement code, which is how "
+                    + "a mod reaches them by accident, and nothing here means much for a levelling "
+                    + "operation. A tool counts as building if its piece table can remove built "
+                    + "pieces, which is the test vanilla itself uses, so this is decided by what a "
+                    + "tool does rather than by what it is called.\n"
+                    + "AllTools: everything that uses the placement ghost, terrain tools included."));
+
+            BuildToolTables = config.Bind("General", "BuildToolTables", "",
+                "Piece tables to treat as building tools whatever the measurement says, separated "
+                + "by commas. For a modded hammer whose table cannot remove pieces. Use the piece "
+                + "table's name, such as _HammerPieceTable - turn DebugLogging on and the log "
+                + "names the table of whatever you are holding.");
+
+            TerrainToolTables = config.Bind("General", "TerrainToolTables", "",
+                "Piece tables to leave to vanilla whatever the measurement says, separated by "
+                + "commas. For a modded terrain tool that claims it can remove pieces and so "
+                + "looks like a hammer. These still get the build camera, exactly as the hoe does.");
 
             SnapDivisions = config.Bind("Rotation", "SnapAnglesPerTurn", 32,
                 new ConfigDescription(
@@ -1011,56 +1017,6 @@ namespace TheHammerOfOden
             DoorReach = config.Bind("Doors", "Reach", 5f,
                 new ConfigDescription("How far you can be from a door to open it while building.",
                     new AcceptableValueRange<float>(1f, 20f)));
-
-            AutoOpenDoors = config.Bind("Doors", "AutoOpenDoors", false,
-                "Open doors as you walk up to them, whatever you are holding. Off by default: it "
-                + "acts without being asked, which is something to opt into rather than discover. "
-                + "Locked doors and doors inside someone else's ward are left alone, exactly as "
-                + "if you had tried to open them by hand.");
-
-            AutoOpenDoorsKey = config.Bind("Doors", "AutoOpenDoorsKey",
-                new KeyboardShortcut(KeyCode.K),
-                "Turns auto-open on and off without leaving the game. Works whatever you are "
-                + "holding, and remembers the setting.");
-
-            AutoOpenRange = config.Bind("Doors", "AutoOpenRange", 5f,
-                new ConfigDescription(
-                    "How close you must be for a door to open by itself. Far enough that it is "
-                    + "open by the time you reach it rather than swinging as you arrive.",
-                    new AcceptableValueRange<float>(1f, 15f)));
-
-            AutoOpenInterval = config.Bind("Doors", "AutoOpenInterval", 0.25f,
-                new ConfigDescription(
-                    "Seconds between checks for a door to open. This is a cheap layer-masked "
-                    + "query, but there is no reason to run it every frame.",
-                    new AcceptableValueRange<float>(0.1f, 2f)));
-
-            AutoCloseDoors = config.Bind("Doors", "AutoCloseDoors", true,
-                "Close the doors auto-open opened, once you have walked away. Only those: a door "
-                + "you opened by hand and left open was a decision, and shutting it because you "
-                + "moved off would be the mod overruling you.\n"
-                + "This lives here rather than being left to another mod because the two halves "
-                + "have to agree. An opener and a closer that each know only distances will fight "
-                + "over any door you stand beside, and making them agree means tuning thresholds "
-                + "in two mods until they happen not to overlap. If you use another mod's "
-                + "auto-close, turn one of them off.");
-
-            AutoCloseDistance = config.Bind("Doors", "AutoCloseDistance", 8f,
-                new ConfigDescription(
-                    "How far you must be from a door before its close timer starts. Comfortably "
-                    + "beyond AutoOpenRange, so the two never argue over the same doorstep.",
-                    new AcceptableValueRange<float>(2f, 30f)));
-
-            AutoCloseDelay = config.Bind("Doors", "AutoCloseDelay", 2f,
-                new ConfigDescription("Seconds to wait, once you are away, before closing.",
-                    new AcceptableValueRange<float>(0f, 30f)));
-
-            DoorPairDistance = config.Bind("Doors", "DoorPairDistance", 1.5f,
-                new ConfigDescription(
-                    "How close two doors must be to count as one double door and open together. "
-                    + "Nothing in the game ties the two halves of a double door to each other - "
-                    + "they are simply neighbours - so this is how they are recognised.",
-                    new AcceptableValueRange<float>(0.1f, 5f)));
 
             QuietUpgradeGlow = config.Bind("Mistlands", "QuietUpgradeGlow", true,
                 "Stop an upgraded item's glow from churning the Mistlands mist.\n"

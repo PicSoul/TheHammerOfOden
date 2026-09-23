@@ -58,18 +58,13 @@ Separately, with the build camera flying you can clear mist around it without a 
 
 | Action | Control |
 |---|---|
-| Auto-open doors on/off | **K** |
 | Open the door you're looking at, while building | your normal use key |
 
 Vanilla switches interaction off entirely while a build tool is out — right for chests and crafting stations, which you'd trigger by accident lining up a piece, and maddening for the door between you and more wood. So doors, and only doors, stay usable.
 
-Auto-open is off by default and works whatever you're holding. Doors open as you come within 5m and close again once you're 8m away for two seconds.
+It opens the door you are aiming at, within `Reach` (5m by default), and only one you could have opened by hand: a locked door without its key, or one inside someone else's ward, is refused exactly as vanilla would refuse it.
 
-Both halves live here on purpose. An opener and a closer that each know only distances will fight over any door you stand beside — one sees you near enough to open, the other far enough to close — and making two separate mods agree means tuning thresholds in both until they happen not to overlap. Owning both ends means the doors this opened are *remembered*, so closing them again isn't a guess. A door you opened by hand and left open is never touched.
-
-Neighbouring doors are opened as one, with a single swing direction measured from the middle of the pair. Nothing in the game ties the halves of a double door together — they're just two doors standing next to each other — so `DoorPairDistance` is how they're recognised.
-
-**If you use another mod's auto-close, turn one of them off.**
+Earlier versions also opened doors as you approached and closed them behind you. That is gone as of 0.2.0 — it was a proximity feature in a mod about placing pieces, and it never worked well enough to keep. If you want it, there are mods that do only that and do it better.
 
 ### Editing a placed piece
 
@@ -153,6 +148,8 @@ judge it by a shape that is not the one on screen.
 Your character stays put and placement follows the camera, so you can put a piece where you could never have stood to aim at it — under a roof, over a cliff, or behind the wall you're building.
 
 It carries a light, and picks up loose items it passes over while respecting your carry weight, which vanilla pickup does not.
+
+The camera is the one feature that is not limited to building tools. Flying out to look at what you are about to flatten is as useful with a hoe as with a hammer, so it works with any tool that uses the placement ghost — the vanilla hoe and cultivator, and modded terrain tools as well. Everything else in the mod stays on tools that build.
 
 The camera is tethered to you, 40m by default. That's not an arbitrary limit: Valheim keeps objects alive around your body, and a camera beyond that either sees a half-built world or forces the game to load a second one around the camera. The second is what makes other build-camera mods expensive, and isn't done here.
 
@@ -365,13 +362,14 @@ Around a hundred and fifty settings across `General`, `Rotation`, `Snap Points`,
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |
-| `Tools` | `BuildingOnly` | `AllTools` lets the mod reach the hoe and cultivator |
+| `Tools` | `BuildingOnly` | `AllTools` lets the mod reach terrain tools too |
+| `BuildToolTables` | empty | piece tables to treat as building tools regardless |
+| `TerrainToolTables` | empty | piece tables to leave to vanilla regardless |
 | `Build Camera Range` | `40` | how far the camera may get from you |
 | `Build Camera Pickup` | `true` | sweep up loose items the camera passes |
 | `QuietUpgradeGlow` | `true` | stops upgraded gear churning the Mistlands mist |
 | `RequiresWisplight` | `true` | off clears mist at the build camera without one |
-| `AutoOpenDoors` | `false` | doors open as you approach; **K** toggles it in game |
-| `AutoCloseDoors` | `true` | closes only the doors auto-open opened |
+| `OpenDoorsWhileBuilding` | `true` | use key opens a door with the hammer in hand |
 | `ShowHammerGlow` | `true` | off if you would rather the tool stayed dark |
 | `ShowHammerSparks` | `true` | the motes, independent of the light |
 | `SparkRate` | `18` | motes per second; applied live while you watch |

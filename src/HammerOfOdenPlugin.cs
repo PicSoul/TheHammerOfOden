@@ -15,7 +15,7 @@ namespace TheHammerOfOden
     {
         public const string PluginGuid = "com.pics0ul.valheim.thehammerofoden";
         public const string PluginName = "The Hammer of Oden";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
 
         private static ManualLogSource _logger;
         private Harmony _harmony;
@@ -204,9 +204,6 @@ namespace TheHammerOfOden
             if (Player.m_localPlayer != null)
             {
                 UpgradeGlowFix.Apply(Player.m_localPlayer);
-                DoorAccess.HandleToggle(Player.m_localPlayer);
-                DoorAccess.AutoOpen(Player.m_localPlayer);
-                DoorAccess.AutoClose(Player.m_localPlayer);
             }
 
             KeyboardShortcut help = ModConfig.HelpKey?.Value ?? default(KeyboardShortcut);

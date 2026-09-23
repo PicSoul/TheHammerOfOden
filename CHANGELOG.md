@@ -1,4 +1,26 @@
-# Changelog
+﻿# Changelog
+
+## 0.2.0
+
+### Changed
+
+- Most of the door handling is gone. Opening the door you are **looking at** while a build tool is
+  in hand stays, and is still on by default — that one is genuinely useful while building.
+  Doors opening and closing by themselves as you walk near them has been removed, along with its
+  eight settings and the **K** key that toggled it.
+
+### Fixed
+
+- Only tools that **build** get the rotation gizmo, scaling, snapping and the rest. A tool was
+  previously excluded only if the mod recognised its piece as terrain work, so a modded hoe with
+  its own pieces — MyDirtyHoe, for one — came up wearing a gizmo. It now asks whether a
+  tool can remove built pieces, which is the same test vanilla uses, so the hoe, the cultivator
+  and modded terrain tools are left alone without needing a list of mod names. `BuildToolTables`
+  and `TerrainToolTables` override it either way.
+- The **build camera** is unchanged and still works with any placement tool, vanilla or modded.
+- A bent or scaled piece came back straight, and at its original size, if you turned the mod off
+  with the master switch and then reloaded. Nothing was ever lost, and switching the mod back on
+  restored it — but the switch no longer changes the shape of anything you have built.
 
 ## 0.1.0
 
