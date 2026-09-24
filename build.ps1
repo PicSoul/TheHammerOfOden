@@ -1,15 +1,14 @@
 ﻿<#
     Build and optionally install The Hammer of Oden for local testing.
 
-        .\build.ps1            build, validate and package
-        .\build.ps1 -Install   also copy into the local Gale profile
-        .\build.ps1 -Disable   stop BepInEx loading it, without deleting it
-        .\build.ps1 -Enable    load it again
+        .\build.ps1              build, validate and package
+        .\build.ps1 -Install     also install a development copy into the Gale client profile
+        .\build.ps1 -RemoveDev   take the development copy out again
 
-    -Disable and -Enable exist because this mod is copied into the profile rather
-    than installed by r2modman, so r2modman does not list it and has no toggle for
-    it. They rename the DLL to .old and back, which is the same trick r2modman uses
-    on the mods it does manage.
+    Testing a change: switch the released mod off in Gale, run -Install, play. When the new
+    version is published, run -RemoveDev and switch the released mod back on in Gale.
+    The development copy lives in its own folder, PicSoul-TheHammerOfOden-DEV, and never
+    touches the folder Gale manages - see devcopy.ps1 for why that matters.
 
     Packaging targets Hexium, which reads the Thunderstore package format: a zip
     with manifest.json, icon.png (exactly 256x256) and README.md at its root.
@@ -23,8 +22,7 @@
 param(
     [switch]$Install,
     [switch]$SkipPatchCheck,
-    [switch]$Disable,
-    [switch]$Enable,
+    [switch]$RemoveDev,
     [string]$Profile = "1.0 Release Client Mods"
 )
 
@@ -46,57 +44,23 @@ function RequireValheimClosed {
     }
 }
 
-# Renaming to .old is what r2modman does to the mods it manages: BepInEx loads
-# *.dll and nothing else, so the file stays put and stops being loaded.
 # Two mods driving the placement ghost at once produces nonsense. Refuse rather
 # than let it look like our bug.
 function RequireNoRivalGizmo {
     $gizmo = Get-ChildItem (PluginRoot) -Directory -ErrorAction SilentlyContinue |
              Where-Object { Test-Path (Join-Path $_.FullName "ComfyGizmo.dll") }
     if ($gizmo) {
-        Fail "ComfyGizmo is installed at '$($gizmo.Name)'. Disable it in r2modman first - both mods rotate the placement ghost."
+        Fail "ComfyGizmo is installed at '$($gizmo.Name)'. Switch it off in Gale first - both mods rotate the placement ghost."
     }
     Ok "no conflicting rotation mod installed"
 }
 
-function SetLoaded([bool]$loaded) {
-    RequireValheimClosed
-    $dir = Join-Path (PluginRoot) "PICS0UL-TheHammerOfOden"
-    if (-not (Test-Path $dir)) { Fail "not installed; run .\build.ps1 -Install first" }
+. "$root\devcopy.ps1"
+$devFolder = "PicSoul-TheHammerOfOden-DEV"
+$devDll = "TheHammerOfOden.dll"
 
-    $live = Join-Path $dir "TheHammerOfOden.dll"
-    $off = "$live.old"
-
-    if ($loaded) {
-        if (Test-Path $live) { Ok "already enabled"; return }
-        RequireNoRivalGizmo
-        if (-not (Test-Path $off)) { Fail "nothing to enable in $dir" }
-        Move-Item $off $live -Force
-        Ok "enabled - BepInEx will load it on next launch"
-        return
-    }
-
-    if (-not (Test-Path $live)) {
-        if (Test-Path $off) { Ok "already disabled"; return }
-        Fail "nothing to disable in $dir"
-    }
-
-    Move-Item $live $off -Force
-    Ok "disabled - the DLL is kept as $(Split-Path $off -Leaf)"
-}
-
-if ($Disable -and $Enable) { Fail "pick one of -Disable or -Enable" }
-
-if ($Disable) {
-    Write-Host "`ndisabling..." -ForegroundColor Cyan
-    SetLoaded $false
-    Write-Host "`ndone.`n" -ForegroundColor Cyan
-    exit 0
-}
-
-if ($Enable) {
-    Write-Host "`nenabling..." -ForegroundColor Cyan
-    SetLoaded $true
+if ($RemoveDev) {
+    Remove-DevCopy -ProfileName $Profile -FolderName $devFolder -DllName $devDll
     Write-Host "`ndone.`n" -ForegroundColor Cyan
     exit 0
 }
@@ -231,20 +195,8 @@ Ok "packaged $(Split-Path $zip -Leaf) ($([math]::Round((Get-Item $zip).Length / 
 
 if (-not $Install) { Write-Host "`ndone.`n" -ForegroundColor Cyan; exit 0 }
 
-Write-Host "`ninstalling to profile '$Profile'..." -ForegroundColor Cyan
-
-RequireValheimClosed
-$pluginRoot = PluginRoot
-
 RequireNoRivalGizmo
-
-$target = Join-Path $pluginRoot "PICS0UL-TheHammerOfOden"
-if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target | Out-Null }
-Copy-Item $dll $target -Force
-
-# A stale .old beside a fresh DLL would leave -Enable and -Disable disagreeing
-# about which file is the real one; installing always means enabled.
-Remove-Item (Join-Path $target "TheHammerOfOden.dll.old") -Force -ErrorAction SilentlyContinue
-Ok "installed to $(Split-Path $target -Leaf)"
+Install-DevCopy -ProfileName $Profile -FolderName $devFolder -DllName $devDll `
+    -Stage $stage -Version $manifest.version_number
 
 Write-Host "`ndone.`n" -ForegroundColor Cyan
