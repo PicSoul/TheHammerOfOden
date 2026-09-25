@@ -63,6 +63,8 @@ namespace TheHammerOfOden
 
             HammerGlow.Apply(__instance, ModConfig.IsEnabled && BuildTool.IsBuildingTool);
 
+            Selection.Tick(ModConfig.IsEnabled && BuildTool.IsBuildingTool && __instance.InPlaceMode());
+
             if (!ModConfig.IsEnabled || !takeInput || ___m_buildPieces == null)
             {
                 return;
@@ -102,6 +104,7 @@ namespace TheHammerOfOden
             ActiveSnapPair.Clear();
 
             // Switches and resets: safe at any time, walking included.
+            HandleSelection(__instance);
             FreePlacement.HandleInput(__instance);
             SurfacePlacement.HandleInput(__instance);
             PlacementFreeze.HandleInput(__instance);
@@ -169,16 +172,75 @@ namespace TheHammerOfOden
             Notify.Show(player, "Stand still to adjust the piece");
         }
 
+        private static readonly AccessTools.FieldRef<Player, bool> BlockRemove =
+            AccessTools.FieldRefAccess<Player, bool>("m_blockRemove");
+
+        private static bool _selectClickHeld;
+
+        /// <summary>Picks pieces out for moving or copying together.</summary>
+        /// <remarks>
+        /// The select key is middle-click by default, and middle-click alone is the hammer's
+        /// remove, which vanilla fires when the button comes back up. So from the moment a select
+        /// click goes down until the button is released, the remove is held back the same way
+        /// vanilla holds it back for its own shift-click copy - even if the modifier is let go
+        /// first. Selecting a piece must never delete it.
+        /// </remarks>
+        private static void HandleSelection(Player player)
+        {
+            KeyboardShortcut select = ModConfig.SelectKey.Value;
+
+            if (PressedWithModifiers(select))
+            {
+                _selectClickHeld = true;
+                Selection.Toggle(player, player.GetHoveringPiece());
+            }
+
+            if (_selectClickHeld)
+            {
+                BlockRemove(player) = true;
+
+                if (select.MainKey == KeyCode.None || !ZInput.GetKey(select.MainKey, true))
+                {
+                    _selectClickHeld = false;
+                }
+            }
+
+            if (PressedWithModifiers(ModConfig.SelectGrowKey.Value))
+            {
+                Selection.Grow(player);
+            }
+            else if (PressedWithModifiers(ModConfig.SelectShrinkKey.Value))
+            {
+                Selection.Shrink(player);
+            }
+
+            // The type key is the building key with a modifier, and a plain key check does not
+            // refuse extra modifiers - so the narrower one is asked first.
+            if (PressedWithModifiers(ModConfig.SelectTypeKey.Value))
+            {
+                Selection.SelectConnected(player, player.GetHoveringPiece(), true);
+            }
+            else if (PressedWithModifiers(ModConfig.SelectBuildingKey.Value))
+            {
+                Selection.SelectConnected(player, player.GetHoveringPiece(), false);
+            }
+
+            if (PressedWithModifiers(ModConfig.SelectClearKey.Value))
+            {
+                Selection.Clear(player);
+            }
+        }
+
         /// <summary>Widens or narrows the gap between zooped copies.</summary>
         private static void HandleZoopGap(Player player)
         {
             float step = Mathf.Max(0.01f, ModConfig.ZoopGapStep.Value);
 
-            if (PressedWithModifiers(ModConfig.ZoopGapWiderKey.Value))
+            if (KeyRepeat.Fires(ModConfig.ZoopGapWiderKey))
             {
                 Zooping.AdjustGap(player, step);
             }
-            else if (PressedWithModifiers(ModConfig.ZoopGapNarrowerKey.Value))
+            else if (KeyRepeat.Fires(ModConfig.ZoopGapNarrowerKey))
             {
                 Zooping.AdjustGap(player, -step);
             }
@@ -188,10 +250,9 @@ namespace TheHammerOfOden
         /// Moves the piece a step at a time, on all three axes.
         /// </summary>
         /// <remarks>
-        /// Key repeat is left to the operating system rather than timed here, the way the
-        /// scaling keys do it. Nudging is a deliberate, one-step-at-a-time action - you are
-        /// lining something up by eye - so the usual hold-to-repeat would overshoot more
-        /// often than it would help.
+        /// A tap is one step; holding repeats after a short delay - see KeyRepeat. Lining a
+        /// piece up by eye is one careful step at a time, and the delay keeps it that way,
+        /// while a long move no longer takes twenty presses.
         /// </remarks>
         private static void HandleOffsetReset(Player player)
         {
@@ -226,12 +287,16 @@ namespace TheHammerOfOden
 
             bool large = Held(ModConfig.NudgeLargeModifierKey.Value);
 
-            if (Pressed(ModConfig.NudgeForwardKey.Value))  PlacementOffset.NudgeBy(NudgeAxis.Forward, 1, large);
-            if (Pressed(ModConfig.NudgeBackwardKey.Value)) PlacementOffset.NudgeBy(NudgeAxis.Forward, -1, large);
-            if (Pressed(ModConfig.NudgeRightKey.Value))    PlacementOffset.NudgeBy(NudgeAxis.Lateral, 1, large);
-            if (Pressed(ModConfig.NudgeLeftKey.Value))     PlacementOffset.NudgeBy(NudgeAxis.Lateral, -1, large);
-            if (Pressed(ModConfig.NudgeUpKey.Value))       PlacementOffset.NudgeBy(NudgeAxis.Vertical, 1, large);
-            if (Pressed(ModConfig.NudgeDownKey.Value))     PlacementOffset.NudgeBy(NudgeAxis.Vertical, -1, large);
+            // Held keys repeat after a short delay. Large steps repeat at a quarter of the pace, so a
+            // held key walks a piece a metre at a time rather than throwing it across the base.
+            float pace = large ? 4f : 1f;
+
+            if (KeyRepeat.Fires(ModConfig.NudgeForwardKey, pace))  PlacementOffset.NudgeBy(NudgeAxis.Forward, 1, large);
+            if (KeyRepeat.Fires(ModConfig.NudgeBackwardKey, pace)) PlacementOffset.NudgeBy(NudgeAxis.Forward, -1, large);
+            if (KeyRepeat.Fires(ModConfig.NudgeRightKey, pace))    PlacementOffset.NudgeBy(NudgeAxis.Lateral, 1, large);
+            if (KeyRepeat.Fires(ModConfig.NudgeLeftKey, pace))     PlacementOffset.NudgeBy(NudgeAxis.Lateral, -1, large);
+            if (KeyRepeat.Fires(ModConfig.NudgeUpKey, pace))       PlacementOffset.NudgeBy(NudgeAxis.Vertical, 1, large);
+            if (KeyRepeat.Fires(ModConfig.NudgeDownKey, pace))     PlacementOffset.NudgeBy(NudgeAxis.Vertical, -1, large);
         }
 
         /// <summary>Builds up a run of pieces along one of the nudge directions.</summary>
@@ -322,6 +387,21 @@ namespace TheHammerOfOden
             return shortcut.MainKey != KeyCode.None && ZInput.GetKeyDown(shortcut.MainKey, true);
         }
 
+        private static bool AllHeld(IEnumerable<KeyCode> modifiers)
+        {
+            bool any = false;
+            foreach (KeyCode modifier in modifiers)
+            {
+                any = true;
+                if (!ZInput.GetKey(modifier, true))
+                {
+                    return false;
+                }
+            }
+
+            return any;
+        }
+
         private static bool Held(KeyboardShortcut shortcut)
         {
             return shortcut.MainKey != KeyCode.None && ZInput.GetKey(shortcut.MainKey, true);
@@ -396,8 +476,9 @@ namespace TheHammerOfOden
         /// <summary>Double or halve the snap angles, so a few presses span the useful range.</summary>
         private static void HandleSnapDivisions(Player player)
         {
-            // With the zoop modifier held, PageUp and PageDown set the zoop gap instead.
-            if (Held(ModConfig.ZoopModifierKey.Value))
+            // With the zoop modifier held, PageUp and PageDown set the zoop gap instead, and with
+            // the selection's modifier they grow and shrink the selection.
+            if (Held(ModConfig.ZoopModifierKey.Value) || AllHeld(ModConfig.SelectGrowKey.Value.Modifiers))
             {
                 return;
             }
@@ -487,14 +568,14 @@ namespace TheHammerOfOden
 
             bool changed = false;
 
-            if (ScaleRepeat(ModConfig.ScaleWiderKey)) { ScaleState.Stretch(0, 1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleNarrowerKey)) { ScaleState.Stretch(0, -1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleTallerKey)) { ScaleState.Stretch(1, 1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleShorterKey)) { ScaleState.Stretch(1, -1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleDeeperKey)) { ScaleState.Stretch(2, 1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleShallowerKey)) { ScaleState.Stretch(2, -1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleUpKey)) { ScaleState.Uniform(1); changed = true; }
-            else if (ScaleRepeat(ModConfig.ScaleDownKey)) { ScaleState.Uniform(-1); changed = true; }
+            if (KeyRepeat.Fires(ModConfig.ScaleWiderKey)) { ScaleState.Stretch(0, 1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleNarrowerKey)) { ScaleState.Stretch(0, -1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleTallerKey)) { ScaleState.Stretch(1, 1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleShorterKey)) { ScaleState.Stretch(1, -1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleDeeperKey)) { ScaleState.Stretch(2, 1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleShallowerKey)) { ScaleState.Stretch(2, -1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleUpKey)) { ScaleState.Uniform(1); changed = true; }
+            else if (KeyRepeat.Fires(ModConfig.ScaleDownKey)) { ScaleState.Uniform(-1); changed = true; }
             else if (IsDown(ModConfig.ScaleResetKey)) { ScaleState.Reset(); changed = true; }
 
             if (!changed || player == null)
@@ -519,8 +600,6 @@ namespace TheHammerOfOden
                 || IsDown(ModConfig.ScaleResetKey);
         }
 
-        private static float _scaleHeldSince;
-        private static float _scaleNextRepeat;
 
         /// <summary>
         /// True on the first press, then again at a steady rate while the key is held.
@@ -530,29 +609,6 @@ namespace TheHammerOfOden
         /// default step - so holding the key has to work or the feature is tiring to use.
         /// The initial pause is what keeps a single tap from being read as a hold.
         /// </remarks>
-        private static bool ScaleRepeat(ConfigEntry<KeyboardShortcut> key)
-        {
-            if (IsDown(key))
-            {
-                _scaleHeldSince = Time.time;
-                _scaleNextRepeat = Time.time + ModConfig.ScaleRepeatDelay.Value;
-                return true;
-            }
-
-            if (!IsHeld(key))
-            {
-                return false;
-            }
-
-            if (Time.time < _scaleNextRepeat)
-            {
-                return false;
-            }
-
-            _scaleNextRepeat = Time.time + ModConfig.ScaleRepeatRate.Value;
-            return true;
-        }
-
         private static void HandleClippingToggle(Player player)
         {
             if (!IsDown(ModConfig.ClippingToggleKey))
@@ -1332,6 +1388,36 @@ namespace TheHammerOfOden
                 BendState.ApplyToPlaced(__instance);
                 PlacementUndo.Record(__instance);
             }
+        }
+    }
+
+    /// <summary>
+    /// Repaints a selected piece when the game's hover highlight hands its colours back.
+    /// </summary>
+    /// <remarks>
+    /// WearNTear.Highlight sets _Color and _EmissionColor on whatever the hammer points at, and
+    /// ResetHighlight, invoked a moment later, resets both to the material's own - which is where
+    /// the selection's colour lives too. Without this, sweeping the cursor across a selection left
+    /// a trail of pieces that looked deselected.
+    /// </remarks>
+    [HarmonyPatch(typeof(WearNTear), "ResetHighlight")]
+    internal static class WearNTearResetHighlightPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(WearNTear __instance)
+        {
+            Selection.RestoreAfterHover(__instance.gameObject);
+        }
+    }
+
+    /// <summary>Forgets the selection on leaving a world; its pieces belong to that world.</summary>
+    [HarmonyPatch(typeof(Game), "OnDestroy")]
+    internal static class GameOnDestroySelectionPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix()
+        {
+            Selection.Reset();
         }
     }
 

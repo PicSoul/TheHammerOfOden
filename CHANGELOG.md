@@ -4,6 +4,15 @@
 
 ### Added
 
+- **Select several pieces at once**, the first part of moving and copying them as a group.
+  Left Alt + middle-click adds or removes the piece you're looking at; Left Alt + Page Up grows the
+  selection by everything touching it, and Page Down takes the last grow back; Numpad * takes the
+  whole connected building, and Left Alt + Numpad * only the connected pieces of one kind. Numpad /
+  clears it. Selected pieces glow violet while a building tool is in hand. A building of several
+  thousand pieces is found a few milliseconds per frame, so it fills in rather than freezing the
+  game, and a selection holds up to 10,000 pieces by default.
+- **Hold a key to keep adjusting.** Nudge, scale and zoop-gap keys repeat when held; a tap is still
+  exactly one step.
 - **Adjust the gap in a zoop run.** Left Shift + Page Up and Page Down widen or narrow the space
   between copies, 0.1m at a time, down to overlapping them. It carries over to your next run, so a
   fence line only needs setting once, and Delete clears it along with the run.

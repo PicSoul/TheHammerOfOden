@@ -98,8 +98,8 @@ namespace TheHammerOfOden
         internal static ConfigEntry<ScaleRestriction> ScaleRestrictions;
         internal static ConfigEntry<float> ScaleMaxWithParticles;
         internal static ConfigEntry<float> RangeGrowth;
-        internal static ConfigEntry<float> ScaleRepeatDelay;
-        internal static ConfigEntry<float> ScaleRepeatRate;
+        internal static ConfigEntry<float> HoldRepeatDelay;
+        internal static ConfigEntry<float> HoldRepeatRate;
         internal static ConfigEntry<bool> ScaleParticles;
 
         internal static ConfigEntry<float> OffsetStep;
@@ -188,6 +188,15 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> ZoopGapNarrowerKey;
         internal static ConfigEntry<float> ZoopGapStep;
         internal static ConfigEntry<bool> LockWhileMoving;
+        internal static ConfigEntry<KeyboardShortcut> SelectKey;
+        internal static ConfigEntry<KeyboardShortcut> SelectGrowKey;
+        internal static ConfigEntry<KeyboardShortcut> SelectShrinkKey;
+        internal static ConfigEntry<KeyboardShortcut> SelectBuildingKey;
+        internal static ConfigEntry<KeyboardShortcut> SelectTypeKey;
+        internal static ConfigEntry<KeyboardShortcut> SelectClearKey;
+        internal static ConfigEntry<int> SelectionLimit;
+        internal static ConfigEntry<Color> SelectionTint;
+        internal static ConfigEntry<Color> SelectionGlow;
         internal static ConfigEntry<int> ZoopPerFrame;
 
         internal static ConfigEntry<KeyboardShortcut> GridKey;
@@ -309,6 +318,18 @@ namespace TheHammerOfOden
                 "Turn every feature of this mod on or off at once, without leaving the game. "
                 + "Flips the Enabled setting above, so the choice is remembered. Only read while "
                 + "a build tool is in hand, which is the only time any of it applies.");
+
+            HoldRepeatDelay = config.Bind("General", "HoldRepeatDelay", 0.35f,
+                new ConfigDescription(
+                    "How long a nudge, scale or zoop-gap key must be held before it starts repeating. A tap "
+                    + "is always exactly one step; this is long enough that a quick tap is never read as a hold.",
+                    new AcceptableValueRange<float>(0.1f, 1.5f)));
+
+            HoldRepeatRate = config.Bind("General", "HoldRepeatRate", 0.06f,
+                new ConfigDescription(
+                    "Seconds between steps while one of those keys is held. Large nudges repeat more slowly, "
+                    + "so a held key does not throw a piece metres away.",
+                    new AcceptableValueRange<float>(0.01f, 0.5f)));
 
             LockWhileMoving = config.Bind("General", "LockWhileMoving", true,
                 "Ignore rotating, scaling, bending, nudging, zooping and station-range changes while you "
@@ -713,16 +734,6 @@ namespace TheHammerOfOden
                     + "an escape hatch for a modded piece whose effects misbehave when resized, since "
                     + "a piece can gate its own effects on distances this mod knows nothing about.",
                     new AcceptableValueRange<float>(1f, 20f))));
-
-            ScaleRepeatDelay = config.Bind("Scale", "RepeatDelay", 0.35f,
-                new ConfigDescription(
-                    "How long a scale key must be held before it starts repeating. Long enough that a "
-                    + "single tap is never read as a hold.",
-                    new AcceptableValueRange<float>(0.1f, 1f)));
-
-            ScaleRepeatRate = config.Bind("Scale", "RepeatRate", 0.06f,
-                new ConfigDescription("Seconds between steps while a scale key is held.",
-                    new AcceptableValueRange<float>(0.01f, 0.5f)));
 
             ScaleParticles = Synced(config.Bind("Scale", "ScaleParticles", true,
                 "Draw a piece's particle effects larger along with its geometry. Only the particle "
@@ -1147,6 +1158,52 @@ namespace TheHammerOfOden
             ZoopGapStep = config.Bind("Zoop", "GapStep", 0.1f,
                 new ConfigDescription("Metres added or removed per press of the gap keys.",
                     new AcceptableValueRange<float>(0.01f, 2f)));
+
+            SelectKey = config.Bind("Select", "SelectKey",
+                new KeyboardShortcut(KeyCode.Mouse2, KeyCode.LeftAlt),
+                "Add the piece you are looking at to the selection, or take it out. Middle-click on its "
+                + "own is the hammer's remove, so while this is held the remove is held back - selecting "
+                + "a piece never deletes it.");
+
+            SelectGrowKey = config.Bind("Select", "GrowKey",
+                new KeyboardShortcut(KeyCode.PageUp, KeyCode.LeftAlt),
+                "Add every piece touching the selection: one ring outward per press, the way a modelling "
+                + "program grows a selection.");
+
+            SelectShrinkKey = config.Bind("Select", "ShrinkKey",
+                new KeyboardShortcut(KeyCode.PageDown, KeyCode.LeftAlt),
+                "Take back the most recent grow, one ring per press.");
+
+            SelectBuildingKey = config.Bind("Select", "SelectBuildingKey",
+                new KeyboardShortcut(KeyCode.KeypadMultiply),
+                "Add everything connected to the piece you are looking at - the whole building.");
+
+            SelectTypeKey = config.Bind("Select", "SelectTypeKey",
+                new KeyboardShortcut(KeyCode.KeypadMultiply, KeyCode.LeftAlt),
+                "Add every connected piece of the same kind as the one you are looking at - every stone "
+                + "wall in a building, say, even where the walls only meet through a floor.");
+
+            SelectClearKey = config.Bind("Select", "ClearKey",
+                new KeyboardShortcut(KeyCode.KeypadDivide),
+                "Empty the selection.");
+
+            SelectionLimit = Synced(config.Bind("Select", "Limit", 10000,
+                new ConfigDescription(
+                    "Most pieces one selection may hold. Moving or copying a selection places every piece "
+                    + "in it as a real placement, so this is the server's say in how much one player can "
+                    + "put up at once.",
+                    new AcceptableValueRange<int>(1, 100000))));
+
+            SelectionTint = config.Bind("Select", "Tint", new Color(0.85f, 0.55f, 1f, 1f),
+                "Colour multiplied into selected pieces while a building tool is in hand. A multiply can "
+                + "only darken or shift a colour, never brighten it, so on dark pieces it does little - "
+                + "the glow below is what makes a selection readable everywhere. White for none.");
+
+            SelectionGlow = config.Bind("Select", "Glow", new Color(0.38f, 0.05f, 0.45f, 1f),
+                "Light added to selected pieces - the main way a selection shows, since added light reads "
+                + "on any material, dark wood included. Violet by default because nothing else in the game "
+                + "uses it: the hover highlight is blue or red-to-green and the edit ghost is pale blue. "
+                + "Brighter values stand out more; black for none.");
 
             GridKey = config.Bind("Grid", "GridKey",
                 new KeyboardShortcut(KeyCode.G),

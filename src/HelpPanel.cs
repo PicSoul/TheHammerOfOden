@@ -31,6 +31,7 @@ namespace TheHammerOfOden
             Bending,
             Placing,
             Snapping,
+            Selecting,
             Runs,
             Camera,
             Doors,
@@ -200,6 +201,7 @@ namespace TheHammerOfOden
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Bending) Bending();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Placing) Placing();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Snapping) Snapping();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Selecting) Selecting();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Runs) Runs();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Camera) Camera();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Doors) Doors();
@@ -232,6 +234,7 @@ namespace TheHammerOfOden
             TabBtn(CategoryTab.Bending, "Bend");
             TabBtn(CategoryTab.Placing, "Place");
             TabBtn(CategoryTab.Snapping, "Snap/Edit");
+            TabBtn(CategoryTab.Selecting, "Select");
             TabBtn(CategoryTab.Runs, "Runs");
             TabBtn(CategoryTab.Camera, "Camera");
             TabBtn(CategoryTab.Doors, "Doors");
@@ -329,7 +332,8 @@ namespace TheHammerOfOden
             Plain("Hold " + Key(ModConfig.NudgeLargeModifierKey), "Hold for larger nudge increments");
             Row(ModConfig.ResetOffsetKey, "Reset all nudging offsets back to zero");
             Note("Nudge step size: " + ModConfig.NudgeStep.Value.ToString("0.###") + "m (fine), or "
-                + ModConfig.NudgeStepLarge.Value.ToString("0.###") + "m (large held).");
+                + ModConfig.NudgeStepLarge.Value.ToString("0.###") + "m (large held). A tap moves one step; "
+                + "hold a nudge, scale or zoop-gap key and it repeats after a moment.");
             Note("Free placement sets aside: " + DescribeFreedom(ModConfig.Freedom.Value)
                 + (ModConfig.BuildWithoutWorkbench.Value ? " No workbench is needed while it is on." : string.Empty)
                 + " Someone else's ward is always respected.");
@@ -356,6 +360,20 @@ namespace TheHammerOfOden
                 + Key(ModConfig.FreezeKey) + " to let it follow your aim for a bigger move. Placing or cancelling "
                 + "releases it. Editing keeps the piece's health and materials at no extra cost. Containers, signs "
                 + "and item stands with something in them cannot be edited.");
+        }
+
+        private static void Selecting()
+        {
+            Section("Selecting Several Pieces", "ᛗ");
+            Row(ModConfig.SelectKey, "Add the piece you are looking at, or take it out");
+            Row(ModConfig.SelectGrowKey, "Grow: add everything touching", ModConfig.SelectShrinkKey, "Shrink back one grow");
+            Row(ModConfig.SelectBuildingKey, "Add the whole connected building");
+            Row(ModConfig.SelectTypeKey, "Add only connected pieces of the kind you are looking at");
+            Row(ModConfig.SelectClearKey, "Clear the selection");
+            Note("Selected pieces glow while a building tool is in hand. Selecting never removes a piece, "
+                + "even though middle-click is the hammer's remove. A selection holds up to "
+                + ModConfig.SelectionLimit.Value + " pieces and is kept until you clear it or leave the world. "
+                + (Selection.Count > 0 ? Selection.Count + " selected right now." : "Nothing selected right now."));
         }
 
         private static void Runs()

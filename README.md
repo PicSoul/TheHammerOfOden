@@ -101,6 +101,28 @@ Two further consequences. The piece comes back at full health, so damage and wea
 chest, sign or item stand with something in it is refused rather than quietly emptied, since the
 replacement is built from the prefab and the prefab knows nothing about what was inside.
 
+### Selecting several pieces
+
+| Action | Control |
+|---|---|
+| Add the piece you're looking at, or take it out | **Left Alt + middle-click** |
+| Grow: add everything touching the selection | **Left Alt + Page Up** |
+| Shrink: take back the last grow | **Left Alt + Page Down** |
+| Add the whole connected building | **Numpad \*** |
+| Add only connected pieces of the kind you're looking at | **Left Alt + Numpad \*** |
+| Clear the selection | **Numpad /** |
+
+Selected pieces glow violet while a building tool is in hand. Selecting never removes a piece,
+even though middle-click on its own is the hammer's remove. "Touching" is measured from the pieces'
+own collision shapes, so it works the same on modded pieces and on things like rugs that support
+nothing.
+
+A whole building is found a few milliseconds per frame, so even one of several thousand pieces
+fills in over a moment rather than freezing the game. A selection holds up to 10,000 pieces by
+default - the server sets the limit - and is kept until you clear it or leave the world.
+
+Moving and copying a selection is on its way; for now a selection is only a selection.
+
 ### Bending
 
 | Action | Control |
@@ -192,6 +214,7 @@ Angles are counted per full turn, defaulting to 32 steps (11.25°). Vanilla uses
 | Nudge away / towards you | **↑** / **↓** |
 | Nudge up / down | **Home** / **End** |
 | Nudge by 1m instead of 0.1m | hold **Left Ctrl** |
+| Keep nudging, scaling or changing the gap | hold the key - it repeats after a moment |
 | Clear nudging and any run | **Delete** |
 | Grid snapping on/off | **G** |
 | Lay a run of pieces | **Left Shift** + a nudge direction |
