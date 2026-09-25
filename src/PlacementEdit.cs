@@ -189,13 +189,23 @@ namespace TheHammerOfOden
             ScaleState.MatchPiece(piece);
             BendState.MatchPiece(piece);
 
+            // Pinned exactly where the original stands, rather than jumping to wherever the cursor
+            // happens to point. Fine adjustment is the point of editing, and a piece that starts
+            // anywhere but its own place makes every adjustment start with finding it again.
+            // Unfreezing lets it follow the cursor for a bigger move; placing or cancelling ends
+            // the freeze, since the ghost is rebuilt after every placement.
+            PlacementOffset.Reset();
+            PlacementFreeze.FreezeAt(piece.transform.position, piece.transform.rotation);
+            _frozeForEdit = true;
+
             Ghost(piece.gameObject);
             Tint(piece.gameObject);
             EditGhostMaterial.Apply(piece.gameObject);
 
             HammerOfOdenPlugin.Debug(
                 $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
-            Notify.Show(player, "Editing " + piece.m_name + " - place to apply");
+            Notify.Show(player, "Editing " + piece.m_name + " - held in place. Adjust it, or unfreeze ("
+                + ModConfig.FreezeKey.Value.MainKey + ") to move it freely. Place to apply");
         }
 
         /// <summary>
@@ -260,6 +270,7 @@ namespace TheHammerOfOden
             ZDOID was = _original;
             string prefab = _originalPrefab;
 
+            ReleaseFreeze();
             Clear();
 
             if (instance == null)
@@ -315,12 +326,28 @@ namespace TheHammerOfOden
             HammerOfOdenPlugin.Debug($"Edit of {_original} cancelled.");
 
             Unghost(Original);
+            ReleaseFreeze();
             Clear();
 
             if (player != null && message != null)
             {
                 Notify.Show(player, message);
             }
+        }
+
+        private static bool _frozeForEdit;
+
+        /// <summary>Lets the ghost follow the cursor again, if it was this edit that pinned it.</summary>
+        private static void ReleaseFreeze()
+        {
+            if (!_frozeForEdit)
+            {
+                return;
+            }
+
+            _frozeForEdit = false;
+            PlacementFreeze.Reset();
+            PlacementOffset.Reset();
         }
 
         internal static void Clear()

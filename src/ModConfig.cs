@@ -184,6 +184,10 @@ namespace TheHammerOfOden
         internal static ConfigEntry<KeyboardShortcut> ZoopModifierKey;
         internal static ConfigEntry<int> ZoopLimit;
         internal static ConfigEntry<float> ZoopSpacing;
+        internal static ConfigEntry<KeyboardShortcut> ZoopGapWiderKey;
+        internal static ConfigEntry<KeyboardShortcut> ZoopGapNarrowerKey;
+        internal static ConfigEntry<float> ZoopGapStep;
+        internal static ConfigEntry<bool> LockWhileMoving;
         internal static ConfigEntry<int> ZoopPerFrame;
 
         internal static ConfigEntry<KeyboardShortcut> GridKey;
@@ -191,6 +195,7 @@ namespace TheHammerOfOden
         internal static ConfigEntry<bool> GridHeight;
 
         internal static ConfigEntry<PlacementFreedom> Freedom;
+        internal static ConfigEntry<bool> BuildWithoutWorkbench;
         internal static ConfigEntry<ClippingMode> Clipping;
         internal static ConfigEntry<KeyboardShortcut> ClippingToggleKey;
 
@@ -255,6 +260,36 @@ namespace TheHammerOfOden
             return entry;
         }
 
+        internal static ConfigEntry<int> ConfigVersion;
+
+        /// <summary>
+        /// Bumped whenever a default changes in a way an existing config should follow. BepInEx
+        /// keeps whatever a config file already holds, so a new default otherwise reaches only
+        /// people installing for the first time.
+        /// </summary>
+        private const int CurrentConfigVersion = 1;
+
+        private static void Migrate()
+        {
+            if (ConfigVersion.Value >= CurrentConfigVersion)
+            {
+                return;
+            }
+
+            int from = ConfigVersion.Value;
+
+            // 1: stations scale safely - their working points move with the model and their use
+            // distance now grows with it - so nothing is left out by default any more. Only a
+            // config still on the old default is moved; one someone chose stays as they chose it.
+            if (from < 1 && ScaleRestrictions.Value == ScaleRestriction.ProductionStations)
+            {
+                ScaleRestrictions.Value = ScaleRestriction.Nothing;
+                HammerOfOdenPlugin.Info("Scale restrictions moved to the new default, Nothing.");
+            }
+
+            ConfigVersion.Value = CurrentConfigVersion;
+        }
+
         internal static void Bind(ConfigFile config, ConfigSync sync = null)
         {
             _sync = sync;
@@ -274,6 +309,12 @@ namespace TheHammerOfOden
                 "Turn every feature of this mod on or off at once, without leaving the game. "
                 + "Flips the Enabled setting above, so the choice is remembered. Only read while "
                 + "a build tool is in hand, which is the only time any of it applies.");
+
+            LockWhileMoving = config.Bind("General", "LockWhileMoving", true,
+                "Ignore rotating, scaling, bending, nudging, zooping and station-range changes while you "
+                + "are walking. Nobody builds on the move, and those controls share their modifiers with "
+                + "movement: shift is sprint as well as pitch, control is crouch as well as range. Standing "
+                + "still on a moving ship counts as standing still, and the build camera is unaffected.");
 
             HelpKey = config.Bind("General", "HelpKey", new KeyboardShortcut(KeyCode.F3),
                 "Open the in-game reference: every key this mod uses, read from the settings "
@@ -643,14 +684,16 @@ namespace TheHammerOfOden
             ScaleResetKey = config.Bind("Scale", "ResetKey", new KeyboardShortcut(KeyCode.Keypad5),
                 "Return the piece to its normal size.");
 
-            ScaleRestrictions = Synced(config.Bind("Scale", "Restrictions", ScaleRestriction.ProductionStations,
+            ScaleRestrictions = Synced(config.Bind("Scale", "Restrictions", ScaleRestriction.Nothing,
                 new ConfigDescription(
                     "Which pieces are left out of resizing. "
+                    + "Nothing: every piece can be resized, stations and ships included. The points "
+                    + "a station works from - ore and output points, the slots food sits on - are "
+                    + "part of its model and move with it, and a station's use distance grows with "
+                    + "its size so a large one can still be reached. "
                     + "ProductionStations: crafting stations, smelters, kilns, cooking stations, "
-                    + "fermenters and beehives, whose behaviour is tied to where parts of the model "
-                    + "are - build radii, ore and output points, the slots food sits on. Everything "
-                    + "else, including chests, doors, portals, torches and station add-ons, can be "
-                    + "resized. "
+                    + "fermenters and beehives are left out, for anyone who would rather they kept "
+                    + "their normal size. "
                     + "AnythingInteractive: also leaves out anything you can use at all. "
                     + "Nothing: no restriction.")));
 
@@ -1091,6 +1134,20 @@ namespace TheHammerOfOden
                     + "one piece between each, which suits fence posts and pillars.",
                     new AcceptableValueRange<float>(0.25f, 5f)));
 
+            ZoopGapWiderKey = config.Bind("Zoop", "GapWiderKey",
+                new KeyboardShortcut(KeyCode.PageUp, KeyCode.LeftShift),
+                "Adds space between zooped copies. Beside the rotation-step keys on purpose: with the "
+                + "zoop modifier held they set the gap instead of the rotation step.");
+
+            ZoopGapNarrowerKey = config.Bind("Zoop", "GapNarrowerKey",
+                new KeyboardShortcut(KeyCode.PageDown, KeyCode.LeftShift),
+                "Takes space away between zooped copies, down to overlapping them. Delete clears the "
+                + "gap along with the zoop and the placement offset.");
+
+            ZoopGapStep = config.Bind("Zoop", "GapStep", 0.1f,
+                new ConfigDescription("Metres added or removed per press of the gap keys.",
+                    new AcceptableValueRange<float>(0.01f, 2f)));
+
             GridKey = config.Bind("Grid", "GridKey",
                 new KeyboardShortcut(KeyCode.G),
                 "Restrict placement to a fixed world grid. Useful for spacing things that share no "
@@ -1174,7 +1231,15 @@ namespace TheHammerOfOden
                     + "SurfacesAndSpacing: also the room a piece demands, such as forge extensions "
                     + "refusing to sit near each other. "
                     + "Everything: also biome, dungeon and weather restrictions. "
-                    + "Wards, no-build zones and other players are never bypassed at any setting.")));
+                    + "Unrestricted: also no-build zones - boss altars, traders, the starting stones - and "
+                    + "a character standing where the piece would go. "
+                    + "Someone else's ward is never bypassed at any setting. See also BuildWithoutWorkbench.")));
+
+            BuildWithoutWorkbench = Synced(config.Bind("Free Placement", "BuildWithoutWorkbench", false,
+                "While free placement is on, build pieces that normally need a workbench or other station "
+                + "in range, without one. The same effect as the game's own No Workbench world modifier, "
+                + "and it uses that modifier's check, but only while free placement is on and only for you. "
+                + "Off by default: needing a station is how the game paces what you can build."));
 
             Clipping = Synced(config.Bind("Clipping", "Mode", ClippingMode.WithFreePlacement,
                 new ConfigDescription(
@@ -1226,6 +1291,12 @@ namespace TheHammerOfOden
                 + "below. They are off together on purpose: each holds a function key, and a "
                 + "player who is not debugging should not lose one to a tool they will never "
                 + "press. Turn this on and the keys work; turn it off and they are free again.");
+
+            ConfigVersion = config.Bind("Debug", "ConfigVersion", 0,
+                "Which version of the settings this file has been brought up to. Leave it alone: it is "
+                + "how a changed default reaches a config that already exists.");
+
+            Migrate();
         }
     }
 }

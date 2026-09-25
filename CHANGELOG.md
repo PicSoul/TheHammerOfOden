@@ -1,5 +1,43 @@
 ﻿# Changelog
 
+## 0.3.0
+
+### Added
+
+- **Adjust the gap in a zoop run.** Left Shift + Page Up and Page Down widen or narrow the space
+  between copies, 0.1m at a time, down to overlapping them. It carries over to your next run, so a
+  fence line only needs setting once, and Delete clears it along with the run.
+- **Bending says which way it will go.** While the bend key is held, the rotation gizmo lights up the
+  ring the bend turns around, and a message says where the ends will curve - up, down, left, right,
+  towards or away from you - before the wheel is turned. It used to name the piece's own axes, which
+  meant nothing once the piece was rotated.
+- **Build without a workbench**, when a server allows it: `BuildWithoutWorkbench` lets free placement
+  build pieces that need a station in range. It uses the game's own No Workbench world modifier check,
+  and only while free placement is on.
+- **An `Unrestricted` level for `Freedom`**, which also sets aside no-build zones - boss altars,
+  traders, the starting stones - and a character standing in the way. Someone else's ward is still
+  never bypassed.
+
+### Changed
+
+- **Adjustments only work while you stand still.** Rotating, scaling, bending, nudging, zooping and
+  station-range changes are ignored while you walk, because their modifiers double as movement keys -
+  shift is sprint and pitch, control is crouch and range. Standing on a moving ship counts as standing
+  still, and the build camera is unaffected. `LockWhileMoving` turns it off.
+- **Editing a piece freezes it in place.** It starts exactly where it stands instead of jumping to your
+  cursor, so fine adjustments stay fine. Press the freeze key to let it follow your aim for a bigger
+  move; placing or cancelling releases it.
+- **Every piece can be resized, stations included.** A station's working points are part of its model
+  and scale with it, and its use distance now grows with it so a large workbench can still be opened.
+  A config still on the old default is moved across; `ProductionStations` keeps the old behaviour.
+
+### Fixed
+
+- The cultivator was treated as a building tool, because it can remove what it planted, and got the
+  rotation gizmo and the rest. A tool now also has to have structural pieces in its build menu, which a
+  cultivator, a hoe or a modded terrain tool never does. The build camera still works with all of them.
+- The in-game guide said zooping was Shift + scroll. It is Shift + the arrow keys.
+
 ## 0.2.0
 
 ### Changed

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TheHammerOfOden
 {
@@ -18,12 +18,15 @@ namespace TheHammerOfOden
     /// Decides which pieces may be resized, and how far.
     /// </summary>
     /// <remarks>
-    /// The default blocks crafting and production stations and nothing else. Those are pieces
-    /// whose behaviour is tied to their geometry - a workbench has a build radius, a smelter
-    /// has ore and output points, a cooking station has slots that food is placed on - and
-    /// stretching them moves things the game expects to find where the model put them.
+    /// The default leaves nothing out. Stations were excluded at first, on the reasoning that
+    /// their behaviour is tied to their geometry - a smelter has ore and output points, a
+    /// cooking station has slots that food is placed on. But those points are children of the
+    /// model and scale with it, so they stay where the model puts them. The one thing that did
+    /// not follow was a plain distance - how close you must stand to use a crafting station -
+    /// and ScaledRanges now grows that too. Ships scaled the same way were fine in play.
+    /// ProductionStations remains for anyone who would rather keep stations at normal size.
     ///
-    /// Almost everything else is safe. Chests, doors, portals, torches, braziers, beds, item
+    /// Everything else was always safe. Chests, doors, portals, torches, braziers, beds, item
     /// stands and station add-ons like the forge cooler are geometry with a trigger attached,
     /// and the trigger scales with the rest.
     ///

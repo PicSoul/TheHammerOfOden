@@ -262,7 +262,10 @@ namespace TheHammerOfOden
             Note("The hammer glows and emits subtle embers while active. Everything except the build "
                 + "camera is limited to tools that build, so the hoe, the cultivator and modded terrain "
                 + "tools get the camera and nothing else. Turning the mod off hands back its keys and "
-                + "leaves the game alone - pieces you have already bent or scaled keep their shape.");
+                + "leaves the game alone - pieces you have already bent or scaled keep their shape."
+                + (ModConfig.LockWhileMoving.Value
+                    ? " Rotating, scaling, bending, nudging and zooping only work while you stand still."
+                    : string.Empty));
         }
 
         private static void Rotating()
@@ -289,7 +292,12 @@ namespace TheHammerOfOden
             Row(ModConfig.ScaleDeeperKey, "Deeper", ModConfig.ScaleShallowerKey, "Shallower");
             Row(ModConfig.ScaleUpKey, "Bigger (uniform)", ModConfig.ScaleDownKey, "Smaller (uniform)");
             Row(ModConfig.ScaleResetKey, "Reset piece back to default 1.0x size");
-            Note("Scaling range: " + ModConfig.ScaleMin.Value.ToString("0.##") + "x to "
+            Note((ModConfig.ScaleRestrictions.Value == ScaleRestriction.Nothing
+                    ? "Every piece can be resized, stations and ships included. "
+                    : ModConfig.ScaleRestrictions.Value == ScaleRestriction.ProductionStations
+                        ? "Crafting and production stations keep their normal size. "
+                        : "Anything you can use keeps its normal size. ")
+                + "Scaling range: " + ModConfig.ScaleMin.Value.ToString("0.##") + "x to "
                 + ModConfig.ScaleMax.Value.ToString("0.##") + "x in steps of "
                 + ModConfig.ScaleStep.Value.ToString("0.##") + ". Scaled pieces persist through world reloads and sync to all players.");
         }
@@ -300,8 +308,11 @@ namespace TheHammerOfOden
             Plain("Hold " + Key(ModConfig.BendModifierKey) + " + scroll", "Curve the piece continuously in both directions");
             Row(ModConfig.BendAxisKey, "Swap curve orientation axis");
             Row(ModConfig.BendResetKey, "Straighten piece back to flat");
-            Note("Pieces bend along their longest axis, up to " + ModConfig.BendMaximum.Value.ToString("0")
-                + "° (180° turns a straight beam into a complete semicircular arch). Only solid structural pieces bend.");
+            Note("While " + Key(ModConfig.BendModifierKey) + " is held the gizmo lights up the ring the bend turns "
+                + "around, and a message says which way the ends will curve - up, down, left, right, towards or "
+                + "away from you. Pieces bend along their longest side, up to " + ModConfig.BendMaximum.Value.ToString("0")
+                + "° (180° turns a straight beam into a semicircular arch). Only solid structural pieces bend; "
+                + "the build menu marks them with a small arch.");
         }
 
         private static void Placing()
@@ -319,6 +330,21 @@ namespace TheHammerOfOden
             Row(ModConfig.ResetOffsetKey, "Reset all nudging offsets back to zero");
             Note("Nudge step size: " + ModConfig.NudgeStep.Value.ToString("0.###") + "m (fine), or "
                 + ModConfig.NudgeStepLarge.Value.ToString("0.###") + "m (large held).");
+            Note("Free placement sets aside: " + DescribeFreedom(ModConfig.Freedom.Value)
+                + (ModConfig.BuildWithoutWorkbench.Value ? " No workbench is needed while it is on." : string.Empty)
+                + " Someone else's ward is always respected.");
+        }
+
+        private static string DescribeFreedom(PlacementFreedom freedom)
+        {
+            switch (freedom)
+            {
+                case PlacementFreedom.Vanilla: return "no rules - it only changes snapping.";
+                case PlacementFreedom.Surfaces: return "what a piece may rest on.";
+                case PlacementFreedom.SurfacesAndSpacing: return "what a piece may rest on, and the room it needs.";
+                case PlacementFreedom.Everything: return "surface, spacing, biome, dungeon and weather rules.";
+                default: return "every rule, no-build zones and characters in the way included.";
+            }
         }
 
         private static void Snapping()
@@ -326,15 +352,25 @@ namespace TheHammerOfOden
             Section("Snap Points & In-Place Editing", "ᛋ");
             Row(ModConfig.CycleDerivedSnapPointsKey, "Cycle derived center, face, and edge snap anchors");
             Row(ModConfig.EditKey, "In-place edit: pick up already-built piece to resize/rotate/reposition");
-            Note("Editing preserves the piece's health and materials without requiring deconstruction or extra costs. Containers with items cannot be edited.");
+            Note("An edited piece starts frozen exactly where it stands, so small adjustments stay small; press "
+                + Key(ModConfig.FreezeKey) + " to let it follow your aim for a bigger move. Placing or cancelling "
+                + "releases it. Editing keeps the piece's health and materials at no extra cost. Containers, signs "
+                + "and item stands with something in them cannot be edited.");
         }
 
         private static void Runs()
         {
             Section("Zooping Runs & Instant Undo", "ᛉ");
-            Plain("Hold " + Key(ModConfig.ZoopModifierKey) + " + scroll", "Extend line of copies (zooping) before placing");
+            Plain("Hold " + Key(ModConfig.ZoopModifierKey) + " + arrows / " + Key(ModConfig.NudgeUpKey) + " / "
+                + Key(ModConfig.NudgeDownKey), "Extend a line or grid of copies (zooping) before placing");
+            Row(ModConfig.ZoopGapWiderKey, "Wider gap", ModConfig.ZoopGapNarrowerKey, "Narrower gap / overlap");
             Row(ModConfig.UndoKey, "Undo: instantly dismantle and refund entire last run");
-            Note("Builds up to " + ModConfig.ZoopLimit.Value + " continuous copies in a single click. Undo remembers the last "
+            Note("Gap between copies: " + (Mathf.Approximately(Zooping.Gap, 0f)
+                    ? "none, they touch"
+                    : Zooping.Gap > 0f ? Zooping.Gap.ToString("0.##") + "m" : (-Zooping.Gap).ToString("0.##") + "m overlap")
+                + ", in " + ModConfig.ZoopGapStep.Value.ToString("0.##") + "m steps. "
+                + Key(ModConfig.ResetOffsetKey) + " clears it with the zoop. "
+                + "Builds up to " + ModConfig.ZoopLimit.Value + " continuous copies in a single click. Undo remembers the last "
                 + ModConfig.UndoDepth.Value + " placement actions"
                 + (ModConfig.UndoRefundsToInventory.Value
                     ? ", refunding resources directly into your inventory."

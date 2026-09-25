@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -53,6 +53,33 @@ namespace TheHammerOfOden
 
         /// <summary>How many extra copies accompany the piece you are placing.</summary>
         internal static int Count => TotalCopies();
+
+        /// <summary>
+        /// Extra space between copies, in metres, on top of the piece's own size and the spacing
+        /// multiplier. Negative overlaps them.
+        /// </summary>
+        /// <remarks>
+        /// Metres rather than another multiplier, because a gap is something you measure by eye -
+        /// a hand's width between fence posts - not a fraction of whichever piece you happen to
+        /// be holding. Kept across runs, so a gap set once lays a whole fence line.
+        /// </remarks>
+        internal static float Gap { get; private set; }
+
+        internal static void AdjustGap(Player player, float delta)
+        {
+            Gap = Mathf.Clamp(Mathf.Round((Gap + delta) * 100f) / 100f, -5f, 20f);
+
+            string text = Mathf.Approximately(Gap, 0f)
+                ? "Zoop gap: none, copies touch"
+                : Gap > 0f ? $"Zoop gap: {Gap:0.##} m apart" : $"Zoop gap: {-Gap:0.##} m overlap";
+
+            Notify.Show(player, IsActive ? text : text + " - applies to your next run");
+        }
+
+        internal static void ResetGap()
+        {
+            Gap = 0f;
+        }
 
         internal static bool IsActive => Legs.Count > 0;
 
@@ -195,8 +222,11 @@ namespace TheHammerOfOden
 
             for (int i = 0; i < Legs.Count; i++)
             {
-                Vector3 step = Legs[i].Direction
-                    * (GhostBounds.SizeAlong(ghost, Legs[i].Direction) * ModConfig.ZoopSpacing.Value);
+                // Never less than a few centimetres: a gap wide enough to overlap a copy
+                // entirely would stack the whole run in one place.
+                float size = GhostBounds.SizeAlong(ghost, Legs[i].Direction);
+                float length = Mathf.Max(size * ModConfig.ZoopSpacing.Value + Gap, Mathf.Max(0.05f, size * 0.05f));
+                Vector3 step = Legs[i].Direction * length;
 
                 if (i == 0) { a = step; ca = Legs[i].Count; }
                 else if (i == 1) { b = step; cb = Legs[i].Count; }

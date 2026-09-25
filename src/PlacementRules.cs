@@ -19,7 +19,13 @@ namespace TheHammerOfOden
         SurfacesAndSpacing = 2,
 
         /// <summary>Also ignore biome, dungeon and weather restrictions.</summary>
-        Everything = 3
+        Everything = 3,
+
+        /// <summary>
+        /// Also ignore no-build zones and a character standing where the piece would go. Only
+        /// someone else's ward is still respected.
+        /// </summary>
+        Unrestricted = 4
     }
 
     /// <summary>What decided where the ghost is standing.</summary>
@@ -48,15 +54,16 @@ namespace TheHammerOfOden
     /// placement is the natural home for setting those aside, since it already means "put it
     /// where I say".
     ///
-    /// Three of them are never bypassed at any setting:
+    /// One is never bypassed at any setting: PrivateZone, someone else's ward. That is another
+    /// player's boundary rather than the game being fussy, and a building convenience has no
+    /// business removing it.
     ///
-    ///   PrivateZone     someone else's ward
-    ///   NoBuildZone     boss altars and similar protected ground
-    ///   BlockedbyPlayer a player is standing there
-    ///
-    /// The first two are other people's boundaries rather than the game being fussy, and a
-    /// building convenience has no business removing them. The third would let you place
-    /// inside a player.
+    /// Two more are bypassed only at Unrestricted, the top setting, which a server has to
+    /// choose: NoBuildZone, the ground the game keeps clear around boss altars and traders, and
+    /// BlockedbyPlayer, a character standing where the piece would go. Both used to be treated
+    /// like the ward. They are not the same kind of thing - nobody owns a trader's clearing -
+    /// but both are easy to misuse, which is why they wait at the top of the scale rather than
+    /// coming with Everything.
     ///
     /// Implemented as a postfix that rewrites the verdict, which is safe because vanilla's
     /// last act in the method is to apply that verdict to the ghost - so re-applying it
@@ -168,11 +175,17 @@ namespace TheHammerOfOden
         {
             switch (status)
             {
-                // Never. Other people's boundaries, and standing on someone.
+                // Never. Someone else's ward is theirs, whatever this setting says.
                 case Player.PlacementStatus.PrivateZone:
+                    return false;
+
+                // The places the game keeps clear - boss altars, traders, the starting stones -
+                // and a character standing where the piece would go. Only at the very top, and
+                // only because a server chose it: this is the setting that lets someone wall a
+                // trader in or build a box around a friend.
                 case Player.PlacementStatus.NoBuildZone:
                 case Player.PlacementStatus.BlockedbyPlayer:
-                    return false;
+                    return freedom >= PlacementFreedom.Unrestricted;
 
                 // Nothing was aimed at, so ordinarily there is no position to make valid.
                 // A frozen piece is the exception: its position was settled before you looked

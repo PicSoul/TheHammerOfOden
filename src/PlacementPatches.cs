@@ -100,27 +100,87 @@ namespace TheHammerOfOden
             }
 
             ActiveSnapPair.Clear();
+
+            // Switches and resets: safe at any time, walking included.
             FreePlacement.HandleInput(__instance);
             SurfacePlacement.HandleInput(__instance);
-
             PlacementFreeze.HandleInput(__instance);
             PlacementGrid.HandleInput(__instance);
-            HandleNudge(__instance);
+            HandleOffsetReset(__instance);
             HandleUndo(__instance);
             HandleSnapPointReset(__instance, ref ___m_manualSnapPoint);
             HandleClippingToggle(__instance);
-            HandleSnapDivisions(__instance);
             HandleDerivedModeCycle(__instance, ___m_placementGhost);
-            HandleScaling(__instance, ___m_placementGhost);
             HandleResets();
             HandleStandaloneCopyKey(__instance);
 
+            // Everything below changes the piece itself, and only happens standing still.
+            if (IsMoving(__instance))
+            {
+                WarnIfAdjustingWhileMoving(__instance);
+                return;
+            }
+
+            HandleNudge(__instance);
+            HandleZoopGap(__instance);
+            HandleSnapDivisions(__instance);
+            HandleScaling(__instance, ___m_placementGhost);
             HandleBendKeys(__instance, ___m_placementGhost);
 
             // Before rotation, which otherwise consumes the wheel for yaw.
             if (!HandleStationRange(__instance) && !HandleBend(__instance, ___m_placementGhost))
             {
                 HandleRotation();
+            }
+        }
+
+        /// <summary>
+        /// Whether the player is walking, which puts every adjustment on hold.
+        /// </summary>
+        /// <remarks>
+        /// Nobody builds on the move, in the base game or with any mod, and the adjustment keys
+        /// share their modifiers with movement: shift is sprint as well as pitch, control is
+        /// crouch as well as station range. Scrolling while running was turning pieces the
+        /// player never meant to turn.
+        ///
+        /// Read from the movement input rather than the character's speed. Standing still on a
+        /// sailing ship is standing still, and a player being shoved about by the wind or a
+        /// slope has not asked to move. The build camera is left alone: it flies on the same
+        /// keys while the character stays exactly where it is.
+        /// </remarks>
+        private static bool IsMoving(Player player)
+        {
+            return ModConfig.LockWhileMoving.Value
+                && !BuildCamera.IsActive
+                && player.GetMoveDir().sqrMagnitude > 0.01f;
+        }
+
+        private static float _nextMovingNotice;
+
+        /// <summary>Says why nothing happened, so a held adjustment does not look broken.</summary>
+        private static void WarnIfAdjustingWhileMoving(Player player)
+        {
+            if (Time.time < _nextMovingNotice || Mathf.Approximately(ZInput.GetMouseScrollWheel(), 0f))
+            {
+                return;
+            }
+
+            _nextMovingNotice = Time.time + 3f;
+            Notify.Show(player, "Stand still to adjust the piece");
+        }
+
+        /// <summary>Widens or narrows the gap between zooped copies.</summary>
+        private static void HandleZoopGap(Player player)
+        {
+            float step = Mathf.Max(0.01f, ModConfig.ZoopGapStep.Value);
+
+            if (PressedWithModifiers(ModConfig.ZoopGapWiderKey.Value))
+            {
+                Zooping.AdjustGap(player, step);
+            }
+            else if (PressedWithModifiers(ModConfig.ZoopGapNarrowerKey.Value))
+            {
+                Zooping.AdjustGap(player, -step);
             }
         }
 
@@ -133,16 +193,26 @@ namespace TheHammerOfOden
         /// lining something up by eye - so the usual hold-to-repeat would overshoot more
         /// often than it would help.
         /// </remarks>
+        private static void HandleOffsetReset(Player player)
+        {
+            if (!Pressed(ModConfig.ResetOffsetKey.Value))
+            {
+                return;
+            }
+
+            bool hadZoop = Zooping.IsActive || !Mathf.Approximately(Zooping.Gap, 0f);
+
+            PlacementOffset.Reset();
+            Zooping.Clear();
+            Zooping.ResetGap();
+
+            Notify.Show(player, hadZoop ? "Zoop, gap and offset cleared" : "Placement offset cleared");
+        }
+
         private static void HandleNudge(Player player)
         {
             if (Pressed(ModConfig.ResetOffsetKey.Value))
             {
-                bool hadZoop = Zooping.IsActive;
-
-                PlacementOffset.Reset();
-                Zooping.Clear();
-
-                Notify.Show(player, hadZoop ? "Zoop and offset cleared" : "Placement offset cleared");
                 return;
             }
 
@@ -326,6 +396,12 @@ namespace TheHammerOfOden
         /// <summary>Double or halve the snap angles, so a few presses span the useful range.</summary>
         private static void HandleSnapDivisions(Player player)
         {
+            // With the zoop modifier held, PageUp and PageDown set the zoop gap instead.
+            if (Held(ModConfig.ZoopModifierKey.Value))
+            {
+                return;
+            }
+
             int current = ModConfig.SnapDivisions.Value;
             int updated = current;
 
@@ -515,6 +591,13 @@ namespace TheHammerOfOden
             if (!IsHeld(ModConfig.BendModifierKey))
             {
                 return false;
+            }
+
+            // Say what the wheel will do before it is turned, rather than leaving the player to
+            // find out by trying. Once per press of the key, not every frame it is held.
+            if (IsDown(ModConfig.BendModifierKey) && ghost != null && Bendable.Allows(ghost) && !BendState.IsBent)
+            {
+                Notify.Show(player, BendState.Preview(ghost));
             }
 
             // Held means the wheel is spoken for, movement or not, so a held modifier cannot
@@ -801,7 +884,16 @@ namespace TheHammerOfOden
             // has ended up rather than where vanilla first put it.
             Zooping.UpdatePreview(___m_placementGhost);
 
-            RotationGizmo.Update(___m_placementGhost, PlayerUpdatePlacementPatch.CurrentAxis());
+            // While the bend key is held the wheel bends rather than rotates, so the ring worth
+            // lighting up is the one the bend turns about.
+            RotationAxis ring = ___m_placementGhost != null
+                && ModConfig.BendModifierKey.Value.MainKey != KeyCode.None
+                && ZInput.GetKey(ModConfig.BendModifierKey.Value.MainKey, true)
+                && Bendable.Allows(___m_placementGhost)
+                    ? BendState.RingFor(___m_placementGhost)
+                    : PlayerUpdatePlacementPatch.CurrentAxis();
+
+            RotationGizmo.Update(___m_placementGhost, ring);
             SnapPointMarkers.Update(
                 ___m_placementGhost,
                 ___m_manualSnapPoint,
@@ -1239,6 +1331,37 @@ namespace TheHammerOfOden
                 ScaleState.ApplyToPlaced(__instance);
                 BendState.ApplyToPlaced(__instance);
                 PlacementUndo.Record(__instance);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lets free placement build without a station in range, when a server allows it.
+    /// </summary>
+    /// <remarks>
+    /// The game already has this rule's off switch: the No Workbench world modifier, which is a
+    /// global key. It is read in exactly two places, both of them "does this piece need a station
+    /// here" - the build menu's check and the placement itself - so answering yes to that one key
+    /// while free placement is on removes the requirement there and nowhere else, and needs no
+    /// knowledge of how either check is written. Every other global key is left untouched.
+    /// </remarks>
+    [HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.GetGlobalKey), new[] { typeof(GlobalKeys) })]
+    internal static class ZoneSystemNoWorkbenchPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(GlobalKeys key, ref bool __result)
+        {
+            if (__result || key != GlobalKeys.NoWorkbench || HammerOfOdenPlugin.IsHeadless)
+            {
+                return;
+            }
+
+            if (ModConfig.IsEnabled
+                && ModConfig.BuildWithoutWorkbench.Value
+                && BuildTool.AppliesNow
+                && FreePlacement.IsActiveNow())
+            {
+                __result = true;
             }
         }
     }

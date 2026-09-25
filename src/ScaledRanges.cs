@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TheHammerOfOden
 {
@@ -42,17 +42,6 @@ namespace TheHammerOfOden
                 return;
             }
 
-            ApplyToPortal(piece, factor);
-        }
-
-        private static void ApplyToPortal(GameObject piece, float factor)
-        {
-            TeleportWorld portal = piece.GetComponentInChildren<TeleportWorld>(true);
-            if (portal == null)
-            {
-                return;
-            }
-
             // Scaling multiplies in place, and a piece passes through here again whenever its
             // zone reloads, so the change has to be recorded rather than reapplied.
             if (piece.GetComponent<ScaledRangeMarker>() != null)
@@ -60,7 +49,58 @@ namespace TheHammerOfOden
                 return;
             }
 
-            piece.AddComponent<ScaledRangeMarker>();
+            bool portal = ApplyToPortal(piece, factor);
+            bool station = ApplyToStation(piece, scale);
+
+            if (portal || station)
+            {
+                piece.AddComponent<ScaledRangeMarker>();
+            }
+        }
+
+        /// <summary>
+        /// How close you have to stand to use a crafting station.
+        /// </summary>
+        /// <remarks>
+        /// CraftingStation measures it from the middle of the model - two metres by default:
+        ///
+        ///     return Vector3.Distance(human.transform.position, base.transform.position) &lt; m_useDistance;
+        ///
+        /// A workbench doubled in size has its edge further than two metres from its middle, so
+        /// without this you could stand touching it and be told you are too far away. It grows by
+        /// how far the widest side moved outward, the same reasoning as the portal below, and it
+        /// never shrinks: a small workbench is no harder to reach than a normal one.
+        /// </remarks>
+        private static bool ApplyToStation(GameObject piece, Vector3 scale)
+        {
+            CraftingStation station = piece.GetComponentInChildren<CraftingStation>(true);
+            if (station == null)
+            {
+                return false;
+            }
+
+            float widest = Mathf.Max(scale.x, scale.z);
+            if (widest <= 1f)
+            {
+                return false;
+            }
+
+            float before = station.m_useDistance;
+            float growth = BaseExtentOf(piece) * (widest - 1f) * ModConfig.RangeGrowth.Value;
+            station.m_useDistance = before + growth;
+
+            HammerOfOdenPlugin.Debug(
+                $"Station use distance {before:0.##}m -> {station.m_useDistance:0.##}m (widest scale {widest:0.##}).");
+            return true;
+        }
+
+        private static bool ApplyToPortal(GameObject piece, float factor)
+        {
+            TeleportWorld portal = piece.GetComponentInChildren<TeleportWorld>(true);
+            if (portal == null)
+            {
+                return false;
+            }
 
             float before = portal.m_activationRange;
             float extent = BaseExtentOf(piece);
@@ -71,6 +111,7 @@ namespace TheHammerOfOden
             HammerOfOdenPlugin.Debug(
                 $"Portal activation range {before:0.##}m -> {portal.m_activationRange:0.##}m "
                 + $"(scale {factor:0.##}, base extent {extent:0.##}m).");
+            return true;
         }
 
         /// <summary>

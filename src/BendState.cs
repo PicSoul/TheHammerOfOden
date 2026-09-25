@@ -74,6 +74,16 @@ namespace TheHammerOfOden
             return _rise <= 0 ? first : second;
         }
 
+        /// <summary>
+        /// The bend in words a player can act on: how far, which way the ends go, and which ring
+        /// it turns about.
+        /// </summary>
+        /// <remarks>
+        /// This used to name the piece's own axes - "curving +Y" - which are not the gizmo's
+        /// colours and change meaning the moment a piece is turned, so players could not tell
+        /// what they were changing. Up, down, left, right, towards and away are measured from
+        /// where you are standing and looking, which is the only frame a player actually has.
+        /// </remarks>
         internal static string Describe(GameObject piece)
         {
             if (piece == null)
@@ -81,17 +91,86 @@ namespace TheHammerOfOden
                 return string.Empty;
             }
 
-            int axis = AxisFor(piece);
-            int rise = RiseFor(piece);
-            Vector3 size = BendDeformer.Size(piece);
-
-            string way = _degrees >= 0f ? "+" : "-";
-            return $"{_degrees:0}° along {Name(axis)} ({size[axis]:0.#}m), curving {way}{Name(rise)}";
+            return $"{Mathf.Abs(_degrees):0}°, ends curve {EndsGo(piece, Mathf.Sign(_degrees))} - the highlighted ring";
         }
 
-        private static string Name(int axis)
+        /// <summary>What the wheel will do before it is turned, said when the bend key goes down.</summary>
+        internal static string Preview(GameObject piece)
         {
-            return axis == 0 ? "X" : axis == 1 ? "Y" : "Z";
+            if (piece == null)
+            {
+                return string.Empty;
+            }
+
+            string up = EndsGo(piece, 1f);
+            string down = EndsGo(piece, -1f);
+            return $"Bend: wheel up curves the ends {up}, wheel down {down}. {ModConfig.BendAxisKey.Value.MainKey} swaps the direction.";
+        }
+
+        /// <summary>
+        /// Where the piece's ends travel when it bends one way. The ends move towards the rise
+        /// axis for a positive bend and away from it for a negative one - the arc keeps its middle
+        /// where it was and lifts the ends onto the curve.
+        /// </summary>
+        private static string EndsGo(GameObject piece, float sign)
+        {
+            Vector3 local = Vector3.zero;
+            local[RiseFor(piece)] = 1f;
+            Vector3 ends = piece.transform.TransformDirection(local).normalized * sign;
+
+            if (ends.y > 0.7f) return "up";
+            if (ends.y < -0.7f) return "down";
+
+            Camera camera = MainCamera.Get();
+            if (camera == null)
+            {
+                return "sideways";
+            }
+
+            Vector3 right = camera.transform.right;
+            Vector3 forward = Vector3.ProjectOnPlane(camera.transform.forward, Vector3.up).normalized;
+            float across = Vector3.Dot(ends, right);
+            float along = Vector3.Dot(ends, forward);
+
+            if (Mathf.Abs(across) >= Mathf.Abs(along))
+            {
+                return across > 0f ? "to your right" : "to your left";
+            }
+
+            return along > 0f ? "away from you" : "towards you";
+        }
+
+        /// <summary>
+        /// The gizmo ring the bend turns about, so the one that matters can be lit up.
+        /// </summary>
+        /// <remarks>
+        /// The rings show rotation axes. A bend curves the piece around the one axis that is
+        /// neither its length nor the way its ends travel, and whichever ring lies closest to
+        /// that axis is the one that says, in the gizmo's own colours, what the wheel will do.
+        /// </remarks>
+        internal static RotationAxis RingFor(GameObject piece)
+        {
+            int axis = AxisFor(piece);
+            int axle = 3 - axis - RiseFor(piece);
+
+            Vector3 local = Vector3.zero;
+            local[axle] = 1f;
+            Vector3 world = piece.transform.TransformDirection(local).normalized;
+
+            RotationAxis best = RotationAxis.Y;
+            float closest = -1f;
+
+            foreach (RotationAxis candidate in new[] { RotationAxis.X, RotationAxis.Y, RotationAxis.Z })
+            {
+                float alignment = Mathf.Abs(Vector3.Dot(RotationState.AxisDirection(candidate).normalized, world));
+                if (alignment > closest)
+                {
+                    closest = alignment;
+                    best = candidate;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>Turns wheel movement into bend, while the modifier is held.</summary>

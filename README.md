@@ -74,8 +74,10 @@ Earlier versions also opened doors as you approached and closed them behind you.
 | Cancel and leave it untouched | **Left Alt + E** again |
 
 Its rotation and size come with it, so you start from what is already there rather than from a
-fresh piece. Change whatever you like with the usual controls - rotate, scale, nudge, freeze - and
-place to apply. The original comes down as the new one goes up, and the materials move across
+fresh piece. It also starts **frozen exactly where it stands**, so a small adjustment stays small
+instead of the piece jumping to your cursor first; press **Numpad 0** to let it follow your aim for
+a bigger move. Change whatever you like with the usual controls - rotate, scale, nudge - and place
+to apply. Placing or cancelling releases the freeze. The original comes down as the new one goes up, and the materials move across
 rather than being charged twice.
 
 The piece is rebuilt rather than altered where it stands, and that is not a shortcut. A built
@@ -110,6 +112,10 @@ replacement is built from the prefab and the prefab knows nothing about what was
 A straight beam becomes an arch. The shape is a true circular arc rather than two halves hinged
 at the middle, so there is no fold in it anywhere, and the wheel runs both ways from straight - a
 beam can arch or sag, a wall can wrap either way round a tower.
+
+While **Keypad 1** is held, the rotation gizmo lights up the ring the bend turns around, and a
+message says which way the ends will go - up, down, to your left or right, towards or away from
+you - before you have turned the wheel at all.
 
 Pieces are bent along their longest side, which is measured rather than chosen; nobody wants a
 pole bent across its thickness. That leaves the one real choice, which of the other two directions
@@ -189,9 +195,15 @@ Angles are counted per full turn, defaulting to 32 steps (11.25°). Vanilla uses
 | Clear nudging and any run | **Delete** |
 | Grid snapping on/off | **G** |
 | Lay a run of pieces | **Left Shift** + a nudge direction |
+| Widen / narrow the gap between copies in a run | **Left Shift + Page Up** / **Page Down** |
 | Undo the last placement | **Left Ctrl + Z** |
 | Change a station's build range | **Left Ctrl** + scroll |
 | Copy a piece with its full rotation, size and anchor | **Left Shift + middle-click** (vanilla copy) |
+
+Rotating, scaling, bending, nudging, zooping and station-range changes only work while you are
+standing still. They share their modifiers with movement - shift is sprint as well as pitch,
+control is crouch as well as range - and nobody builds on the move. Standing still on a sailing
+ship counts, and the build camera is unaffected. `LockWhileMoving` turns this off.
 
 ### Resizing (hold **Left Shift**)
 
@@ -258,7 +270,21 @@ In vanilla, holding Left Shift turns off snap attraction *and* frees terrain pie
 
 Free placement now lives on **O**. It also relaxes vanilla's placement rules while active — stone on a wood floor, a forge extension crowding its neighbour — and allows pieces to clip into each other.
 
-Wards, no-build zones and occupied ground are never bypassed at any setting.
+How much it relaxes is the server's call, through `Freedom`:
+
+| `Freedom` | Sets aside |
+|---|---|
+| `Vanilla` | nothing; free placement only changes snapping |
+| `Surfaces` | what a piece may rest on: ground only, not on wood, cultivated soil |
+| `SurfacesAndSpacing` (default) | also the room a piece needs, such as forge extensions crowding each other |
+| `Everything` | also biome, dungeon, teleport-area and weather rules |
+| `Unrestricted` | also no-build zones - boss altars, traders, the starting stones - and a character standing in the way |
+
+`BuildWithoutWorkbench` separately lets free placement build pieces that need a workbench or other
+station in range, without one. It borrows the check behind the game's own No Workbench world
+modifier, and only while free placement is on.
+
+Someone else's ward is never bypassed at any setting.
 
 ### Surface placement
 
@@ -272,7 +298,7 @@ By default this applies to everything except the hammer's **Build** and **Heavy 
 
 Three modes beyond off: hold the key, toggle it, or `WhenTilted` — active whenever the piece is already pitched or rolled, which is how Flip It does it and costs no key.
 
-Wards, no-build zones and occupied ground are never bypassed, the same as free placement.
+It follows the same `Freedom` setting as free placement, and someone else's ward is never bypassed.
 
 ### Freezing and nudging
 
@@ -298,7 +324,7 @@ Runs compose. Press **Shift + ↑** four times and **Shift + ←** five times an
 
 A run lays itself over a moment rather than appearing at once, because every copy is a real placement with its own object and effects and doing sixty in one frame stutters. `PiecesPerFrame` controls that.
 
-Spacing is the piece's own width along the direction you're laying it, so copies sit flush whatever the piece is and however you've turned it. `Spacing = 2` leaves a gap of one piece between each, which suits fence posts and pillars.
+Spacing is the piece's own width along the direction you're laying it, so copies sit flush whatever the piece is and however you've turned it. **Left Shift + Page Up** and **Page Down** add or remove a gap between copies, 0.1m at a time, and going below zero overlaps them. The gap is kept from one run to the next, so a fence line only needs setting once; **Delete** clears it along with the run. `Spacing = 2` in the config leaves a gap of one whole piece between each, which suits pillars.
 
 The run is previewed before it's built, and it isn't free — each copy is a real placement through Valheim's own code that checks its requirements and pays its materials. If you run out partway, the run stops there rather than leaving a gap in the middle.
 
@@ -328,7 +354,7 @@ This grants nothing that wasn't already permitted — the station still has to c
 
 Stretch, compress or uniformly scale a piece before placing it. Size persists through saves, zone reloads and to other players.
 
-**Crafting and production stations are excluded** — workbenches, forges, smelters, kilns, cooking stations, fermenters, beehives — because their behaviour is tied to where parts of the model are. Everything else resizes: chests, doors, gates, portals, torches, beds, item stands, and station add-ons like the forge cooler.
+Every piece resizes, stations and ships included. The points a station works from - a smelter's ore and output points, the slots food sits on - are part of its model and move with it, and a station's use distance grows with it, so a large workbench can still be opened from its edge. Anyone who would rather stations kept their normal size can set `Scale Restrictions` to `ProductionStations`.
 
 Particle effects are drawn larger to match, though not spread into the space around the piece.
 
@@ -362,6 +388,8 @@ Around a hundred and fifty settings across `General`, `Rotation`, `Snap Points`,
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |
+| `BuildWithoutWorkbench` | `false` | free placement builds without a station in range |
+| `LockWhileMoving` | `true` | adjustments only work while you stand still |
 | `Tools` | `BuildingOnly` | `AllTools` lets the mod reach terrain tools too |
 | `BuildToolTables` | empty | piece tables to treat as building tools regardless |
 | `TerrainToolTables` | empty | piece tables to leave to vanilla regardless |

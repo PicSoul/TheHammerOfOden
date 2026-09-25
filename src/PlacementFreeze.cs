@@ -1,4 +1,4 @@
-using BepInEx.Configuration;
+﻿using BepInEx.Configuration;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -98,6 +98,18 @@ namespace TheHammerOfOden
             ghost.transform.position = _position;
             ghost.transform.rotation = _alignment * RotationState.Current;
             return true;
+        }
+
+        /// <summary>
+        /// Pins the ghost at a known place and turn, rather than wherever it happens to be this
+        /// frame. Editing uses it to hold the piece exactly where the original stands.
+        /// </summary>
+        internal static void FreezeAt(Vector3 position, Quaternion rotation)
+        {
+            _frozen = true;
+            _captureWanted = false;
+            _position = position;
+            _alignment = rotation * Quaternion.Inverse(RotationState.Current);
         }
 
         /// <summary>Drop the freeze when leaving build mode or changing piece.</summary>

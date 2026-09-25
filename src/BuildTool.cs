@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -156,6 +156,20 @@ namespace TheHammerOfOden
                 return false;
             }
 
+            // Removing things is not enough on its own: the cultivator removes too - it pulls up
+            // what it planted - and so passed the test above wearing a rotation gizmo. What it
+            // cannot do is build a structure. Anything that takes structural damage carries
+            // WearNTear, which is every wall, floor, roof, station and chest a hammer makes, and
+            // nothing a cultivator plants or a hoe digs. So a table with none of those builds
+            // nothing, whatever it may remove.
+            if (!BuildsStructures(table))
+            {
+                HammerOfOdenPlugin.Debug(
+                    "'" + tableName + "' has no structural pieces, so it is not a building tool; "
+                    + "leaving it to vanilla. Only the build camera applies.");
+                return false;
+            }
+
             // Nothing chosen yet. The table has already answered, so say yes rather than
             // blinking the gizmo out between selecting a tool and selecting a piece.
             if (selected == null)
@@ -171,6 +185,33 @@ namespace TheHammerOfOden
             }
 
             return true;
+        }
+
+        private static readonly Dictionary<PieceTable, bool> StructureTables = new Dictionary<PieceTable, bool>();
+
+        /// <summary>Whether any piece in this table is a structure. Asked once per table.</summary>
+        private static bool BuildsStructures(PieceTable table)
+        {
+            if (StructureTables.TryGetValue(table, out bool known))
+            {
+                return known;
+            }
+
+            bool structures = false;
+            if (table.m_pieces != null)
+            {
+                foreach (GameObject piece in table.m_pieces)
+                {
+                    if (piece != null && piece.GetComponent<WearNTear>() != null)
+                    {
+                        structures = true;
+                        break;
+                    }
+                }
+            }
+
+            StructureTables[table] = structures;
+            return structures;
         }
 
         /// <summary>Unity hands back "_HammerPieceTable(Clone)" as readily as the original.</summary>
