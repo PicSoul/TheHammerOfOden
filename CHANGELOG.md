@@ -36,6 +36,10 @@
 - The cultivator was treated as a building tool, because it can remove what it planted, and got the
   rotation gizmo and the rest. A tool now also has to have structural pieces in its build menu, which a
   cultivator, a hoe or a modded terrain tool never does. The build camera still works with all of them.
+- **Editing now asks what the hammer's own remove asks.** It takes the original down, but it never
+  checked whether you were allowed to, so on a shared server a piece inside someone else's ward - or
+  one the game says can never be removed - could be edited and so replaced. It now refuses anything
+  the hammer would refuse to remove.
 - The in-game guide said zooping was Shift + scroll. It is Shift + the arrow keys.
 
 ## 0.2.0

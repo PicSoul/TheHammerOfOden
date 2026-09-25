@@ -148,6 +148,18 @@ namespace TheHammerOfOden
                 return;
             }
 
+            // Editing takes the original down, so it is held to exactly what the hammer's own
+            // remove asks - wards, protected ground, pieces that cannot be removed at all.
+            if (!RemovalRules.Allows(player, piece, out string refused))
+            {
+                if (refused != null)
+                {
+                    Notify.Show(player, refused);
+                }
+
+                return;
+            }
+
             if (Holds(piece, out string holding))
             {
                 // Editing rebuilds the piece from its prefab, and a prefab has no idea what was
