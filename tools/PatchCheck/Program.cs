@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -54,6 +54,7 @@ class Program
 
 			Type target = null;
 			string methodName = null;
+			Type[] argumentTypes = null;
 
 			foreach (CustomAttributeData attribute in attributes)
 			{
@@ -79,6 +80,14 @@ class Program
 					{
 						methodName = s;
 					}
+					else if (argument.ArgumentType.FullName == "System.Type[]"
+						&& argument.Value is IEnumerable<CustomAttributeTypedArgument> listed)
+					{
+						// The argument list that picks one overload out of several. Read here so that a
+						// patch which names its overload is checked against that overload, rather than
+						// reported as ambiguous for a choice it has already made.
+						argumentTypes = listed.Select(item => item.Value as Type).ToArray();
+					}
 				}
 			}
 
@@ -90,6 +99,17 @@ class Program
 			checkedCount++;
 			const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 			MethodInfo[] found = target.GetMethods(flags).Where(m => m.Name == methodName).ToArray();
+
+			if (argumentTypes != null && argumentTypes.All(t => t != null))
+			{
+				// Types from the game come from a separate load context, so compare them by name.
+				found = found.Where(m =>
+				{
+					ParameterInfo[] parameters = m.GetParameters();
+					return parameters.Length == argumentTypes.Length
+						&& parameters.Select(p => p.ParameterType.FullName).SequenceEqual(argumentTypes.Select(t => t.FullName));
+				}).ToArray();
+			}
 
 			if (found.Length == 0)
 			{
