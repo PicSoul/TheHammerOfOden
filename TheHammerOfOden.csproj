@@ -55,6 +55,21 @@
       <HintPath>$(ValheimManaged)\assembly_valheim.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- PNG encoding, for blueprint thumbnails. -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(ValheimManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- The game's translations, for the mod's own message panel. -->
+    <Reference Include="assembly_guiutils">
+      <HintPath>$(ValheimManaged)\assembly_guiutils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- The platform user id a placed piece records as its builder's. -->
+    <Reference Include="Splatform">
+      <HintPath>$(ValheimManaged)\Splatform.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="assembly_utils">
       <HintPath>$(ValheimManaged)\assembly_utils.dll</HintPath>
       <Private>false</Private>

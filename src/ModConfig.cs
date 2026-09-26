@@ -1,4 +1,5 @@
-﻿using BepInEx.Configuration;
+﻿using System.Collections.Generic;
+using BepInEx.Configuration;
 using ServerSync;
 using UnityEngine;
 
@@ -153,8 +154,11 @@ namespace TheHammerOfOden
         internal static ConfigEntry<float> ReachLimit;
 
         internal static ConfigEntry<KeyboardShortcut> UndoKey;
+        internal static ConfigEntry<KeyboardShortcut> RedoKey;
         internal static ConfigEntry<int> UndoDepth;
         internal static ConfigEntry<bool> UndoRefundsToInventory;
+        internal static ConfigEntry<float> UndoChestRange;
+        internal static ConfigEntry<bool> RemovalRefundsToInventory;
 
         internal static ConfigEntry<KeyboardShortcut> BuildCameraKey;
         internal static ConfigEntry<KeyboardShortcut> CameraUpKey;
@@ -197,6 +201,65 @@ namespace TheHammerOfOden
         internal static ConfigEntry<int> SelectionLimit;
         internal static ConfigEntry<Color> SelectionTint;
         internal static ConfigEntry<Color> SelectionGlow;
+        internal static ConfigEntry<int> BuildRate;
+        internal static ConfigEntry<float> BuildLongest;
+        internal static ConfigEntry<bool> BuildFlying;
+        internal static ConfigEntry<bool> CopyAllowUnlearned;
+        internal static ConfigEntry<bool> ScaleLights;
+        internal static ConfigEntry<KeyboardShortcut> ModelKey;
+        internal static ConfigEntry<float> ModelStartScale;
+        internal static ConfigEntry<float> ModelDrawDistance;
+        internal static ConfigEntry<float> SiteRange;
+        internal static ConfigEntry<bool> SiteGhosts;
+        internal static ConfigEntry<Color> SiteGhostColor;
+        internal static ConfigEntry<KeyboardShortcut> SiteCancelKey;
+        internal static ConfigEntry<KeyboardShortcut> SiteTakeDownKey;
+        internal static ConfigEntry<MessageStyle> MessageStyle;
+        /// <summary>Every key binding the mod has, found once by looking over its own settings.</summary>
+        internal static List<ConfigEntry<KeyboardShortcut>> AllKeys()
+        {
+            if (_allKeys == null)
+            {
+                _allKeys = new List<ConfigEntry<KeyboardShortcut>>();
+                foreach (System.Reflection.FieldInfo field in typeof(ModConfig).GetFields(
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public))
+                {
+                    if (field.FieldType == typeof(ConfigEntry<KeyboardShortcut>) && field.GetValue(null) is ConfigEntry<KeyboardShortcut> entry)
+                    {
+                        _allKeys.Add(entry);
+                    }
+                }
+            }
+
+            return _allKeys;
+        }
+
+        private static List<ConfigEntry<KeyboardShortcut>> _allKeys;
+
+        internal static ConfigEntry<bool> SitePanelShown;
+        internal static ConfigEntry<bool> KeyHintsShown;
+        internal static ConfigEntry<KeyboardShortcut> BlueprintBookKey;
+        internal static ConfigEntry<bool> BlueprintShapeGround;
+        internal static ConfigEntry<KeyboardShortcut> BlueprintSaveKey;
+        internal static ConfigEntry<bool> BlueprintThumbnails;
+        internal static ConfigEntry<MessagePosition> KeyHintsPosition;
+        internal static ConfigEntry<float> KeyHintsOffsetX;
+        internal static ConfigEntry<float> KeyHintsOffsetY;
+        internal static ConfigEntry<int> KeyHintsFontSize;
+        internal static ConfigEntry<MessagePosition> SitePanelPosition;
+        internal static ConfigEntry<float> SitePanelOffsetX;
+        internal static ConfigEntry<float> SitePanelOffsetY;
+        internal static ConfigEntry<float> SitePanelWidth;
+        internal static ConfigEntry<int> SitePanelFontSize;
+        internal static ConfigEntry<int> SitePanelMostNeeds;
+        internal static ConfigEntry<MessagePosition> MessagePosition;
+        internal static ConfigEntry<float> MessageOffsetX;
+        internal static ConfigEntry<float> MessageOffsetY;
+        internal static ConfigEntry<float> MessageWidth;
+        internal static ConfigEntry<int> MessageFontSize;
+        internal static ConfigEntry<float> MessageSeconds;
+        internal static ConfigEntry<float> MessageReadingSpeed;
+        internal static ConfigEntry<int> MessageMostShown;
         internal static ConfigEntry<int> ZoopPerFrame;
 
         internal static ConfigEntry<KeyboardShortcut> GridKey;
@@ -741,6 +804,11 @@ namespace TheHammerOfOden
                 + "scaling that too throws them metres past the piece and the effect appears to "
                 + "vanish when you stand near it."));
 
+            ScaleLights = config.Bind("Scale", "ScaleLights", true,
+                "A resized torch, brazier or lamp throws its light in proportion - five times the size, "
+                + "five times the reach - and switches on from proportionally further away. Off, every "
+                + "light keeps the game's reach whatever its size.");
+
             ScaleStep = config.Bind("Scale", "Step", 0.05f,
                 new ConfigDescription(
                     "Fraction changed per keypress. Applied multiplicatively, so growing and then "
@@ -1093,25 +1161,45 @@ namespace TheHammerOfOden
                 + "vision counts - the wisplight itself, a backpack with one built in, or "
                 + "whatever a future mod adds - with no list of item names to keep up to date."));
 
+            RedoKey = config.Bind("Undo", "RedoKey",
+                new KeyboardShortcut(KeyCode.Z, KeyCode.LeftControl, KeyCode.LeftShift),
+                "Do again what you last undid. Pieces undo took down go back up as a construction site, "
+                + "paid for again - undo handed their materials back - and what cannot be paid for yet "
+                + "waits as a ghost. A move is simply made again. Doing anything new clears what can be "
+                + "redone.");
+
             UndoKey = config.Bind("Undo", "UndoKey",
                 new KeyboardShortcut(KeyCode.Z, KeyCode.LeftControl),
                 "Take back the last thing you built - a whole run if you zooped, a single piece "
                 + "if you did not. Each piece comes down through the same call the hammer makes, "
                 + "so the materials come back exactly as they would if you removed it by hand.");
 
-            UndoDepth = Synced(config.Bind("Undo", "Depth", 10,
+            UndoDepth = Synced(config.Bind("Undo", "Depth", 25,
                 new ConfigDescription(
-                    "How many placements back you can go. The limit is about what you can still "
-                    + "remember doing rather than memory - a few thousand pieces would cost "
-                    + "nothing to keep - so raise it if you want, knowing that undoing something "
-                    + "from twenty minutes ago is more likely to surprise you than help.",
-                    new AcceptableValueRange<int>(1, 50))));
+                    "How many placements back you can go. Memory is not the limit: each step keeps a "
+                    + "short record per piece, so even a hundred steps of large copies come to a few "
+                    + "megabytes, and nothing is done with them until you undo. What you can still "
+                    + "remember doing is - undoing something from twenty minutes ago is more likely "
+                    + "to surprise you than help.",
+                    new AcceptableValueRange<int>(1, 200))));
 
             UndoRefundsToInventory = Synced(config.Bind("Undo", "RefundToInventory", true,
                 "Hand undone materials straight to you, dropping only what will not fit, in one "
                 + "pile at your feet. With this off, Valheim scatters them at each piece instead - "
                 + "fine for one piece, and a long walk after undoing a run forty long. The amount "
                 + "is the same either way."));
+
+            UndoChestRange = config.Bind("Undo", "RefundToChestsRange", 50f,
+                new ConfigDescription(
+                    "Undoing a copy sends back to chests what it took from chests - to chests within this "
+                    + "many metres that already hold that material - and back to your backpack what came "
+                    + "from the backpack. Zero keeps it all in your inventory and backpack.",
+                    new AcceptableValueRange<float>(0f, 200f)));
+
+            RemovalRefundsToInventory = config.Bind("Undo", "RemovalRefundsToInventory", true,
+                "Taking a piece down with the hammer - build camera or not - puts its materials straight "
+                + "into your inventory, then your backpack, and drops at your feet only what will not fit. "
+                + "Off, they fall where the piece stood, as in the game.");
 
             ZoopModifierKey = config.Bind("Zoop", "ZoopModifierKey",
                 new KeyboardShortcut(KeyCode.LeftShift),
@@ -1204,6 +1292,185 @@ namespace TheHammerOfOden
                 + "on any material, dark wood included. Violet by default because nothing else in the game "
                 + "uses it: the hover highlight is blue or red-to-green and the edit ghost is pale blue. "
                 + "Brighter values stand out more; black for none.");
+
+            BuildRate = config.Bind("Select", "CopyBuildRate", 40,
+                new ConfigDescription(
+                    "Pieces per second a copy goes up at, from the bottom up. A large copy goes faster "
+                    + "than this when it needs to, to finish within CopyLongestBuild.",
+                    new AcceptableValueRange<int>(1, 1000)));
+
+            BuildLongest = config.Bind("Select", "CopyLongestBuild", 20f,
+                new ConfigDescription(
+                    "Longest, in seconds, any copy takes to go up, however many pieces it has.",
+                    new AcceptableValueRange<float>(1f, 300f)));
+
+            BuildFlying = config.Bind("Select", "CopyPiecesFly", true,
+                "Each piece of a copy flies from your hammer to where it goes. Off, they simply appear "
+                + "in place, still from the bottom up.");
+
+            CopyAllowUnlearned = Synced(config.Bind("Select", "CopyAllowUnlearned", false,
+                "Copies include pieces you have not learned to build yet - a friend's house copied whole. "
+                + "Every piece is still paid for, from your inventory or, with a mod such as "
+                + "AzuCraftyBoxes, the chests around you. Off, unlearned pieces are left out and listed. "
+                + "Either way the piece you pick the copy up by has to be one you know, since it becomes "
+                + "your build menu's selection. Set by the server."));
+
+            ModelKey = config.Bind("Select", "ModelKey",
+                new KeyboardShortcut(KeyCode.KeypadEnter),
+                "While holding a copy, turns it into a model of itself - a miniature to stand on a table or "
+                + "a floor. A model is drawn, not built: it adds one saved object to the world however many "
+                + "pieces it shows, and costs one resin, plus one wood and one stone if the building uses them. "
+                + "Press again for the full-size "
+                + "copy back.");
+
+            ModelStartScale = config.Bind("Select", "ModelStartScale", 0.05f,
+                new ConfigDescription(
+                    "The size a model starts at, as a fraction of the real building: 0.05 is one twentieth. "
+                    + "The scale keys take it from there.",
+                    new AcceptableValueRange<float>(0.005f, 0.5f)));
+
+            ModelDrawDistance = config.Bind("Select", "ModelDrawDistance", 30f,
+                new ConfigDescription(
+                    "Models further than this many metres away are not drawn, and their meshes are let go "
+                    + "until you come back.",
+                    new AcceptableValueRange<float>(10f, 500f)));
+
+            SiteRange = config.Bind("Select", "CopySiteRange", 100f,
+                new ConfigDescription(
+                    "A copy you could not pay for in full waits as a ghost and carries on by itself as "
+                    + "materials turn up - while you are within this many metres of it. Materials in chests "
+                    + "count only with a mod that builds from chests, such as AzuCraftyBoxes, and within that "
+                    + "mod's own range.",
+                    new AcceptableValueRange<float>(10f, 500f)));
+
+            SiteGhosts = config.Bind("Select", "CopySiteGhosts", true,
+                "Draw the unbuilt part of a copy as a see-through ghost - yours and other players'.");
+
+            SiteGhostColor = config.Bind("Select", "CopySiteGhostColor", new Color(0.55f, 0.8f, 1f, 0.3f),
+                "Colour of a copy's ghost. The last value is how see-through it is.");
+
+            SiteCancelKey = config.Bind("Select", "CopySiteStopKey",
+                new KeyboardShortcut(KeyCode.Backspace),
+                "Looking at part of a copy that is still going up, stops it where it stands: the ghost goes "
+                + "and what is built stays - anything left without support then falls. Undo instead takes "
+                + "the whole copy down and hands the materials back.");
+
+            BlueprintBookKey = config.Bind("Blueprints", "BookKey",
+                new KeyboardShortcut(KeyCode.K),
+                "Opens the blueprint book: every blueprint in BepInEx/config/PlanBuild - PlanBuild's, Infinity "
+                + "Hammer's, BuildShare's and this mod's - with a turning model of the one you pick. Pick one up "
+                + "and it is held like a copy: place it as a construction site, or make it a model.");
+
+            BlueprintSaveKey = config.Bind("Blueprints", "SaveKey",
+                new KeyboardShortcut(KeyCode.KeypadEnter),
+                "With a selection made and nothing held, saves the selection as a blueprint, in the folder "
+                + "PlanBuild and Infinity Hammer use, so they can load it too. The same key as ModelKey by "
+                + "default: that one only acts while a copy is held.");
+
+            BlueprintThumbnails = config.Bind("Blueprints", "SaveThumbnails", true,
+                "Save a small picture beside each blueprint saved - PlanBuild shows it in its own list.");
+
+            BlueprintShapeGround = config.Bind("Blueprints", "ShapeGround", false,
+                "Build a blueprint's ground shaping too - the raising, levelling and paths that BuildShare and "
+                + "Infinity Hammer blueprints often carry - before the building itself. Off, they are left out. "
+                + "Also switched in the blueprint book. Reshaped ground cannot be undone.");
+
+            KeyHintsShown = config.Bind("Key Hints", "Show", true,
+                "A strip of the keys that do something right now - it changes as you hold a modifier, a "
+                + "copy, a model or a selection. It replaces the game's own build hints and carries their keys "
+                + "over. With a controller, with the build menu open, or with this off, the game's own hints "
+                + "show instead.");
+
+            KeyHintsPosition = config.Bind("Key Hints", "Position", TheHammerOfOden.MessagePosition.BottomRight,
+                "Which edge or corner of the screen the strip sits against.");
+
+            KeyHintsOffsetX = config.Bind("Key Hints", "OffsetX", 20f,
+                new ConfigDescription("Distance from the left or right edge of the screen, at 1080p.",
+                    new AcceptableValueRange<float>(0f, 2000f)));
+
+            KeyHintsOffsetY = config.Bind("Key Hints", "OffsetY", 20f,
+                new ConfigDescription("Distance from the top or bottom edge, at 1080p; for the middle positions, how "
+                    + "far below the middle.", new AcceptableValueRange<float>(-1000f, 1000f)));
+
+            KeyHintsFontSize = config.Bind("Key Hints", "FontSize", 13,
+                new ConfigDescription("Text size, at 1080p.", new AcceptableValueRange<int>(9, 28)));
+
+            SitePanelShown = config.Bind("Building Panel", "Show", true,
+                "While any building of yours is still going up - a copy, a rebuild - a small window lists "
+                + "what it still needs, and stays until it is finished or stopped. It shows with the game's "
+                + "own displays and hides with them: the HUD hidden, the pause menu, the full map. Off, a "
+                + "message says what is needed instead.");
+
+            SitePanelPosition = config.Bind("Building Panel", "Position", TheHammerOfOden.MessagePosition.MiddleLeft,
+                "Which edge or corner of the screen the building window sits against.");
+
+            SitePanelOffsetX = config.Bind("Building Panel", "OffsetX", 20f,
+                new ConfigDescription("Distance from the left or right edge of the screen, at 1080p.",
+                    new AcceptableValueRange<float>(0f, 2000f)));
+
+            SitePanelOffsetY = config.Bind("Building Panel", "OffsetY", -60f,
+                new ConfigDescription(
+                    "Distance from the top or bottom edge, at 1080p; for the middle positions, how far below "
+                    + "the middle - negative is above.",
+                    new AcceptableValueRange<float>(-1000f, 1000f)));
+
+            SitePanelWidth = config.Bind("Building Panel", "Width", 260f,
+                new ConfigDescription("Width of the window, at 1080p.", new AcceptableValueRange<float>(150f, 800f)));
+
+            SitePanelFontSize = config.Bind("Building Panel", "FontSize", 14,
+                new ConfigDescription("Text size, at 1080p.", new AcceptableValueRange<int>(10, 32)));
+
+            SitePanelMostNeeds = config.Bind("Building Panel", "MostMaterialsShown", 8,
+                new ConfigDescription("Most materials listed per building; the rest are counted.",
+                    new AcceptableValueRange<int>(1, 30)));
+
+            SiteTakeDownKey = config.Bind("Select", "CopyTakeDownKey",
+                new KeyboardShortcut(KeyCode.Backspace, KeyCode.LeftShift),
+                "Looking at any piece of a copy - still going up or long finished - takes down everything that "
+                + "copy put up, and only that, with the materials handed back. Asked twice. Works after the game "
+                + "has been closed, when undo no longer remembers the copy; the take-down itself can be undone.");
+
+            MessageStyle = config.Bind("Messages", "Style", TheHammerOfOden.MessageStyle.Panel,
+                "Panel: the mod's own message window, which keeps each message up long enough to read. "
+                + "GameCentre: the game's large centre text, which cuts long messages off and fades in "
+                + "about two seconds.");
+
+            MessagePosition = config.Bind("Messages", "Position", TheHammerOfOden.MessagePosition.TopRight,
+                "Which corner or edge of the screen the message window sits against.");
+
+            MessageOffsetX = config.Bind("Messages", "OffsetX", 20f,
+                new ConfigDescription(
+                    "Distance from the left or right edge of the screen, at 1080p - it scales with the screen.",
+                    new AcceptableValueRange<float>(0f, 2000f)));
+
+            MessageOffsetY = config.Bind("Messages", "OffsetY", 330f,
+                new ConfigDescription(
+                    "Distance from the top or bottom edge, at 1080p; for the middle positions, how far below "
+                    + "the middle. The default clears the minimap in the top right.",
+                    new AcceptableValueRange<float>(-1000f, 1000f)));
+
+            MessageWidth = config.Bind("Messages", "Width", 440f,
+                new ConfigDescription("Width of the message window, at 1080p.",
+                    new AcceptableValueRange<float>(200f, 1200f)));
+
+            MessageFontSize = config.Bind("Messages", "FontSize", 16,
+                new ConfigDescription("Text size, at 1080p.",
+                    new AcceptableValueRange<int>(10, 40)));
+
+            MessageSeconds = config.Bind("Messages", "Seconds", 3f,
+                new ConfigDescription(
+                    "How long every message stays up at the least. Longer ones stay longer - see ReadingSpeed.",
+                    new AcceptableValueRange<float>(0.5f, 30f)));
+
+            MessageReadingSpeed = config.Bind("Messages", "ReadingSpeed", 3f,
+                new ConfigDescription(
+                    "Words per second you read at. Each message stays up for Seconds plus its length at this "
+                    + "pace, to a limit of thirty seconds. Lower keeps long messages up longer.",
+                    new AcceptableValueRange<float>(0.5f, 20f)));
+
+            MessageMostShown = config.Bind("Messages", "MostShown", 5,
+                new ConfigDescription("Most messages shown at once; the oldest goes first.",
+                    new AcceptableValueRange<int>(1, 15)));
 
             GridKey = config.Bind("Grid", "GridKey",
                 new KeyboardShortcut(KeyCode.G),

@@ -140,42 +140,42 @@ namespace TheHammerOfOden
         {
             Logger.LogInfo(
                 $"  rotation: {ModConfig.SnapDivisions.Value} divisions per 180 deg, "
-                + $"pitch={ModConfig.XAxisKey.Value.MainKey}, roll={ModConfig.ZAxisKey.Value.MainKey}, "
-                + $"reset={ModConfig.ResetAxisKey.Value.MainKey}/{ModConfig.ResetAllKey.Value.MainKey}");
+                + $"pitch={KeyNames.MainOf(ModConfig.XAxisKey)}, roll={KeyNames.MainOf(ModConfig.ZAxisKey)}, "
+                + $"reset={KeyNames.MainOf(ModConfig.ResetAxisKey)}/{KeyNames.MainOf(ModConfig.ResetAllKey)}");
 
             Logger.LogInfo(
                 $"  free placement: {ModConfig.FreePlacement.Value} on "
-                + $"{ModConfig.FreePlacementKey.Value.MainKey}, freedom={ModConfig.Freedom.Value}");
+                + $"{KeyNames.MainOf(ModConfig.FreePlacementKey)}, freedom={ModConfig.Freedom.Value}");
 
             Logger.LogInfo(
                 $"  surface placement: {ModConfig.SurfaceMode.Value} on "
-                + $"{ModConfig.SurfacePlacementKey.Value.MainKey}, applies to "
+                + $"{KeyNames.MainOf(ModConfig.SurfacePlacementKey)}, applies to "
                 + $"{ModConfig.SurfaceTarget.Value}, align={ModConfig.AlignToSurface.Value}");
 
             Logger.LogInfo(
-                $"  freeze: {ModConfig.FreezeKey.Value.MainKey}, "
+                $"  freeze: {KeyNames.MainOf(ModConfig.FreezeKey)}, "
                 + $"nudge={ModConfig.NudgeStep.Value}m/{ModConfig.NudgeStepLarge.Value}m, "
-                + $"grid={ModConfig.GridKey.Value.MainKey} at {ModConfig.GridSize.Value}m");
+                + $"grid={KeyNames.MainOf(ModConfig.GridKey)} at {ModConfig.GridSize.Value}m");
 
             Logger.LogInfo(
-                $"  station range: {ModConfig.StationRangeKey.Value.MainKey}+wheel, "
+                $"  station range: {KeyNames.MainOf(ModConfig.StationRangeKey)}+wheel, "
                 + $"step={ModConfig.StationRangeStep.Value}m, "
                 + $"extendReach={ModConfig.ExtendReachToStation.Value} "
                 + $"capped at {ModConfig.ReachLimit.Value}m");
 
             Logger.LogInfo(
-                $"  zoop: {ModConfig.ZoopModifierKey.Value.MainKey}+direction, "
+                $"  zoop: {KeyNames.MainOf(ModConfig.ZoopModifierKey)}+direction, "
                 + $"limit={ModConfig.ZoopLimit.Value}, spacing={ModConfig.ZoopSpacing.Value}x");
 
             Logger.LogInfo(
-                $"  undo: {ModConfig.UndoKey.Value}, depth={ModConfig.UndoDepth.Value}");
+                $"  undo: {KeyNames.Of(ModConfig.UndoKey)}, depth={ModConfig.UndoDepth.Value}");
 
             Logger.LogInfo(
-                $"  master toggle: {ModConfig.MasterToggleKey.Value.MainKey}, "
+                $"  master toggle: {KeyNames.MainOf(ModConfig.MasterToggleKey)}, "
                 + $"glow={ModConfig.ShowHammerGlow.Value}");
 
             Logger.LogInfo(
-                $"  build camera: {ModConfig.BuildCameraKey.Value.MainKey}, "
+                $"  build camera: {KeyNames.MainOf(ModConfig.BuildCameraKey)}, "
                 + $"speed={ModConfig.CameraSpeed.Value}m/s, range={ModConfig.CameraRange.Value}m, "
                 + $"light={ModConfig.CameraLight.Value}");
 
@@ -225,6 +225,22 @@ namespace TheHammerOfOden
                 HelpPanel.Toggle();
             }
 
+            KeyboardShortcut book = ModConfig.BlueprintBookKey?.Value ?? default(KeyboardShortcut);
+            if (book.MainKey != KeyCode.None
+                && Player.m_localPlayer != null
+                && ZInput.instance != null
+                && !Typing()
+                && ZInput.GetKeyDown(book.MainKey, true)
+                && AllModifiersHeld(book)
+                && (BlueprintBook.IsOpen || HammerInHand()))
+            {
+                // Opened only with the hammer out - a blueprint is picked up into it, and the key
+                // is free for other mods everywhere else. Closing always works.
+                BlueprintBook.Toggle();
+            }
+
+            BlueprintBook.Tick();
+
             // The three below are tools for working out why something is not doing what it
             // should, and every one of them holds a function key hostage. Kept, because each has
             // ended an investigation that guessing had prolonged - but switched off with the
@@ -265,9 +281,44 @@ namespace TheHammerOfOden
             }
         }
 
+        /// <summary>Whether a text box has the keyboard - chat, the console, a sign - so a letter key is typing, not a command.</summary>
+        private static bool Typing()
+        {
+            return Overlay.Typing
+                || (Chat.instance != null && Chat.instance.HasFocus())
+                || Console.IsVisible()
+                || TextInput.IsVisible()
+                || Menu.IsVisible();
+        }
+
+        /// <summary>A building tool - the hammer, or a modded one like it - in hand and out.</summary>
+        private static bool HammerInHand()
+        {
+            Player player = Player.m_localPlayer;
+            return player != null && ModConfig.IsEnabled && BuildTool.IsBuildingTool && player.InPlaceMode();
+        }
+
+        private static bool AllModifiersHeld(KeyboardShortcut shortcut)
+        {
+            foreach (KeyCode modifier in shortcut.Modifiers)
+            {
+                if (!ZInput.GetKey(modifier, true))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private void OnGUI()
         {
+            SitePanel.Draw();
+            KeyHintStrip.Draw();
+            MessagePanel.Draw();
             HelpPanel.Draw();
+            BlueprintBook.Draw();
+            BlueprintSave.Draw();
         }
 
         private void OnDestroy()

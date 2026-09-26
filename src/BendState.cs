@@ -104,7 +104,7 @@ namespace TheHammerOfOden
 
             string up = EndsGo(piece, 1f);
             string down = EndsGo(piece, -1f);
-            return $"Bend: wheel up curves the ends {up}, wheel down {down}. {ModConfig.BendAxisKey.Value.MainKey} swaps the direction.";
+            return $"Bend: wheel up curves the ends {up}, wheel down {down}. {KeyNames.MainOf(ModConfig.BendAxisKey)} swaps the direction.";
         }
 
         /// <summary>
@@ -315,6 +315,14 @@ namespace TheHammerOfOden
         /// resolved to, so copying it needs no measurement at all: the same key means the same
         /// thing on the copy as it did on the original.
         /// </remarks>
+        /// <summary>Takes a bend as given - for a piece taken from a blueprint.</summary>
+        internal static void MatchBend(float degrees, int choice)
+        {
+            _degrees = Mathf.Abs(degrees) < 0.01f ? 0f : degrees;
+            _rise = choice;
+            BendDeformer.Release();
+        }
+
         internal static void MatchPiece(Piece piece)
         {
             if (piece == null || !ModConfig.CopyBendOnPieceCopy.Value)

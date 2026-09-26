@@ -87,7 +87,9 @@ namespace TheHammerOfOden
             }
             else
             {
+                BlueprintBook.Close();
                 _open = true;
+                Overlay.Unfocus();
                 _scroll = Vector2.zero;
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
@@ -554,29 +556,7 @@ namespace TheHammerOfOden
 
         private static string Pretty(KeyCode key)
         {
-            switch (key)
-            {
-                case KeyCode.LeftShift: return "Left Shift";
-                case KeyCode.RightShift: return "Right Shift";
-                case KeyCode.LeftControl: return "Left Ctrl";
-                case KeyCode.RightControl: return "Right Ctrl";
-                case KeyCode.LeftAlt: return "Left Alt";
-                case KeyCode.RightAlt: return "Right Alt";
-                case KeyCode.KeypadPlus: return "Keypad +";
-                case KeyCode.KeypadMinus: return "Keypad -";
-                case KeyCode.KeypadPeriod: return "Keypad .";
-                case KeyCode.UpArrow: return "Up";
-                case KeyCode.DownArrow: return "Down";
-                case KeyCode.LeftArrow: return "Left";
-                case KeyCode.RightArrow: return "Right";
-                case KeyCode.PageUp: return "Page Up";
-                case KeyCode.PageDown: return "Page Down";
-                default:
-                    string name = key.ToString();
-                    return name.StartsWith("Keypad", StringComparison.Ordinal)
-                        ? "Keypad " + name.Substring(6)
-                        : name;
-            }
+            return KeyNames.Name(key);
         }
 
         private static bool ServerEnforced

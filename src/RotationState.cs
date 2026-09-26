@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TheHammerOfOden
 {
@@ -70,6 +70,15 @@ namespace TheHammerOfOden
         }
 
         /// <summary>Adopt the rotation of an already-placed piece.</summary>
+        /// <summary>Takes a rotation as it is - for a piece taken from a blueprint rather than the world.</summary>
+        internal static void MatchRotation(Quaternion rotation)
+        {
+            Vector3 euler = rotation.eulerAngles;
+            _x = Wrap(euler.x);
+            _y = Wrap(euler.y);
+            _z = Wrap(euler.z);
+        }
+
         internal static void MatchPiece(Piece piece)
         {
             if (piece == null)

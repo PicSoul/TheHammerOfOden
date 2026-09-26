@@ -32,7 +32,15 @@ namespace TheHammerOfOden
         internal static void Apply(GameObject piece)
         {
             Restore();
+            Add(piece);
+        }
 
+        /// <summary>
+        /// Gives another piece the edit look without putting back the ones already wearing it,
+        /// so a whole group can be set aside at once. Restore puts them all back together.
+        /// </summary>
+        internal static void Add(GameObject piece)
+        {
             if (piece == null || !ModConfig.EditHidesPiece.Value)
             {
                 return;

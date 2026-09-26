@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 
 namespace TheHammerOfOden
@@ -45,44 +45,88 @@ namespace TheHammerOfOden
         /// </param>
         internal static bool Allows(Player player, Piece piece, out string reason)
         {
-            reason = null;
+            return Allows(player, piece, out reason, true);
+        }
 
+        /// <param name="flash">Flash a ward that refuses, as vanilla does. Off when checking a group.</param>
+        internal static bool Allows(Player player, Piece piece, out string reason, bool flash)
+        {
+            return Allows(player, piece, out reason, flash, true);
+        }
+
+        /// <param name="needStation">
+        /// Whether the piece's crafting station has to be in range. Off for moving a group in
+        /// place: the station rule is about what you can build, and a move builds nothing - the
+        /// same pieces simply stand somewhere else. Across a large building most pieces are far
+        /// from any station, so asking would refuse nearly every move of one.
+        /// </param>
+        internal static bool Allows(Player player, Piece piece, out string reason, bool flash, bool needStation)
+        {
+            string why = Refusal(player, piece, flash, needStation);
+            reason = Sentence(why, flash);
+            return why == null;
+        }
+
+        /// <summary>
+        /// Why not, in a few words that read after a count - "12 x Chest (in use)" - or null if
+        /// the piece may be taken down. For reporting on a group, where one sentence per piece
+        /// would be unreadable.
+        /// </summary>
+        internal static string Refusal(Player player, Piece piece, bool flash, bool needStation)
+        {
             if (player == null || piece == null)
             {
-                return false;
+                return "gone";
             }
 
             if (!piece.m_canBeRemoved)
             {
-                reason = "That piece cannot be taken down, so it cannot be edited";
-                return false;
+                return "can never be taken down";
             }
 
             if (Location.IsInsideNoBuildLocation(piece.transform.position))
             {
-                reason = "Nothing can be changed here";
-                return false;
+                return "in a place that cannot be built in";
             }
 
-            if (!PrivateArea.CheckAccess(piece.transform.position))
+            if (!PrivateArea.CheckAccess(piece.transform.position, 0f, flash, false))
             {
-                reason = "That is inside someone else's ward";
-                return false;
+                return "inside someone else's ward";
             }
 
-            // Vanilla puts up its own message when a station is missing.
-            if (StationCheck != null && !StationCheck(player, piece))
+            if (needStation && StationCheck != null && !StationCheck(player, piece))
             {
-                return false;
+                return "its crafting station is not in range";
             }
 
             if (!piece.CanBeRemoved())
             {
-                reason = "That cannot be taken down right now";
-                return false;
+                return "in use";
             }
 
-            return true;
+            return null;
+        }
+
+        private static string Sentence(string why, bool flash)
+        {
+            switch (why)
+            {
+                case null:
+                    return null;
+                case "can never be taken down":
+                    return "That piece cannot be taken down, so it cannot be edited";
+                case "in a place that cannot be built in":
+                    return "Nothing can be changed here";
+                case "inside someone else's ward":
+                    return "That is inside someone else's ward";
+                case "its crafting station is not in range":
+                    // Vanilla has already put up its own message, unless asked quietly.
+                    return flash ? null : "Its crafting station is not in range";
+                case "in use":
+                    return "That cannot be taken down right now";
+                default:
+                    return null;
+            }
         }
     }
 }

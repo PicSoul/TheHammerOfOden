@@ -29,6 +29,17 @@ namespace TheHammerOfOden
             // inside Valheim's own code, on frames where input is not being taken.
             BuildTool.Evaluate(___m_buildPieces);
 
+            // Construction sites build from here, every frame and whatever is in hand, rather
+            // than from the plugin's own update - because this is where the game itself pays
+            // for a placed piece, and mods that build from somewhere other than the inventory
+            // only open that somewhere up while it runs. AdventureBackpacks counts and spends
+            // the backpack only inside this method and the game's own "can I afford it" check;
+            // paying from anywhere else would count the backpack and then not take from it.
+            if (__instance == Player.m_localPlayer)
+            {
+                GroupBuilder.Tick();
+            }
+
             // The camera covers the hoe and cultivator as well as the hammer, so it sits
             // above the hammer-only gate below. Losing the tool entirely puts it away.
             if (ModConfig.IsEnabled && BuildTool.IsPlacementTool && takeInput
@@ -63,7 +74,8 @@ namespace TheHammerOfOden
 
             HammerGlow.Apply(__instance, ModConfig.IsEnabled && BuildTool.IsBuildingTool);
 
-            Selection.Tick(ModConfig.IsEnabled && BuildTool.IsBuildingTool && __instance.InPlaceMode());
+            Selection.Tick(ModConfig.IsEnabled && BuildTool.IsBuildingTool && __instance.InPlaceMode()
+                && !GroupHold.IsMoving);
 
             if (!ModConfig.IsEnabled || !takeInput || ___m_buildPieces == null)
             {
@@ -229,6 +241,32 @@ namespace TheHammerOfOden
             {
                 Selection.Clear(player);
             }
+
+            // The take-down key is the stop key with Shift, and a key check does not refuse extra
+            // modifiers - so it is asked first.
+            if (PressedWithModifiers(ModConfig.SiteTakeDownKey.Value))
+            {
+                GroupBuilder.TakeDownLookedAt(player);
+            }
+            else if (PressedWithModifiers(ModConfig.SiteCancelKey.Value))
+            {
+                GroupBuilder.StopLookedAt(player);
+            }
+
+            // The model key turns a held copy into a model; with nothing held and a selection made,
+            // the save key - the same key by default - saves the selection as a blueprint.
+            if (GroupHold.IsCopying && PressedWithModifiers(ModConfig.ModelKey.Value))
+            {
+                GroupHold.ToggleModel(player);
+            }
+            else if (!GroupHold.IsHolding && Selection.Count > 0 && PressedWithModifiers(ModConfig.BlueprintSaveKey.Value))
+            {
+                BlueprintSave.Open(player);
+            }
+            else if (PressedWithModifiers(ModConfig.ModelKey.Value))
+            {
+                GroupHold.ToggleModel(player);
+            }
         }
 
         /// <summary>Widens or narrows the gap between zooped copies.</summary>
@@ -281,6 +319,11 @@ namespace TheHammerOfOden
             // not moving the piece.
             if (Held(ModConfig.ZoopModifierKey.Value))
             {
+                if (GroupHold.IsHolding)
+                {
+                    return;
+                }
+
                 HandleZoop(player);
                 return;
             }
@@ -350,8 +393,27 @@ namespace TheHammerOfOden
 
         private static void HandleUndo(Player player)
         {
-            if (PressedWithModifiers(ModConfig.UndoKey.Value))
+            // Redo is undo's key with Shift added, and a key check does not refuse extra
+            // modifiers - so redo is asked first, and undo only if it was not redo.
+            if (PressedWithModifiers(ModConfig.RedoKey.Value))
             {
+                if (GroupHold.IsHolding)
+                {
+                    Notify.Show(player, "Place or cancel the move first");
+                    return;
+                }
+
+                PlacementUndo.RedoLast(player);
+            }
+            else if (PressedWithModifiers(ModConfig.UndoKey.Value))
+            {
+                // Undoing something else mid-move would change the world under a group in hand.
+                if (GroupHold.IsHolding)
+                {
+                    Notify.Show(player, "Place or cancel the move first");
+                    return;
+                }
+
                 PlacementUndo.UndoLast(player);
             }
         }
@@ -554,6 +616,21 @@ namespace TheHammerOfOden
                 return;
             }
 
+            // A model resizes whatever piece it was picked up by: it is drawn, not built.
+            if (GroupHold.IsModel)
+            {
+                if (KeyRepeat.Fires(ModConfig.ScaleUpKey))
+                {
+                    GroupHold.ScaleModel(player, 1);
+                }
+                else if (KeyRepeat.Fires(ModConfig.ScaleDownKey))
+                {
+                    GroupHold.ScaleModel(player, -1);
+                }
+
+                return;
+            }
+
             if (!Scalable.Allows(ghost))
             {
                 // Say so once rather than silently ignoring the keypress, or it reads as the
@@ -568,7 +645,22 @@ namespace TheHammerOfOden
 
             bool changed = false;
 
-            if (KeyRepeat.Fires(ModConfig.ScaleWiderKey)) { ScaleState.Stretch(0, 1); changed = true; }
+            // A held group scales evenly - each piece and its distance from the one held together.
+            // Stretching one axis would have to shear the turned pieces inside it.
+            if (GroupHold.IsHolding)
+            {
+                if (IsDown(ModConfig.ScaleWiderKey) || IsDown(ModConfig.ScaleNarrowerKey)
+                    || IsDown(ModConfig.ScaleTallerKey) || IsDown(ModConfig.ScaleShorterKey)
+                    || IsDown(ModConfig.ScaleDeeperKey) || IsDown(ModConfig.ScaleShallowerKey))
+                {
+                    Notify.Show(player, "A held group resizes evenly - use "
+                        + KeyNames.MainOf(ModConfig.ScaleUpKey) + " and " + KeyNames.MainOf(ModConfig.ScaleDownKey));
+                }
+
+                if (KeyRepeat.Fires(ModConfig.ScaleUpKey)) { ScaleState.Uniform(1); changed = true; }
+                else if (KeyRepeat.Fires(ModConfig.ScaleDownKey)) { ScaleState.Uniform(-1); changed = true; }
+            }
+            else if (KeyRepeat.Fires(ModConfig.ScaleWiderKey)) { ScaleState.Stretch(0, 1); changed = true; }
             else if (KeyRepeat.Fires(ModConfig.ScaleNarrowerKey)) { ScaleState.Stretch(0, -1); changed = true; }
             else if (KeyRepeat.Fires(ModConfig.ScaleTallerKey)) { ScaleState.Stretch(1, 1); changed = true; }
             else if (KeyRepeat.Fires(ModConfig.ScaleShorterKey)) { ScaleState.Stretch(1, -1); changed = true; }
@@ -647,6 +739,16 @@ namespace TheHammerOfOden
             if (!IsHeld(ModConfig.BendModifierKey))
             {
                 return false;
+            }
+
+            if (GroupHold.IsHolding)
+            {
+                if (IsDown(ModConfig.BendModifierKey))
+                {
+                    Notify.Show(player, "Bending is off while holding a group - a bend belongs to one piece");
+                }
+
+                return true;
             }
 
             // Say what the wheel will do before it is turned, rather than leaving the player to
@@ -939,6 +1041,7 @@ namespace TheHammerOfOden
             // After every other positioning step, so the run follows the piece wherever it
             // has ended up rather than where vanilla first put it.
             Zooping.UpdatePreview(___m_placementGhost);
+            GroupHold.Follow(___m_placementGhost);
 
             // While the bend key is held the wheel bends rather than rotates, so the ring worth
             // lighting up is the one the bend turns about.
@@ -1140,7 +1243,7 @@ namespace TheHammerOfOden
         /// <summary>Called from patched IL, receiving the wheel movement vanilla read.</summary>
         internal static float SubstituteScroll(float vanilla)
         {
-            if (HelpPanel.IsOpen)
+            if (Overlay.Open)
             {
                 return 0f;
             }
@@ -1175,7 +1278,7 @@ namespace TheHammerOfOden
         [HarmonyPostfix]
         private static void Postfix(ref bool __result)
         {
-            if (HelpPanel.IsOpen || (ModConfig.IsEnabled && BuildCamera.IsActive))
+            if (Overlay.Open || (ModConfig.IsEnabled && BuildCamera.IsActive))
             {
                 __result = false;
             }
@@ -1191,7 +1294,7 @@ namespace TheHammerOfOden
         [HarmonyPrefix]
         private static bool Prefix()
         {
-            if (HelpPanel.IsOpen)
+            if (Overlay.Open)
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
@@ -1212,7 +1315,7 @@ namespace TheHammerOfOden
         [HarmonyPostfix]
         private static void Postfix(ref bool __result)
         {
-            if (HelpPanel.IsOpen)
+            if (Overlay.Open)
             {
                 __result = false;
             }
@@ -1228,11 +1331,11 @@ namespace TheHammerOfOden
         [HarmonyPrefix]
         private static bool Prefix()
         {
-            if (HelpPanel.IsOpen || HelpPanel.ClosedThisFrame)
+            if (Overlay.Open || Overlay.ClosedThisFrame)
             {
-                if (HelpPanel.IsOpen && ZInput.GetKeyDown(KeyCode.Escape, true))
+                if (Overlay.Open && ZInput.GetKeyDown(KeyCode.Escape, true))
                 {
-                    HelpPanel.Close();
+                    Overlay.CloseAll();
                 }
                 return false;
             }
@@ -1322,14 +1425,16 @@ namespace TheHammerOfOden
     internal static class PlayerPlacePiecePatch
     {
         [HarmonyPrefix]
-        private static void Prefix(
+        private static bool Prefix(
+            Player __instance,
             Vector3 pos,
+            Quaternion rot,
             GameObject ___m_placementGhost,
             int ___m_manualSnapPoint)
         {
             if (!ModConfig.IsEnabled)
             {
-                return;
+                return true;
             }
 
             SnapPointMemory.Remember(___m_placementGhost, ___m_manualSnapPoint);
@@ -1344,6 +1449,15 @@ namespace TheHammerOfOden
             // Measured now, while the ghost still exists to measure.
             Zooping.Remember(___m_placementGhost, pos);
             BendState.Remember(___m_placementGhost);
+
+            // A held copy: the rest of the group goes up now, into the same undo step, and the
+            // game then builds the piece it is held by as usual.
+            if (GroupHold.IsCopying)
+            {
+                GroupHold.PlaceCopies(__instance, ___m_placementGhost);
+            }
+
+            return true;
         }
 
         [HarmonyPostfix]
@@ -1363,6 +1477,13 @@ namespace TheHammerOfOden
             }
 
             Zooping.QueueRun(piece, rot, cheated);
+
+            // One copy per pick-up: it is going up now, and the preview standing where it is being
+            // built would only be in the way.
+            if (GroupHold.IsCopying)
+            {
+                GroupHold.Cancel(__instance, null);
+            }
         }
     }
 
@@ -1382,12 +1503,24 @@ namespace TheHammerOfOden
         [HarmonyPostfix]
         private static void Postfix(Piece __instance)
         {
-            if (ModConfig.IsEnabled)
+            if (!ModConfig.IsEnabled)
             {
-                ScaleState.ApplyToPlaced(__instance);
-                BendState.ApplyToPlaced(__instance);
-                PlacementUndo.Record(__instance);
+                return;
             }
+
+            // A copied piece has been given its own size and curve already; the placing ones
+            // belong to the piece the copy is held by.
+            // Recorded by the builder instead, into the copy's own undo step - the player may have
+            // placed something else since it began.
+            if (GroupBuilder.PlacingCopies)
+            {
+                return;
+            }
+
+            ScaleState.ApplyToPlaced(__instance);
+            BendState.ApplyToPlaced(__instance);
+            GroupHold.DressAnchor(__instance);
+            PlacementUndo.Record(__instance);
         }
     }
 
@@ -1410,6 +1543,388 @@ namespace TheHammerOfOden
         }
     }
 
+    /// <summary>
+    /// Leaves the question of what a held group costs to the group, not the game's check on the
+    /// one piece it is held by.
+    /// </summary>
+    /// <remarks>
+    /// The game checks the player can afford a piece before it will place it. A moved group costs
+    /// nothing, so it must not be refused for want of materials for one more of the piece it is
+    /// held by. A copied group costs every piece in it, which GroupHold checks in full - against
+    /// the whole bill, not one piece - as the placement goes through. Answered here rather than
+    /// with the game's no-cost flag, which marks a placement as cheated.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), nameof(Player.HaveRequirements), new[] { typeof(Piece), typeof(Player.RequirementMode) })]
+    internal static class PlayerHaveRequirementsGroupPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(Piece piece, ref bool __result)
+        {
+            if (!__result && GroupHold.IsHolding && piece != null
+                && Utils.GetPrefabName(piece.gameObject) == GroupHold.AnchorPrefab)
+            {
+                __result = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Puts a held group down: a move in place instead of any building, a copy only once the
+    /// whole of it is paid for and allowed where it is going.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than in PlacePiece because of what the game does once this says yes: it charges
+    /// the materials for the piece, uses stamina and raises the building skill. A move builds
+    /// nothing, so it answers no after moving - which is what keeps the move free. A copy that
+    /// falls short answers no before anything has been built or spent.
+    ///
+    /// A move still waits for the game's own verdict on where the held piece is going; when that
+    /// is not Valid the game's own placement runs, refuses, and says why.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), nameof(Player.TryPlacePiece))]
+    internal static class PlayerTryPlacePieceGroupPatch
+    {
+        private static readonly AccessTools.FieldRef<Player, Player.PlacementStatus> Status =
+            AccessTools.FieldRefAccess<Player, Player.PlacementStatus>("m_placementStatus");
+
+        [HarmonyPrefix]
+        private static bool Prefix(Player __instance, GameObject ___m_placementGhost, ref bool __result)
+        {
+            if (!ModConfig.IsEnabled || !GroupHold.IsHolding || ___m_placementGhost == null)
+            {
+                return true;
+            }
+
+            if (GroupHold.IsModel)
+            {
+                GroupHold.PlaceModel(__instance);
+                __result = false;
+                return false;
+            }
+
+            if (GroupHold.IsMoving)
+            {
+                if (Status(__instance) != Player.PlacementStatus.Valid)
+                {
+                    return true;
+                }
+
+                Transform ghost = ___m_placementGhost.transform;
+                GroupHold.CommitMove(__instance, ghost.position, ghost.rotation, ___m_placementGhost);
+                __result = false;
+                return false;
+            }
+
+            if (!GroupHold.CopyReady(__instance, ___m_placementGhost))
+            {
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Shift + middle-click on a selected piece picks up a copy of the whole selection.
+    /// </summary>
+    /// <remarks>
+    /// The game's own copy, one piece, is what shift + middle-click does anywhere else - on a
+    /// piece that is not selected, or with nothing selected.
+    /// </remarks>
+    [HarmonyPatch(typeof(Player), "CopyPiece")]
+    internal static class PlayerCopyPieceGroupPatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(Player __instance, ref bool __result)
+        {
+            if (!ModConfig.IsEnabled || !BuildTool.IsBuildingTool)
+            {
+                return true;
+            }
+
+            Piece hovering = __instance.GetHoveringPiece();
+
+            if (GroupHold.IsHolding)
+            {
+                GroupHold.Cancel(__instance, GroupHold.Verb + " put away");
+                if (hovering == null || !Selection.Contains(hovering))
+                {
+                    // Just putting it away - not a copy of whatever the cursor is on.
+                    __result = false;
+                    return false;
+                }
+            }
+
+            if (Selection.Count == 0 || hovering == null || !Selection.Contains(hovering))
+            {
+                return true;
+            }
+
+            PlacementEdit.Clear();
+            GroupHold.BeginCopy(__instance, hovering);
+            __result = true;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Tells waiting construction sites that something changed hands: the player's inventory or a
+    /// chest's. Only a flag - the look itself is spaced out by GroupBuilder.
+    /// </summary>
+    [HarmonyPatch(typeof(Inventory), "Changed")]
+    internal static class InventoryChangedSitePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix()
+        {
+            GroupBuilder.Poke();
+        }
+    }
+
+    /// <summary>
+    /// Keeps a copy standing while it goes up: its pieces count as supported until the site is
+    /// finished or stopped. See ConstructionSite.
+    /// </summary>
+    [HarmonyPatch(typeof(WearNTear), "HaveSupport")]
+    internal static class WearNTearHaveSupportPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(WearNTear __instance, ref bool __result)
+        {
+            if (!__result && ConstructionSite.IsExempt(__instance))
+            {
+                __result = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The hammer's remove on a selected piece takes the whole selection down. See
+    /// GroupHold.Demolish.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "RemovePiece")]
+    internal static class PlayerRemovePieceGroupPatch
+    {
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.High)]
+        private static bool Prefix(Player __instance, ref bool __result)
+        {
+            if (!ModConfig.IsEnabled || !BuildTool.IsBuildingTool || __instance != Player.m_localPlayer)
+            {
+                return true;
+            }
+
+            // A table or floor carrying a model: the model comes off, not the table.
+            if (ModelDisplay.ConfirmRemove(__instance, __instance.GetHoveringPiece()))
+            {
+                __result = false;
+                return false;
+            }
+
+            if (Selection.Count == 0)
+            {
+                return true;
+            }
+
+            if (GroupHold.Demolish(__instance, __instance.GetHoveringPiece()))
+            {
+                // Not a removal as far as the game is concerned: no stamina, no swing, no effect.
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Marks the moment the hammer's own remove is running, so what it drops can be handed to
+    /// the player instead. See PieceDropResourcesRefundPatch.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "RemovePiece")]
+    internal static class PlayerRemovePieceRefundPatch
+    {
+        internal static bool Removing;
+
+        [HarmonyPrefix]
+        private static void Prefix(Player __instance)
+        {
+            Removing = ModConfig.IsEnabled && ModConfig.RemovalRefundsToInventory.Value
+                && __instance == Player.m_localPlayer;
+        }
+
+        [HarmonyFinalizer]
+        private static void Finalizer()
+        {
+            Removing = false;
+        }
+    }
+
+    /// <summary>
+    /// Takes the piece being removed into this player's hands first, so the removal happens here
+    /// and now rather than on whichever machine owned it - which is where its drop would land.
+    /// </summary>
+    [HarmonyPatch(typeof(WearNTear), nameof(WearNTear.Remove))]
+    internal static class WearNTearRemoveOwnershipPatch
+    {
+        [HarmonyPrefix]
+        private static void Prefix(WearNTear __instance)
+        {
+            if (!PlayerRemovePieceRefundPatch.Removing)
+            {
+                return;
+            }
+
+            ZNetView view = __instance.GetComponent<ZNetView>();
+            if (view != null && view.IsValid() && !view.IsOwner())
+            {
+                view.ClaimOwnership();
+            }
+        }
+    }
+
+    /// <summary>
+    /// A piece taken down with the hammer gives its materials to the player - inventory, then
+    /// backpack, then at their feet - rather than scattering them where it stood.
+    /// </summary>
+    /// <remarks>
+    /// Only during the hammer's own remove, and only for a plain removal - not a piece broken by
+    /// damage, which is what a hit is. A piece built with cheated materials keeps the game's own
+    /// drop, which is what marks the returned materials cheated.
+    /// </remarks>
+    [HarmonyPatch(typeof(Piece), nameof(Piece.DropResources))]
+    internal static class PieceDropResourcesRefundPatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(Piece __instance, HitData hitData)
+        {
+            if (!PlayerRemovePieceRefundPatch.Removing || hitData != null || Player.m_localPlayer == null)
+            {
+                return true;
+            }
+
+            ZNetView view = __instance.GetComponent<ZNetView>();
+            if (view != null && view.IsValid() && view.GetZDO().GetBool(ZDOVars.s_cheated))
+            {
+                return true;
+            }
+
+            Refunds.Bill bill = new Refunds.Bill();
+            bill.AddPiece(__instance);
+            Refunds.Deliver(Player.m_localPlayer, bill, 0f);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Hides the game's own build hints while the mod's key hint strip stands in for them - it
+    /// carries their keys over, and both at once would be too much. See KeyHintStrip.
+    /// </summary>
+    [HarmonyPatch(typeof(KeyHints), "UpdateHints")]
+    internal static class KeyHintsReplacePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(KeyHints __instance)
+        {
+            if (__instance.m_buildHints != null && __instance.m_buildHints.activeSelf && KeyHintStrip.Replacing)
+            {
+                __instance.m_buildHints.SetActive(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// While one of the mod's text boxes has the keyboard - the save window, the search in the
+    /// blueprint book or the F3 guide - the game hears no keys at all: typing an M must not open
+    /// the map, nor a 1 swap what is in hand.
+    /// </summary>
+    /// <remarks>
+    /// Blocked where the game works its input out, not where it asks for it. The asking methods -
+    /// ZInput.GetButtonDown("Map") and the like - are one-liners, and the runtime copies a
+    /// one-liner straight into whatever calls it, so a patch on them is simply never reached from
+    /// there: the first try did exactly that, and the map still opened.
+    ///
+    /// So, for buttons: once a frame the game works out every button's pressed, held and released
+    /// state in one sizeable method, and every button check reads what it left. Right after it,
+    /// while typing, those are all cleared. For raw keys - GetKeyDown(KeyCode.M) - every check
+    /// goes through one sizeable private method, which answers "not pressed" instead.
+    ///
+    /// The text boxes are not affected: they take their letters from the window's own events.
+    /// </remarks>
+    [HarmonyPatch]
+    internal static class ZInputTypingPatch
+    {
+        private static readonly System.Type ButtonDef = AccessTools.Inner(typeof(ZInput), "ButtonDef");
+
+        private static readonly string[] States =
+        {
+            "m_heldDynamic", "m_pressedDynamic", "m_releasedDynamic",
+            "m_heldFixed", "m_pressedFixed", "m_releasedFixed"
+        };
+
+        private static System.Reflection.FieldInfo[] _states;
+        private static System.Reflection.FieldInfo _buttons;
+
+        private static IEnumerable<System.Reflection.MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(ZInput), "InternalUpdate");
+        }
+
+        [HarmonyPostfix]
+        private static void Postfix(ZInput __instance)
+        {
+            if (!Overlay.Typing)
+            {
+                return;
+            }
+
+            try
+            {
+                if (_states == null)
+                {
+                    _buttons = AccessTools.Field(typeof(ZInput), "m_buttons");
+                    _states = new System.Reflection.FieldInfo[States.Length];
+                    for (int i = 0; i < States.Length; i++)
+                    {
+                        _states[i] = AccessTools.Field(ButtonDef, States[i]);
+                    }
+                }
+
+                if (!(_buttons.GetValue(__instance) is System.Collections.IDictionary buttons))
+                {
+                    return;
+                }
+
+                foreach (object button in buttons.Values)
+                {
+                    foreach (System.Reflection.FieldInfo state in _states)
+                    {
+                        state?.SetValue(button, false);
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                HammerOfOdenPlugin.Debug("Could not hold the game's buttons back while typing: " + ex.Message);
+            }
+        }
+    }
+
+    /// <summary>Raw key checks - GetKeyDown(KeyCode.M) - answered "not pressed" while typing. See ZInputTypingPatch.</summary>
+    [HarmonyPatch(typeof(ZInput), "TryGetKeyStateLowLevel")]
+    internal static class ZInputTypingKeyPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ref bool __result)
+        {
+            if (__result && Overlay.Typing)
+            {
+                __result = false;
+            }
+        }
+    }
+
     /// <summary>Forgets the selection on leaving a world; its pieces belong to that world.</summary>
     [HarmonyPatch(typeof(Game), "OnDestroy")]
     internal static class GameOnDestroySelectionPatch
@@ -1418,6 +1933,11 @@ namespace TheHammerOfOden
         private static void Postfix()
         {
             Selection.Reset();
+            GroupHold.Reset();
+            GroupBuilder.Reset();
+            MessagePanel.Clear();
+            BlueprintBook.Close();
+            BlueprintSave.Close();
         }
     }
 
@@ -1484,6 +2004,8 @@ namespace TheHammerOfOden
         {
             ScalePersistence.Restore(__instance);
             BentPiece.Restore(__instance);
+            ConstructionSite.Attach(__instance);
+            ModelDisplay.Attach(__instance);
         }
     }
 
@@ -1629,6 +2151,14 @@ namespace TheHammerOfOden
             BendState.ForgetGhost();
             Bendable.Forget();
 
+            // Choosing a different piece mid-move lets go of the group: the ghost is no longer the
+            // piece it is held by, so there is nothing left to carry it.
+            if (GroupHold.IsHolding
+                && (___m_placementGhost == null || Utils.GetPrefabName(___m_placementGhost) != GroupHold.AnchorPrefab))
+            {
+                GroupHold.Cancel(Player.m_localPlayer, GroupHold.Verb + " cancelled - a different piece was chosen");
+            }
+
             // The ghost is rebuilt after every placement as well as on changing piece, so
             // resetting here unconditionally threw the scale away the moment it was used.
             // Only a genuinely different piece should clear it.
@@ -1649,6 +2179,40 @@ namespace TheHammerOfOden
             }
 
             RotationState.ResetAll();
+        }
+    }
+
+    /// <summary>
+    /// Diagnostic, debug logging only: writes down every on-screen message shown while a group
+    /// is in hand or a copy is going up, with the code that raised it.
+    /// </summary>
+    /// <remarks>
+    /// Messages from the game and other mods never reach this mod's log otherwise, so a refusal
+    /// that names no piece - "needs a stonecutter", say - could not be traced to what said it.
+    /// </remarks>
+    [HarmonyPatch(typeof(MessageHud), nameof(MessageHud.ShowMessage))]
+    internal static class MessageHudGroupDiagnosticsPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(string text)
+        {
+            if (!ModConfig.DebugLogging.Value || !GroupHold.IsHolding)
+            {
+                return;
+            }
+
+            System.Diagnostics.StackFrame[] frames = new System.Diagnostics.StackTrace(2, false).GetFrames();
+            List<string> path = new List<string>();
+            for (int i = 0; frames != null && i < frames.Length && path.Count < 6; i++)
+            {
+                System.Reflection.MethodBase method = frames[i].GetMethod();
+                if (method != null)
+                {
+                    path.Add((method.DeclaringType != null ? method.DeclaringType.Name + "." : string.Empty) + method.Name);
+                }
+            }
+
+            HammerOfOdenPlugin.Debug($"Message shown while holding a group: \"{text}\" from {string.Join(" < ", path)}");
         }
     }
 }

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TheHammerOfOden
 {
@@ -73,6 +73,15 @@ namespace TheHammerOfOden
         /// prefab is looked up to divide it back out; taking localScale at face value would
         /// square the prefab's scale on any piece that does not ship at one.
         /// </remarks>
+        /// <summary>
+        /// Takes a size as a multiple of the piece's own - for a piece taken from a blueprint,
+        /// whose size was already held within the server's limits as it was read.
+        /// </summary>
+        internal static void SetMultiplier(Vector3 multiplier)
+        {
+            _scale = new Vector3(Clamp(multiplier.x), Clamp(multiplier.y), Clamp(multiplier.z));
+        }
+
         internal static void MatchPiece(Piece piece)
         {
             if (piece == null || !ModConfig.CopyScaleOnPieceCopy.Value)

@@ -38,6 +38,9 @@ namespace TheHammerOfOden
         /// <summary>Pieces currently drawn highlighted, so they can be put back as they were.</summary>
         private static readonly HashSet<GameObject> Highlighted = new HashSet<GameObject>();
 
+        /// <summary>Pieces picked by hand since the last ring was added - part of the next grow's edge.</summary>
+        private static readonly HashSet<ZDOID> Fresh = new HashSet<ZDOID>();
+
         private static Collider[] _nearby = new Collider[512];
         private static int _pieceMask = -1;
         private static float _nextHighlight;
@@ -106,6 +109,7 @@ namespace TheHammerOfOden
                     ring.Remove(id);
                 }
 
+                Fresh.Remove(id);
                 Unhighlight(piece.gameObject);
                 Notify.Show(player, $"Deselected - {Describe()}");
                 return;
@@ -118,8 +122,42 @@ namespace TheHammerOfOden
             }
 
             Set.Add(id);
+            Fresh.Add(id);
             Highlight(piece.gameObject);
             Notify.Show(player, $"Selected {Name(piece)} - {Describe()}");
+        }
+
+        /// <summary>
+        /// Takes these pieces out without a word - for a move that has already explained why.
+        /// They lose the selection colour, which is what shows where they are.
+        /// </summary>
+        internal static void Deselect(IEnumerable<ZDOID> ids)
+        {
+            foreach (ZDOID id in ids)
+            {
+                if (id == ZDOID.None || !Set.Remove(id))
+                {
+                    continue;
+                }
+
+                foreach (List<ZDOID> ring in Rings)
+                {
+                    ring.Remove(id);
+                }
+
+                Fresh.Remove(id);
+                Piece piece = Resolve(id);
+                if (piece != null)
+                {
+                    Unhighlight(piece.gameObject);
+                }
+            }
+        }
+
+        /// <summary>Every selected piece's id, loaded or not.</summary>
+        internal static List<ZDOID> Ids()
+        {
+            return new List<ZDOID>(Set);
         }
 
         internal static void Clear(Player player)
@@ -134,6 +172,8 @@ namespace TheHammerOfOden
             UnhighlightAll();
             Set.Clear();
             Rings.Clear();
+            Fresh.Clear();
+            BlueprintSave.ForgetName();
 
             if (player != null)
             {
@@ -164,7 +204,22 @@ namespace TheHammerOfOden
         {
             Stopwatch frame = Stopwatch.StartNew();
             List<ZDOID> added = new List<ZDOID>();
-            List<ZDOID> frontier = new List<ZDOID>(Set);
+            // Only the edge can reach anything new: the ring added last, and whatever was picked
+            // by hand since. Everything inside was grown from already. Looking at the whole
+            // selection instead made each press slower the bigger it got - thousands of pieces
+            // re-checked to find the last few dozen.
+            HashSet<ZDOID> edge = new HashSet<ZDOID>(Fresh);
+            if (Rings.Count > 0)
+            {
+                edge.UnionWith(Rings[Rings.Count - 1]);
+            }
+            else
+            {
+                edge.UnionWith(Set);
+            }
+
+            Fresh.Clear();
+            List<ZDOID> frontier = new List<ZDOID>(edge);
             bool full = false;
 
             foreach (ZDOID id in frontier)
@@ -657,6 +712,7 @@ namespace TheHammerOfOden
             Highlighted.Clear();
             Set.Clear();
             Rings.Clear();
+            Fresh.Clear();
             _shown = false;
         }
     }

@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace TheHammerOfOden
@@ -39,19 +41,131 @@ namespace TheHammerOfOden
             internal string Prefab;
         }
 
-        private static readonly List<List<Placed>> History = new List<List<Placed>>();
+        /// <summary>
+        /// One thing the player did. Usually pieces placed, which undo takes down; or, for a move,
+        /// a way to put what was moved back where it stood - moving builds nothing, so there is
+        /// nothing to take down.
+        /// </summary>
+        private sealed class Action
+        {
+            internal readonly List<Placed> Placed = new List<Placed>();
+            internal System.Func<int> Revert;
+
+            /// <summary>For a move: does it again. Revert's opposite, for redo.</summary>
+            internal System.Func<int> Reapply;
+            internal string Noun;
+
+            /// <summary>
+            /// Pieces to build rather than pieces to take down - what an undone placement, or a
+            /// selection taken down, turns into. Performing it builds them as a construction site,
+            /// paid for again: taking them down gave the materials back.
+            /// </summary>
+            internal List<CopyOrder> Orders;
+
+            /// <summary>
+            /// For a copy: how much of what it cost came out of the backpack and out of chests,
+            /// so undo can put it back there. The rest came from the inventory.
+            /// </summary>
+            internal readonly Refunds.Bill Paid = new Refunds.Bill();
+        }
+
+        /// <summary>Longest a frame may spend taking pieces down, in milliseconds.</summary>
+        private const long FrameBudget = 6;
+
+        private static bool _undoing;
+
+        private static readonly List<Action> History = new List<Action>();
+
+        /// <summary>
+        /// What has been undone, most recent last, for redo. Anything new the player does clears
+        /// it - redoing across something done since would put things back into a world that has
+        /// moved on.
+        /// </summary>
+        private static readonly List<Action> Future = new List<Action>();
 
         /// <summary>Starts a new group, for a placement the player has just made themselves.</summary>
         internal static void BeginAction()
         {
-            History.Add(new List<Placed>());
+            Future.Clear();
+            History.Add(new Action());
+            Trim();
+        }
 
+        /// <summary>
+        /// Records something undone by reversing it rather than by taking pieces down.
+        /// </summary>
+        /// <param name="revert">Reverses it, returning how many pieces it put back.</param>
+        /// <param name="reapply">Does it again, for redo.</param>
+        /// <param name="noun">What to call them in the message: "moved piece", say.</param>
+        internal static void RecordRevertible(System.Func<int> revert, System.Func<int> reapply, string noun)
+        {
+            Future.Clear();
+            History.Add(new Action { Revert = revert, Reapply = reapply, Noun = noun });
+            Trim();
+        }
+
+        private static void Trim()
+        {
             // Depth is about what you can still remember doing, not about memory: a few
             // thousand ids would cost nothing. Undoing something from twenty minutes ago
             // would simply be a surprise.
-            while (History.Count > Mathf.Max(1, ModConfig.UndoDepth.Value))
+            int depth = Mathf.Max(1, ModConfig.UndoDepth.Value);
+            while (History.Count > depth)
             {
                 History.RemoveAt(0);
+            }
+
+            while (Future.Count > depth)
+            {
+                Future.RemoveAt(0);
+            }
+        }
+
+        /// <summary>
+        /// The action most recently begun, for something that goes on adding to it after the
+        /// player may have done something else - a copy going up piece by piece.
+        /// </summary>
+        internal static object CurrentAction => History.Count > 0 ? History[History.Count - 1] : null;
+
+        /// <summary>Adds a piece to that action, wherever it now is in the history.</summary>
+        internal static void RecordInto(object action, Piece piece)
+        {
+            if (!(action is Action target) || piece == null)
+            {
+                return;
+            }
+
+            ZNetView view = piece.GetComponent<ZNetView>();
+            if (view == null || !view.IsValid())
+            {
+                return;
+            }
+
+            target.Placed.Add(new Placed
+            {
+                Id = view.GetZDO().m_uid,
+                Prefab = Utils.GetPrefabName(piece.gameObject)
+            });
+        }
+
+        /// <summary>Notes where a copied piece's materials came from, for undo to send them back.</summary>
+        internal static void RecordPaid(object action, GameObject item, int fromBackpack, int fromChests)
+        {
+            if (!(action is Action target) || item == null)
+            {
+                return;
+            }
+
+            if (fromBackpack > 0)
+            {
+                target.Paid.FromBackpack.TryGetValue(item, out int n);
+                target.Paid.FromBackpack[item] = n + fromBackpack;
+            }
+
+            if (fromChests > 0)
+            {
+                target.Paid.FromChests.TryGetValue(item, out int n);
+                target.Paid.FromChests[item] = n + fromChests;
             }
         }
 
@@ -69,51 +183,142 @@ namespace TheHammerOfOden
                 return;
             }
 
-            History[History.Count - 1].Add(new Placed
+            History[History.Count - 1].Placed.Add(new Placed
             {
                 Id = view.GetZDO().m_uid,
                 Prefab = Utils.GetPrefabName(piece.gameObject)
             });
         }
 
-        /// <summary>Removes everything placed by the most recent action.</summary>
+        /// <summary>Takes back the most recent thing done.</summary>
         internal static bool UndoLast(Player player)
         {
-            if (ZNetScene.instance == null)
+            return Step(player, History, Future, "Undid", "Nothing to undo");
+        }
+
+        /// <summary>Does again the most recent thing undone.</summary>
+        internal static bool RedoLast(Player player)
+        {
+            return Step(player, Future, History, "Redid", "Nothing to redo");
+        }
+
+        /// <summary>
+        /// Performs the latest step of one list, and files its opposite on the other.
+        /// </summary>
+        /// <remarks>
+        /// Undo and redo are the same operation run in opposite directions, because every step
+        /// has an opposite:
+        ///   pieces placed      are taken down and paid back   - the opposite rebuilds them
+        ///   pieces to rebuild  are built as a site, paid for   - the opposite takes them down
+        ///   a move             is put back                     - the opposite moves it again
+        /// A step whose pieces are all gone - torn down by hand, or by a raid - is passed over for
+        /// the one before, rather than doing nothing visible.
+        /// </remarks>
+        private static bool Step(Player player, List<Action> from, List<Action> to, string verb, string nothing)
+        {
+            if (ZNetScene.instance == null || player == null)
             {
                 return false;
             }
 
-            while (History.Count > 0)
+            if (_undoing)
             {
-                List<Placed> group = History[History.Count - 1];
-                History.RemoveAt(History.Count - 1);
+                Notify.Show(player, "Still taking the last lot down");
+                return true;
+            }
 
-                int removed = Remove(group);
+            while (from.Count > 0)
+            {
+                Action action = from[from.Count - 1];
+                from.RemoveAt(from.Count - 1);
 
-                if (removed > 0)
+                if (action.Revert != null)
                 {
-                    Notify.Show(player, removed == 1 ? "Undid 1 piece" : $"Undid {removed} pieces");
+                    int reverted = action.Revert();
+                    if (reverted > 0)
+                    {
+                        to.Add(new Action { Revert = action.Reapply, Reapply = action.Revert, Noun = action.Noun });
+                        Trim();
+                        Notify.Show(player, $"{verb}: {reverted} {action.Noun}{(reverted == 1 ? string.Empty : "s")}");
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (action.Orders != null)
+                {
+                    Action built = new Action();
+                    if (GroupBuilder.Rebuild(player, action.Orders, built, verb))
+                    {
+                        to.Add(built);
+                        Trim();
+                        return true;
+                    }
+
+                    // Could not start - nothing affordable yet. Kept, so it can be tried again.
+                    from.Add(action);
                     return true;
                 }
 
-                // Everything in that group is already gone - torn down by hand, or by a
-                // raid. Fall through to the one before rather than doing nothing visible.
+                // A copy still going up stops first, so nothing lands after it is taken down.
+                List<CopyOrder> unbuilt = GroupBuilder.Unbuilt(action);
+                GroupBuilder.Abandon(action);
+
+                List<GameObject> standing = Standing(action.Placed);
+
+                if (standing.Count > 0 || unbuilt.Count > 0)
+                {
+                    List<CopyOrder> orders = OrdersOf(standing);
+                    orders.AddRange(unbuilt);
+
+                    to.Add(new Action { Orders = orders });
+                    Trim();
+
+                    if (standing.Count > 0)
+                    {
+                        ZNetScene.instance.StartCoroutine(TakeDown(player, action, standing,
+                            ModConfig.UndoRefundsToInventory.Value, ModConfig.UndoChestRange.Value, verb));
+                    }
+                    else
+                    {
+                        GroupBuilder.EndAbandon(action);
+                    }
+
+                    return true;
+                }
+
+                // A copy none of whose pieces are left: it still must not go on building.
+                GroupBuilder.EndAbandon(action);
             }
 
-            Notify.Show(player, "Nothing to undo");
+            Notify.Show(player, nothing);
             return false;
         }
 
-        private static int Remove(List<Placed> group)
+        private static List<CopyOrder> OrdersOf(List<GameObject> pieces)
         {
-            int removed = 0;
-
-            // Backwards, so a run comes down in the reverse of the order it went up and
-            // whatever was supporting it is taken last.
-            for (int i = group.Count - 1; i >= 0; i--)
+            List<CopyOrder> orders = new List<CopyOrder>(pieces.Count);
+            foreach (GameObject piece in pieces)
             {
-                GameObject instance = ZNetScene.instance.FindInstance(group[i].Id);
+                CopyOrder order = GroupHold.OrderOf(piece);
+                if (order != null)
+                {
+                    orders.Add(order);
+                }
+            }
+
+            return orders;
+        }
+
+        /// <summary>The pieces of an action still standing here, checked to still be what was placed.</summary>
+        private static List<GameObject> Standing(List<Placed> group)
+        {
+            List<GameObject> standing = new List<GameObject>();
+
+            foreach (Placed placed in group)
+            {
+                GameObject instance = ZNetScene.instance.FindInstance(placed.Id);
 
                 // Missing means the piece is either gone already or in an unloaded zone,
                 // and neither is something to complain about.
@@ -122,181 +327,237 @@ namespace TheHammerOfOden
                     continue;
                 }
 
-                if (Utils.GetPrefabName(instance) != group[i].Prefab)
+                if (Utils.GetPrefabName(instance) != placed.Prefab)
                 {
                     HammerOfOdenPlugin.Debug(
                         $"Undo skipped an id that is now '{Utils.GetPrefabName(instance)}', "
-                        + $"not the '{group[i].Prefab}' that was placed.");
+                        + $"not the '{placed.Prefab}' that was placed.");
                     continue;
                 }
 
-                ZNetView view = instance.GetComponent<ZNetView>();
-                if (view == null || !view.IsValid())
-                {
-                    continue;
-                }
-
-                if (!view.IsOwner())
-                {
-                    view.ClaimOwnership();
-                }
-
-                bool refunded = Refund(instance.GetComponent<Piece>());
-
-                WearNTear wear = instance.GetComponent<WearNTear>();
-
-                if (wear != null)
-                {
-                    // Vanilla's drop is blocked only when we have handed the materials over
-                    // ourselves. Blocking it unconditionally would pay nothing at all with
-                    // RefundToInventory off, and not blocking it would pay twice with it on.
-                    wear.Remove(refunded);
-                }
-                else
-                {
-                    ZNetScene.instance.Destroy(instance);
-                }
-
-                removed++;
+                standing.Add(instance);
             }
 
-            return removed;
+            return standing;
         }
 
         /// <summary>
-        /// Gives back what a piece cost, into the inventory where possible.
+        /// Takes an action's pieces down over as many frames as it needs, top first, quietly,
+        /// and pays back once at the end.
         /// </summary>
         /// <remarks>
-        /// Only requirements marked m_recover are returned, which is the same rule vanilla
-        /// applies when it drops them - a few pieces deliberately consume something you do
-        /// not get back, and undo is not the place to change that.
-        ///
-        /// Build pieces have no quality or level, so the flat m_amount is the whole cost.
-        /// The per-level amounts on a Requirement belong to crafting recipes.
+        /// Undoing a large copy in one frame was a long freeze with a break sound and a burst of
+        /// splinters per piece - more sounds than the game has channels for - and a refund per
+        /// piece. Now:
+        ///   - a few milliseconds of it per frame, so the game keeps running
+        ///   - from the top down, so nothing is left hanging with its support gone first
+        ///   - a copy's first piece last: it holds the construction site, and the site is what
+        ///     keeps the rest standing until it is all down
+        ///   - the break effect now and then, not for every piece
+        ///   - everything totalled and handed over in one go per material - see Refunds
         /// </remarks>
-        /// <returns>True if the materials were handed over, so vanilla must not drop them too.</returns>
-        internal static bool Refund(Piece piece)
+        /// <param name="action">The undo step being taken back, or null for a selection taken down.</param>
+        /// <param name="refund">Hand the materials over, rather than let each piece drop its own.</param>
+        /// <param name="chestRange">How far to look for chests to send chest materials back to.</param>
+        /// <param name="done">"Undid", or "Took down", for the message.</param>
+        private static IEnumerator TakeDown(Player player, Action action, List<GameObject> pieces,
+            bool refund, float chestRange, string done)
         {
-            Player player = Player.m_localPlayer;
+            _undoing = true;
+            Refunds.Bill bill = new Refunds.Bill();
+            if (action != null)
+            {
+                foreach (KeyValuePair<GameObject, int> entry in action.Paid.FromBackpack)
+                {
+                    bill.FromBackpack[entry.Key] = entry.Value;
+                }
 
-            if (piece == null || player == null || piece.m_resources == null
-                || !ModConfig.UndoRefundsToInventory.Value)
+                foreach (KeyValuePair<GameObject, int> entry in action.Paid.FromChests)
+                {
+                    bill.FromChests[entry.Key] = entry.Value;
+                }
+            }
+
+            int removed = 0;
+            float nextEffect = 0f;
+
+            pieces.Sort((a, b) =>
+            {
+                bool siteA = a != null && a.GetComponent<ConstructionSite>() != null;
+                bool siteB = b != null && b.GetComponent<ConstructionSite>() != null;
+                if (siteA != siteB)
+                {
+                    return siteA ? 1 : -1;
+                }
+
+                float ya = a != null ? a.transform.position.y : 0f;
+                float yb = b != null ? b.transform.position.y : 0f;
+                return yb.CompareTo(ya);
+            });
+
+            try
+            {
+                Stopwatch frame = Stopwatch.StartNew();
+
+                foreach (GameObject instance in pieces)
+                {
+                    if (frame.ElapsedMilliseconds >= FrameBudget)
+                    {
+                        yield return null;
+                        frame.Restart();
+                    }
+
+                    // Gone since the undo began - fallen, or taken down by hand.
+                    if (instance == null)
+                    {
+                        continue;
+                    }
+
+                    bool effect = Time.time >= nextEffect;
+                    if (effect)
+                    {
+                        nextEffect = Time.time + 0.1f;
+                    }
+
+                    if (Remove(instance, refund ? bill : null, effect))
+                    {
+                        removed++;
+                    }
+                }
+            }
+            finally
+            {
+                _undoing = false;
+            }
+
+            if (action != null)
+            {
+                GroupBuilder.EndAbandon(action);
+            }
+
+            int dropped = 0;
+            if (refund && player != null)
+            {
+                dropped = Refunds.Deliver(player, bill, chestRange);
+            }
+
+            if (player != null && removed > 0)
+            {
+                Notify.Show(player, $"{done} {removed} piece{(removed == 1 ? string.Empty : "s")}"
+                    + (dropped > 0 ? $" - {dropped} items would not fit anywhere and are at your feet" : string.Empty));
+            }
+        }
+
+        /// <summary>
+        /// Takes a selection down: the same paced, quiet takedown as undo, with the materials
+        /// handed over the way a single hammer removal hands them over.
+        /// </summary>
+        internal static bool Demolish(Player player, List<GameObject> pieces)
+        {
+            if (_undoing)
+            {
+                Notify.Show(player, "Still taking the last lot down");
+                return false;
+            }
+
+            if (ZNetScene.instance == null || pieces == null || pieces.Count == 0)
             {
                 return false;
             }
 
-            foreach (Piece.Requirement requirement in piece.m_resources)
-            {
-                if (requirement == null || requirement.m_resItem == null
-                    || !requirement.m_recover || requirement.m_amount <= 0)
-                {
-                    continue;
-                }
+            // Taking a building down is undoable: its pieces are written down first, and undo
+            // puts them back up - paid for again, since this hands the materials back.
+            Future.Clear();
+            History.Add(new Action { Orders = OrdersOf(pieces) });
+            Trim();
 
-                Give(player, requirement.m_resItem, requirement.m_amount);
-            }
-
+            ZNetScene.instance.StartCoroutine(TakeDown(player, null, pieces,
+                ModConfig.RemovalRefundsToInventory.Value, 0f, "Took down"));
             return true;
         }
 
         /// <summary>
-        /// Into the pack, and whatever will not go there onto the ground at your feet.
+        /// Takes one piece down the way the game does, less the break effect unless asked for,
+        /// and with its materials added to the bill rather than dropped.
         /// </summary>
-        /// <remarks>
-        /// Two separate limits, and Valheim only enforces one of them. CanAddItem answers
-        /// about slots; nothing stops an item taking you over your carry weight, because in
-        /// normal play you pick things up deliberately and can accept the penalty. A refund
-        /// arrives without being asked for, so it must not be able to leave you staggering
-        /// after an undo you expected to cost nothing.
-        ///
-        /// Capacity is read each time rather than cached. It moves with a belt, a buff or a
-        /// change of gear, and an undo minutes later must not be working from a number that
-        /// was true when the piece was built.
-        ///
-        /// The whole amount is offered first and then one at a time, because a stack that
-        /// does not fit entirely may still fit partly - refusing the lot because the last
-        /// two are over the limit would drop far more than it needed to.
-        /// </remarks>
-        private static void Give(Player player, ItemDrop item, int amount)
+        /// <param name="bill">Where the refund goes; null to let the game drop it at the piece.</param>
+        private static bool Remove(GameObject instance, Refunds.Bill bill, bool effect)
         {
-            Inventory inventory = player.GetInventory();
-            int remaining = amount;
-
-            if (inventory != null)
+            ZNetView view = instance.GetComponent<ZNetView>();
+            if (view == null || !view.IsValid())
             {
-                float unitWeight = item.m_itemData.m_shared.m_weight;
+                return false;
+            }
 
-                int allowed = Carrying.WeightAllows(player, unitWeight, remaining);
+            if (!view.IsOwner())
+            {
+                view.ClaimOwnership();
+            }
 
-                if (allowed >= remaining
-                    && inventory.CanAddItem(item.gameObject, remaining)
-                    && inventory.AddItem(item.gameObject, remaining))
+            Piece piece = instance.GetComponent<Piece>();
+            piece?.GetComponent<IRemoved>()?.OnRemoved();
+
+            // A piece built with cheated materials gives back cheated materials, which only the
+            // game's own drop marks - so it gets the game's own drop.
+            bool cheated = view.GetZDO().GetBool(ZDOVars.s_cheated);
+            if (piece != null)
+            {
+                if (bill != null && !cheated)
                 {
-                    return;
+                    bill.AddPiece(piece);
                 }
-
-                while (remaining > 0
-                    && Carrying.WeightAllows(player, unitWeight, 1) >= 1
-                    && inventory.CanAddItem(item.gameObject, 1)
-                    && inventory.AddItem(item.gameObject, 1))
+                else
                 {
-                    remaining--;
+                    piece.DropResources();
                 }
             }
 
-            if (remaining <= 0)
+            WearNTear wear = instance.GetComponent<WearNTear>();
+            if (wear != null)
             {
-                return;
+                Bed bed = instance.GetComponent<Bed>();
+                if (bed != null && Game.instance != null)
+                {
+                    Game.instance.RemoveCustomSpawnPoint(bed.GetSpawnPoint());
+                }
+
+                // What the piece itself does as it goes - a chest spilling what is in it.
+                wear.m_onDestroyed?.Invoke();
+
+                if (effect)
+                {
+                    wear.m_destroyedEffect.Create(instance.transform.position, instance.transform.rotation, instance.transform);
+                }
             }
 
-            DropAtFeet(player, item, remaining);
-
-            HammerOfOdenPlugin.Debug(
-                $"Undo dropped {remaining} x {item.name} at the player's feet; "
-                + "no room by slots or by weight.");
+            ZNetScene.instance.Destroy(instance);
+            return true;
         }
 
         /// <summary>
-        /// Puts what would not fit on the ground where the player is standing.
+        /// Gives back what one piece cost, for an edit replacing it. Into the inventory, then the
+        /// backpack, then at your feet.
         /// </summary>
-        /// <remarks>
-        /// Instantiated from the item prefab rather than handed to ItemDrop.DropItem, which
-        /// looks the obvious way and does not work here: DropItem instantiates the ItemData's
-        /// m_dropPrefab, and that field is filled in at runtime rather than stored on the
-        /// prefab asset, so a template copied straight off the prefab carries a null and
-        /// Instantiate throws on it.
-        ///
-        /// Split into stacks the item actually allows, because one heap of two hundred wood
-        /// is not a thing the game can represent.
-        /// </remarks>
-        private static void DropAtFeet(Player player, ItemDrop item, int amount)
+        /// <returns>True if the materials were handed over, so the game must not drop them too.</returns>
+        internal static bool Refund(Piece piece)
         {
-            int perStack = Mathf.Max(1, item.m_itemData.m_shared.m_maxStackSize);
-            Vector3 feet = player.transform.position + Vector3.up * 0.4f;
-
-            while (amount > 0)
+            Player player = Player.m_localPlayer;
+            if (piece == null || player == null || !ModConfig.UndoRefundsToInventory.Value)
             {
-                int stack = Mathf.Min(amount, perStack);
-                amount -= stack;
-
-                // A hand's width apart, so several stacks are visibly a pile rather than
-                // one item sitting on top of another.
-                Vector3 where = feet + new Vector3(
-                    Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
-
-                GameObject dropped = Object.Instantiate(item.gameObject, where, Quaternion.identity);
-
-                ItemDrop drop = dropped.GetComponent<ItemDrop>();
-                if (drop == null)
-                {
-                    continue;
-                }
-
-                drop.m_itemData.m_stack = stack;
-                ItemDrop.OnCreateNew(drop);
+                return false;
             }
-        }
 
+            ZNetView view = piece.GetComponent<ZNetView>();
+            if (view != null && view.IsValid() && view.GetZDO().GetBool(ZDOVars.s_cheated))
+            {
+                return false;
+            }
+
+            Refunds.Bill bill = new Refunds.Bill();
+            bill.AddPiece(piece);
+            Refunds.Deliver(player, bill, 0f);
+            return true;
+        }
 
         internal static void Clear()
         {

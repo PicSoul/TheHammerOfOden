@@ -105,6 +105,21 @@ namespace TheHammerOfOden
                 return;
             }
 
+            if (GroupHold.IsHolding)
+            {
+                GroupHold.Cancel(player, GroupHold.IsMoving
+                    ? "Move cancelled - nothing was moved"
+                    : "Copy put away");
+                return;
+            }
+
+            // Looking at a selected piece with a selection made means the whole selection.
+            if (!IsEditing && Selection.Count > 0 && Selection.Contains(player.GetHoveringPiece()))
+            {
+                GroupHold.BeginMove(player, player.GetHoveringPiece());
+                return;
+            }
+
             if (IsEditing)
             {
                 // Looking at something else means "edit that instead", not "stop". Making the
@@ -176,7 +191,7 @@ namespace TheHammerOfOden
             _original = view.GetZDO().m_uid;
             _originalPrefab = Utils.GetPrefabName(piece.gameObject);
 
-            if (!SelectPiece(player, piece))
+            if (!TakeInHand(player, piece))
             {
                 // Vanilla's own answer when the recipe is not known or the station is missing.
                 Clear();
@@ -184,13 +199,38 @@ namespace TheHammerOfOden
                 return;
             }
 
+            _frozeForEdit = true;
+
+            Ghost(piece.gameObject);
+            Tint(piece.gameObject);
+            EditGhostMaterial.Apply(piece.gameObject);
+
+            HammerOfOdenPlugin.Debug(
+                $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
+            Notify.Show(player, "Editing " + piece.m_name + " - held in place. Adjust it, or unfreeze ("
+                + KeyNames.MainOf(ModConfig.FreezeKey) + ") to move it freely. Place to apply");
+        }
+
+        /// <summary>
+        /// Puts a built piece in the player's hands exactly as it stands: the same kind of piece
+        /// selected, snapping automatic, its rotation, size and curve loaded, and the ghost frozen
+        /// on top of the original. Shared by editing one piece and moving a group, which is held
+        /// by the piece you grabbed it by.
+        /// </summary>
+        internal static bool TakeInHand(Player player, Piece piece)
+        {
+            if (SelectPiece == null || !SelectPiece(player, piece))
+            {
+                return false;
+            }
+
             // Automatic, not the anchor last used for this kind of piece. Recalling one is for
-            // laying a run of something; the piece being edited already stands where it stands.
+            // laying a run of something; the piece in hand already stands where it stands.
             try
             {
                 int was = ManualSnapPoint(player);
                 ManualSnapPoint(player) = -1;
-                HammerOfOdenPlugin.Debug($"Edit set the snap anchor to automatic (was {was}).");
+                HammerOfOdenPlugin.Debug($"Taking a piece in hand set the snap anchor to automatic (was {was}).");
             }
             catch (System.Exception ex)
             {
@@ -202,22 +242,46 @@ namespace TheHammerOfOden
             BendState.MatchPiece(piece);
 
             // Pinned exactly where the original stands, rather than jumping to wherever the cursor
-            // happens to point. Fine adjustment is the point of editing, and a piece that starts
-            // anywhere but its own place makes every adjustment start with finding it again.
-            // Unfreezing lets it follow the cursor for a bigger move; placing or cancelling ends
-            // the freeze, since the ghost is rebuilt after every placement.
+            // happens to point. Fine adjustment is the point, and a piece that starts anywhere but
+            // its own place makes every adjustment start with finding it again. Unfreezing lets it
+            // follow the cursor for a bigger move; placing ends the freeze, since the ghost is
+            // rebuilt after every placement.
             PlacementOffset.Reset();
             PlacementFreeze.FreezeAt(piece.transform.position, piece.transform.rotation);
-            _frozeForEdit = true;
+            return true;
+        }
 
-            Ghost(piece.gameObject);
-            Tint(piece.gameObject);
-            EditGhostMaterial.Apply(piece.gameObject);
+        /// <summary>
+        /// Puts a kind of piece in the player's hands as a blueprint describes it: turned, sized
+        /// and bent as given, following the aim. There is no piece in the world to take it from.
+        /// </summary>
+        internal static bool TakeInHandFromPlan(Player player, CopyOrder order)
+        {
+            if (SelectPiece == null || order?.Prefab == null || !SelectPiece(player, order.Prefab))
+            {
+                return false;
+            }
 
-            HammerOfOdenPlugin.Debug(
-                $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
-            Notify.Show(player, "Editing " + piece.m_name + " - held in place. Adjust it, or unfreeze ("
-                + ModConfig.FreezeKey.Value.MainKey + ") to move it freely. Place to apply");
+            try
+            {
+                ManualSnapPoint(player) = -1;
+            }
+            catch (System.Exception ex)
+            {
+                HammerOfOdenPlugin.Debug("Could not reset the snap anchor: " + ex.Message);
+            }
+
+            Vector3 own = order.Prefab.transform.localScale;
+            RotationState.MatchRotation(order.Rotation);
+            ScaleState.SetMultiplier(new Vector3(
+                own.x != 0f ? order.Scale.x / own.x : 1f,
+                own.y != 0f ? order.Scale.y / own.y : 1f,
+                own.z != 0f ? order.Scale.z / own.z : 1f));
+            BendState.MatchBend(order.BendDegrees, order.BendChoice);
+
+            PlacementOffset.Reset();
+            PlacementFreeze.Reset();
+            return true;
         }
 
         /// <summary>

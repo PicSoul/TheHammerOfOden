@@ -1,3 +1,4 @@
+﻿using System.Collections.Generic;
 using BepInEx.Configuration;
 using UnityEngine;
 
@@ -140,9 +141,11 @@ namespace TheHammerOfOden
                 move += Vector3.up;
             }
 
-            if (Held(ModConfig.CameraDownKey.Value))
+            float descent = 0f;
+            if (Descending())
             {
                 move += Vector3.down;
+                descent = 1f;
             }
 
             if (move.sqrMagnitude > 1f)
@@ -156,7 +159,14 @@ namespace TheHammerOfOden
                 speed *= ModConfig.CameraBoost.Value;
             }
 
-            _position += move * (speed * dt);
+            Vector3 step = move * (speed * dt);
+            _position += step;
+
+            // Remembered for the moment a quick Ctrl + something turns out to have been meant.
+            if (descent > 0f)
+            {
+                _descended += -step.y;
+            }
 
             Tether(player);
             KeepAboveGround();
@@ -399,6 +409,110 @@ namespace TheHammerOfOden
             }
 
             return value;
+        }
+
+        private static bool _downHeld;
+        private static bool _downChorded;
+        private static float _downSince;
+        private static float _descended;
+
+        /// <summary>A combination caught this soon after the down key went down undoes the drop so far.</summary>
+        private const float ChordGrace = 0.3f;
+
+        /// <summary>
+        /// Whether the down key is flying the camera down: held, and held on its own.
+        /// </summary>
+        /// <remarks>
+        /// The default down key is Ctrl - Space and Ctrl being what nearly every game and editor
+        /// flies up and down with - and Ctrl is also half of several of the mod's own keys: Ctrl + Z
+        /// to undo, Ctrl + arrows for the large nudge, Ctrl + wheel for a station's range. Holding it
+        /// for one of those should not also sink the camera.
+        ///
+        /// So a hold of the down key is a descent only for as long as nothing joins it. The moment
+        /// a key that pairs with it is pressed, or the wheel turns, that hold is a modifier and the
+        /// camera stops sinking until the key is let go. A combination pressed within a third of a
+        /// second - a quick Ctrl + Z - puts back the little the camera had already dropped, so
+        /// undoing does not also nudge the view.
+        ///
+        /// What pairs with the down key is read from the player's own bindings: every key that
+        /// uses it as a modifier, the nudge keys when it is the large-nudge modifier, and the
+        /// wheel when it is the station-range key.
+        /// </remarks>
+        private static bool Descending()
+        {
+            KeyboardShortcut down = ModConfig.CameraDownKey.Value;
+            bool held = Held(down);
+
+            if (!held)
+            {
+                _downHeld = false;
+                _downChorded = false;
+                return false;
+            }
+
+            if (!_downHeld)
+            {
+                _downHeld = true;
+                _downChorded = false;
+                _downSince = Time.time;
+                _descended = 0f;
+            }
+
+            if (!_downChorded && Chorded(down.MainKey))
+            {
+                _downChorded = true;
+                if (Time.time - _downSince <= ChordGrace)
+                {
+                    _position.y += _descended;
+                }
+            }
+
+            return !_downChorded;
+        }
+
+        private static bool Chorded(KeyCode down)
+        {
+            if (!Mathf.Approximately(ZInput.GetMouseScrollWheel(), 0f)
+                && (ModConfig.StationRangeKey.Value.MainKey == down))
+            {
+                return true;
+            }
+
+            foreach (ConfigEntry<KeyboardShortcut> entry in PairedWith(down))
+            {
+                if (entry.Value.MainKey != KeyCode.None && ZInput.GetKey(entry.Value.MainKey, true))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Every binding whose own key is pressed together with the down key.</summary>
+        private static IEnumerable<ConfigEntry<KeyboardShortcut>> PairedWith(KeyCode down)
+        {
+            foreach (ConfigEntry<KeyboardShortcut> entry in ModConfig.AllKeys())
+            {
+                foreach (KeyCode modifier in entry.Value.Modifiers)
+                {
+                    if (modifier == down)
+                    {
+                        yield return entry;
+                        break;
+                    }
+                }
+            }
+
+            if (ModConfig.NudgeLargeModifierKey.Value.MainKey == down)
+            {
+                yield return ModConfig.NudgeForwardKey;
+                yield return ModConfig.NudgeBackwardKey;
+                yield return ModConfig.NudgeLeftKey;
+                yield return ModConfig.NudgeRightKey;
+                yield return ModConfig.NudgeUpKey;
+                yield return ModConfig.NudgeDownKey;
+            }
         }
 
         private static bool Held(KeyboardShortcut shortcut)

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using HarmonyLib;
+using UnityEngine;
 
 namespace TheHammerOfOden
 {
@@ -51,8 +52,9 @@ namespace TheHammerOfOden
 
             bool portal = ApplyToPortal(piece, factor);
             bool station = ApplyToStation(piece, scale);
+            bool light = ApplyToLights(piece, factor);
 
-            if (portal || station)
+            if (portal || station || light)
             {
                 piece.AddComponent<ScaledRangeMarker>();
             }
@@ -92,6 +94,64 @@ namespace TheHammerOfOden
             HammerOfOdenPlugin.Debug(
                 $"Station use distance {before:0.##}m -> {station.m_useDistance:0.##}m (widest scale {widest:0.##}).");
             return true;
+        }
+
+        private static readonly AccessTools.FieldRef<LightLod, float> LodBaseRange =
+            AccessTools.FieldRefAccess<LightLod, float>("m_baseRange");
+
+        /// <summary>
+        /// How far a torch, brazier or lamp throws its light.
+        /// </summary>
+        /// <remarks>
+        /// A light's reach is a plain number that the object's size does not touch, so a torch five
+        /// times the size lit the same few metres around its much larger flame, and a tiny one lit
+        /// a room. The reach now follows the size: five times the torch, five times the reach.
+        /// Brightness is left alone - with the reach scaled the light already falls off over the
+        /// right distance, and brighter would only wash out what is close.
+        ///
+        /// The game's LightLod keeps its own copy of the reach, read once as the light wakes, and
+        /// fades the light up to that copy as you come near and down again as you leave. Setting
+        /// only the light would be undone by the next fade, so the copy is changed too. So is the
+        /// distance at which the light switches on at all, and the one for its shadows: a huge
+        /// brazier should be seen lit from further away, and a tiny candle need not be lit from
+        /// forty metres.
+        /// </remarks>
+        private static bool ApplyToLights(GameObject piece, float factor)
+        {
+            if (!ModConfig.ScaleLights.Value)
+            {
+                return false;
+            }
+
+            bool any = false;
+
+            foreach (Light light in piece.GetComponentsInChildren<Light>(true))
+            {
+                LightLod lod = light.GetComponent<LightLod>();
+                if (lod != null)
+                {
+                    float baseRange = LodBaseRange(lod) * factor;
+                    LodBaseRange(lod) = baseRange;
+                    lod.m_lightDistance *= factor;
+                    lod.m_shadowDistance *= factor;
+
+                    // Mid-fade the light may already be past the new, smaller reach.
+                    light.range = Mathf.Min(light.range, baseRange);
+                }
+                else
+                {
+                    light.range *= factor;
+                }
+
+                any = true;
+            }
+
+            if (any)
+            {
+                HammerOfOdenPlugin.Debug($"Scaled the reach of the lights on '{piece.name}' by {factor:0.##}.");
+            }
+
+            return any;
         }
 
         private static bool ApplyToPortal(GameObject piece, float factor)
