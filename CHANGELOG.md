@@ -4,6 +4,29 @@
 
 ### Added
 
+- **Move, copy and take down a whole selection.** Left Alt + E on a selected piece moves the lot in
+  place - the originals themselves, so chests keep their contents and signs their text. Left Shift +
+  middle-click copies it. Middle-click twice takes it down, with the materials handed back and undo
+  able to put it back up. None of them needs a crafting station in range, and pieces that can't be
+  moved or taken down are named and deselected.
+- **Copies build as construction sites.** Placing a copy needs only what you can afford now: pieces
+  fly from your hammer into place, lowest first, and the rest waits as a ghost that carries on as
+  materials turn up - from your inventory, an AdventureBackpacks backpack, or chests with
+  AzuCraftyBoxes. Sites are saved with the world, other players with the mod see their ghosts, and a
+  part-built site can't collapse. Backspace stops one; Left Shift + Backspace takes a whole copy down,
+  even after a restart. Copies come without chest or item-stand contents, and plants and unlearned
+  pieces are left out (`CopyAllowUnlearned` lets a server allow the latter).
+- **Blueprints.** K opens a blueprint book of every PlanBuild, Infinity Hammer and BuildShare blueprint
+  in `BepInEx/config/PlanBuild`, each previewed as a turning model. Numpad Enter saves a selection as
+  one, in PlanBuild's format so those mods open it too - with scale, bends, sign text, a picture,
+  created and updated dates, and a backup when overwriting. Ground shaping in a blueprint is an option.
+- **Models.** Numpad Enter turns a held copy or blueprint into a miniature to stand on a table or
+  floor - drawn, not built, so a model of thousands of pieces is one saved object.
+- **Redo** on Left Ctrl + Left Shift + Z, for placements, moves, take-downs and models.
+- **A building panel** listing what your unfinished buildings still need, a **message panel** that
+  keeps messages up long enough to read, and a **key hint strip** that shows the keys that do something
+  right now, in place of the game's own build hints.
+- **Scaled lights reach in proportion** - a torch twice the size lights twice as far.
 - **Select several pieces at once**, the first part of moving and copying them as a group.
   Left Alt + middle-click adds or removes the piece you're looking at; Left Alt + Page Up grows the
   selection by everything touching it, and Page Down takes the last grow back; Numpad * takes the
@@ -29,6 +52,11 @@
 
 ### Changed
 
+- **Undo sends materials back where they came from** - chests, backpack, inventory - and a large undo
+  comes down a little each frame with one combined refund, instead of freezing the game and scattering
+  piles. Undo remembers 25 actions by default, up from 10.
+- **The hammer's remove puts materials into your inventory**, then your backpack, and drops only what
+  won't fit. `RemovalRefundsToInventory` turns it off.
 - **Adjustments only work while you stand still.** Rotating, scaling, bending, nudging, zooping and
   station-range changes are ignored while you walk, because their modifiers double as movement keys -
   shift is sprint and pitch, control is crouch and range. Standing on a moving ship counts as standing
@@ -42,6 +70,8 @@
 
 ### Fixed
 
+- Undo lost materials when a refund was more than one stack of something: only the first stack was
+  handed over.
 - The cultivator was treated as a building tool, because it can remove what it planted, and got the
   rotation gizmo and the rest. A tool now also has to have structural pieces in its build menu, which a
   cultivator, a hoe or a modded terrain tool never does. The build camera still works with all of them.

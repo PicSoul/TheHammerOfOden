@@ -32,6 +32,9 @@ namespace TheHammerOfOden
             Placing,
             Snapping,
             Selecting,
+            Copying,
+            Models,
+            Blueprints,
             Runs,
             Camera,
             Doors,
@@ -204,6 +207,10 @@ namespace TheHammerOfOden
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Placing) Placing();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Snapping) Snapping();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Selecting) Selecting();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Selecting) Groups();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Copying) Copying();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Models) Models();
+            if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Blueprints) Blueprints();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Runs) Runs();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Camera) Camera();
             if (_currentTab == CategoryTab.All || _currentTab == CategoryTab.Doors) Doors();
@@ -227,22 +234,29 @@ namespace TheHammerOfOden
 
         private static void DrawCategoryTabs()
         {
+            // Two rows: one piece at a time, then whole buildings and the rest.
             GUILayout.BeginHorizontal();
             GUILayout.Space(8f);
-
             TabBtn(CategoryTab.All, "All");
             TabBtn(CategoryTab.Rotating, "Rotate");
             TabBtn(CategoryTab.Scaling, "Scale");
             TabBtn(CategoryTab.Bending, "Bend");
             TabBtn(CategoryTab.Placing, "Place");
             TabBtn(CategoryTab.Snapping, "Snap/Edit");
+            TabBtn(CategoryTab.Runs, "Runs/Undo");
+            TabBtn(CategoryTab.Master, "Master");
+            GUILayout.Space(8f);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(8f);
             TabBtn(CategoryTab.Selecting, "Select");
-            TabBtn(CategoryTab.Runs, "Runs");
+            TabBtn(CategoryTab.Copying, "Copy");
+            TabBtn(CategoryTab.Models, "Models");
+            TabBtn(CategoryTab.Blueprints, "Blueprints");
             TabBtn(CategoryTab.Camera, "Camera");
             TabBtn(CategoryTab.Doors, "Doors");
             TabBtn(CategoryTab.Stations, "Stations");
-            TabBtn(CategoryTab.Master, "Master");
-
             GUILayout.Space(8f);
             GUILayout.EndHorizontal();
         }
@@ -271,6 +285,10 @@ namespace TheHammerOfOden
                 + (ModConfig.LockWhileMoving.Value
                     ? " Rotating, scaling, bending, nudging and zooping only work while you stand still."
                     : string.Empty));
+            Note("The strip in the corner shows the keys that do something right now, and changes as you hold "
+                + "a modifier, a copy or a selection. Messages appear in the mod's own panel and stay long "
+                + "enough to read. While a building of yours is going up, a panel lists what it still needs. "
+                + "All three move and resize in the config: Key Hints, Messages, Building Panel.");
         }
 
         private static void Rotating()
@@ -361,7 +379,8 @@ namespace TheHammerOfOden
             Note("An edited piece starts frozen exactly where it stands, so small adjustments stay small; press "
                 + Key(ModConfig.FreezeKey) + " to let it follow your aim for a bigger move. Placing or cancelling "
                 + "releases it. Editing keeps the piece's health and materials at no extra cost. Containers, signs "
-                + "and item stands with something in them cannot be edited.");
+                + "and item stands with something in them cannot be edited on their own - select them and move "
+                + "the selection instead, which keeps what they hold.");
         }
 
         private static void Selecting()
@@ -378,13 +397,73 @@ namespace TheHammerOfOden
                 + (Selection.Count > 0 ? Selection.Count + " selected right now." : "Nothing selected right now."));
         }
 
+        private static void Groups()
+        {
+            Section("Moving, Copying & Taking Down a Selection", "ᛟ");
+            Plain(Key(ModConfig.EditKey) + " on a selected piece", "Move the whole selection in place - chests keep what is in them");
+            Plain("Shift + Middle mouse on a selected piece", "Copy the selection, to build somewhere else");
+            Plain("Middle mouse twice on a selected piece", "Take the selection down - materials back, undo puts it back up");
+            Row(ModConfig.BlueprintSaveKey, "With nothing held: save the selection as a blueprint");
+            Note("A held group resizes evenly with the uniform scale keys, turns and nudges like one piece. "
+                + "Copies are new pieces: chests come empty and item stands bare, sign text comes along. "
+                + "Plants are left out" + (ModConfig.CopyAllowUnlearned.Value
+                    ? ", and pieces you have not learned are included (set by the server)."
+                    : ", and so are pieces you have not learned - they are listed.")
+                + " No crafting station is needed to move, copy or take down a selection. Pieces that cannot be "
+                + "moved or taken down - someone else's ward, in use - are named and deselected.");
+        }
+
+        private static void Copying()
+        {
+            Section("Copies & Construction Sites", "ᚺ");
+            Plain("Left mouse, holding a copy", "Place it: what you can pay for flies in, lowest first");
+            Row(ModConfig.SiteCancelKey, "On a building still going up: stop it where it stands");
+            Row(ModConfig.SiteTakeDownKey, "On any piece of a copy: take the whole copy down, even after a restart");
+            Note("A copy you cannot pay for in full waits as a ghost and carries on by itself as materials turn up - "
+                + "on you, in an AdventureBackpacks backpack, or in chests within reach with AzuCraftyBoxes - while "
+                + "you are within " + ModConfig.SiteRange.Value.ToString("0") + "m. It is saved with the world, and "
+                + "other players with the mod see its ghost. The building panel lists what it still needs.");
+            Note("Undo takes a copy down and hands the materials back where they came from - chests that hold them, "
+                + "your backpack, your inventory - and anything that fits nowhere lands at your feet.");
+        }
+
+        private static void Models()
+        {
+            Section("Models", "ᛗ");
+            Row(ModConfig.ModelKey, "Holding a copy or a blueprint: turn it into a miniature");
+            Plain("Hold " + Key(ModConfig.ScaleModifierKey) + " + " + Key(ModConfig.ScaleUpKey) + " / " + Key(ModConfig.ScaleDownKey),
+                "Bigger / smaller model");
+            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "Raise / lower it finely, a centimetre a press");
+            Plain("Left mouse", "Stand it on the top of a table or a floor");
+            Plain("Middle mouse twice, or " + Key(ModConfig.SiteCancelKey), "On its table: take the model off");
+            Note("A model is drawn, not built: one saved object however large the building, costing one resin, "
+                + "plus one wood and one stone if the building uses them. Undo takes it off again. Models further "
+                + "than " + ModConfig.ModelDrawDistance.Value.ToString("0") + "m away are not drawn.");
+        }
+
+        private static void Blueprints()
+        {
+            Section("Blueprints", "ᛒ");
+            Row(ModConfig.BlueprintBookKey, "With the hammer out: open the blueprint book");
+            Row(ModConfig.BlueprintSaveKey, "With a selection and nothing held: save it as a blueprint");
+            Plain("Drag / scroll on the preview", "Turn / zoom the model preview; the button above keeps that view as its picture");
+            Note("Blueprints are PlanBuild files, kept in BepInEx/config/PlanBuild - PlanBuild, Infinity Hammer and "
+                + "BuildShare blueprints all open here, and PlanBuild and Infinity Hammer can open yours. Scaled pieces "
+                + "keep their size in all three; bends show in Infinity Hammer too, where this mod is installed. "
+                + "Picked up, a blueprint is held and placed exactly like a copy.");
+            Note("Saving over a blueprint asks first and keeps the old one as a .bak file. A selection remembers the "
+                + "blueprint it was saved as or built from. Pieces from mods not installed here, sizes beyond the "
+                + "server's limits and ground shaping (an option in the book) are shown before you place.");
+        }
+
         private static void Runs()
         {
             Section("Zooping Runs & Instant Undo", "ᛉ");
             Plain("Hold " + Key(ModConfig.ZoopModifierKey) + " + arrows / " + Key(ModConfig.NudgeUpKey) + " / "
                 + Key(ModConfig.NudgeDownKey), "Extend a line or grid of copies (zooping) before placing");
             Row(ModConfig.ZoopGapWiderKey, "Wider gap", ModConfig.ZoopGapNarrowerKey, "Narrower gap / overlap");
-            Row(ModConfig.UndoKey, "Undo: instantly dismantle and refund entire last run");
+            Row(ModConfig.UndoKey, "Undo: take back the last thing you did - a run, a copy, a move, a take-down");
+            Row(ModConfig.RedoKey, "Redo: do again what you last undid (rebuilt pieces are paid for again)");
             Note("Gap between copies: " + (Mathf.Approximately(Zooping.Gap, 0f)
                     ? "none, they touch"
                     : Zooping.Gap > 0f ? Zooping.Gap.ToString("0.##") + "m" : (-Zooping.Gap).ToString("0.##") + "m overlap")

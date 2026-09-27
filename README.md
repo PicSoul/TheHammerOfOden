@@ -1,8 +1,10 @@
-# The Hammer of Oden
+﻿# The Hammer of Oden
 
 **One mod for Valheim building, in place of several.**
 
 Vanilla lets you turn a piece on the flat and nothing more. This lets you pitch it, roll it, sink it into another piece, stretch it, lay it flat against a wall, pin it in the air and walk around it, lay a whole run of it in one go, take that run back if it was wrong, and see precisely what it is going to snap to.
+
+And whole buildings, not just pieces: select one and move it, copy it, take it down with its materials handed back, save it as a blueprint that PlanBuild and Infinity Hammer can open too, or stand a miniature of it on a table. A copy you can't afford all at once goes up as a construction site, bottom first, as the materials turn up.
 
 > **Status: early.** Everything below works and is in daily use in single player. Multiplayer is
 > what this release exists to test, and the mod has to be on the server and on every client -
@@ -121,7 +123,63 @@ A whole building is found a few milliseconds per frame, so even one of several t
 fills in over a moment rather than freezing the game. A selection holds up to 10,000 pieces by
 default - the server sets the limit - and is kept until you clear it or leave the world.
 
-Moving and copying a selection is on its way; for now a selection is only a selection.
+### Moving, copying and taking down a selection
+
+| Action | Control |
+|---|---|
+| Move the whole selection | **Left Alt + E** on a selected piece |
+| Copy the selection | **Left Shift + middle-click** on a selected piece |
+| Take the selection down | **middle-click twice** on a selected piece |
+| Save the selection as a blueprint | **Numpad Enter**, with nothing held |
+
+A **move** picks the original pieces up and sets them down again: nothing is rebuilt, so a chest keeps what's in it, a sign its text, a damaged wall its damage. A held group turns, nudges and freezes like one piece, and resizes evenly with the uniform scale keys.
+
+A **copy** is new pieces. Chests come empty and item stands bare, so a copy can't duplicate what's inside; sign text comes along. Every piece is paid for. Plants are left out, and so are pieces your character hasn't learned - they're listed - unless the server sets `CopyAllowUnlearned`.
+
+A **take-down** asks twice, then comes down top first, a little each frame, with one combined refund at the end. Undo puts it back up.
+
+None of the three needs a crafting station in range. Pieces that can't be moved or taken down - inside someone else's ward, or in use - are named, and taken out of the selection so the next press works on the rest.
+
+### Copies and construction sites
+
+| Action | Control |
+|---|---|
+| Place a held copy | **Left-click** |
+| Stop a building still going up, where it stands | **Backspace**, looking at it |
+| Take a whole copy down, even after a restart | **Left Shift + Backspace**, looking at any piece of it |
+
+You don't need every material to place a copy. What you can pay for flies from your hammer into place, lowest first, and the rest waits as a see-through ghost that carries on by itself as materials turn up - from your inventory, an **AdventureBackpacks** backpack, or chests around you with **AzuCraftyBoxes**. It builds while you're within 100m, is saved with the world, and other players with the mod see its ghost. Until it's done, the part already standing can't collapse.
+
+A panel at the side of the screen lists what each of your buildings still needs, and stays until they're finished.
+
+### Models
+
+| Action | Control |
+|---|---|
+| Turn a held copy or blueprint into a model | **Numpad Enter** |
+| Bigger / smaller | **Left Shift + Numpad + / -** |
+| Raise / lower it finely | **Home / End** |
+| Stand it on a table or floor | **Left-click** |
+| Take it off again | **middle-click twice**, or **Backspace**, on its table |
+
+A model is a miniature of a building, drawn rather than built - one saved object however large the building - so it costs nothing to keep around. It costs one resin, plus a wood and a stone if the building uses them.
+
+### Blueprints
+
+| Action | Control |
+|---|---|
+| Open the blueprint book (hammer out) | **K** |
+| Save the selection as a blueprint | **Numpad Enter**, with nothing held |
+
+The book lists every blueprint in `BepInEx/config/PlanBuild` - PlanBuild's, Infinity Hammer's, BuildShare's and your own - with a turning model preview of the one you pick. Drag to turn it, scroll to zoom, and "Use this view as picture" keeps that view as its thumbnail. Pick one up and it's held exactly like a copy.
+
+Yours are saved in PlanBuild's format, so PlanBuild and Infinity Hammer open them too. Scaled pieces keep their size in all three; bends show in Infinity Hammer as well, where this mod is installed, and PlanBuild builds them straight. Saving over a blueprint asks first and keeps the old file as a `.bak`; each keeps when it was created and last updated.
+
+Reading a blueprint follows the same rules as a copy: no chest contents or items on stands, sizes kept within the server's limits, and pieces from mods you don't have listed rather than built. Ground shaping - raising, levelling, paths - is left out unless you switch it on in the book.
+
+### On screen
+
+The mod's messages appear in their own panel, where they stay long enough to read. A strip in the corner shows the keys that do something right now - it changes as you hold a modifier, a copy or a selection, and replaces the game's own build hints. Position, size and timing of all three are in the config.
 
 ### Bending
 
@@ -353,15 +411,15 @@ The run is previewed before it's built, and it isn't free — each copy is a rea
 
 ### Undo
 
-**Left Ctrl + Z** takes back the last thing you built — the whole run if you zooped, a single piece if you didn't. That's the unit you were thinking in either way.
+**Left Ctrl + Z** takes back the last thing you did — the whole run if you zooped, a single piece if you didn't, a copy, a move, a take-down. **Left Ctrl + Left Shift + Z** does it again. Redoing something that was taken down builds it again as a construction site, paid for again, since undo handed the materials back.
 
 A piece gives back what it cost and no more — the same as taking it down by hand. An undo that refunded more than that would be a way of manufacturing resources.
 
 *Where* it goes is a different question from how much. Materials are handed straight into your inventory, and only what won't fit is dropped, in one pile at your feet — "won't fit" meaning either out of slots **or** over your carry weight. Valheim only enforces the first; nothing stops a pickup taking you overweight, which is fine when you chose to pick it up and not fine for a refund that arrives unasked. Capacity is read at the moment of the undo, so a belt or a change of gear counts. Vanilla scatters them at each piece instead, which is fine for one piece and a long walk after undoing a run forty long. `RefundToInventory = false` restores the vanilla scatter; the amount is identical either way.
 
-If you build from chests, note the asymmetry: materials can come **out of a chest** and come **back to your pockets**, because the container mods hook spending, not receiving. Undoing a large run built from storage can therefore fill your inventory quickly — which is what the pile at your feet is for.
+Undoing a copy sends its materials back where they came from: what came out of chests goes back to chests nearby that already hold that material, what came from an AdventureBackpacks backpack goes back to it, and the rest into your inventory. A large undo comes down a little each frame, top first, with one combined refund at the end. Taking a piece down with the hammer's own remove also puts its materials straight into your inventory, then your backpack, rather than on the ground.
 
-Ten placements are remembered by default. The limit is about what you can still remember doing rather than memory — a few thousand pieces would cost nothing to keep — so raise `Depth` if you want, knowing that undoing something from twenty minutes ago tends to surprise more than it helps.
+Twenty-five actions are remembered by default. Undo history lasts until you close the game; for a copy from an earlier session, Left Shift + Backspace takes it down. The limit is about what you can still remember doing rather than memory — a few thousand pieces would cost nothing to keep — so raise `Depth` if you want, knowing that undoing something from twenty minutes ago tends to surprise more than it helps.
 
 Pieces already gone — torn down by hand, or lost to a raid — are skipped, and undo falls through to the placement before rather than doing nothing visible.
 
@@ -381,7 +439,7 @@ Every piece resizes, stations and ships included. The points a station works fro
 
 Particle effects are drawn larger to match, though not spread into the space around the piece.
 
-### Copying
+### Copying one piece
 
 Vanilla's copy shortcut already takes a piece's yaw. This extends it to the full 3-axis rotation and the size it was built at.
 
@@ -430,7 +488,9 @@ Around a hundred and fifty settings across `General`, `Rotation`, `Snap Points`,
 
 ## Requirements and compatibility
 
-Requires BepInEx. Nothing else. **Client-side only** — no server install, and it does not matter what other players have.
+Requires BepInEx. Nothing else. **Install it on the server and every client** - see Multiplayer above.
+
+**Works with:** AzuCraftyBoxes (copies pay from nearby chests), AdventureBackpacks 2.2.0+ (pay from and refund to the backpack), PlanBuild and Infinity Hammer (shared blueprint files), PlantEverything.
 
 ### Do not run alongside
 
@@ -446,6 +506,17 @@ This mod owns the placement pipeline.
 ComfyGizmo and Snapheim are detected at startup and warned about.
 
 **Known fine:** Jotunn, PlantEverything, AdvancedPortals, XPortal, and other content mods that add pieces without changing how the ghost is positioned.
+
+## Planned
+
+- **Other players see moves live.** A moved group shows in its new place for other players only once their area reloads.
+- **Other players see what you're holding** - a copy, a move, a model or a blueprint in your hands, before you place it.
+- **A server blueprint library:** a blueprint folder on the server, browsed from a tab in the book, with each blueprint downloaded only when picked.
+- **Editing a single piece in place**, keeping what it holds and its damage, as group moves already do.
+- **Area select** by dragging a box, and **deselect by type**.
+- **A site chest** that feeds a construction site, for players without a build-from-chests mod.
+- **Snapping a held blueprint** by its snap points, and pictures in the book's list.
+- Later, maybe: a draft mode for editing a blueprint's ghost piece by piece.
 
 ## Troubleshooting
 
