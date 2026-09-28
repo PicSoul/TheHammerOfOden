@@ -186,6 +186,13 @@ namespace TheHammerOfOden
 
         // ------------------------------------------------------------------ the support rule
 
+        /// <summary>Whether this record carries a site's plan - checked as updates arrive from other players.</summary>
+        internal static bool HasPlan(ZDO zdo)
+        {
+            byte[] plan = zdo?.GetByteArray(PlanKey);
+            return plan != null && plan.Length > 0;
+        }
+
         /// <summary>Whether this piece belongs to a site still going up here.</summary>
         internal static bool IsExempt(WearNTear wear)
         {

@@ -90,6 +90,13 @@ namespace TheHammerOfOden
             return display;
         }
 
+        /// <summary>Whether this record carries a model - checked as updates arrive from other players.</summary>
+        internal static bool HasModel(ZDO zdo)
+        {
+            byte[] plan = zdo?.GetByteArray(PlanKey);
+            return plan != null && plan.Length > 0;
+        }
+
         internal static bool Carries(Piece piece)
         {
             ZNetView view = piece != null ? piece.GetComponent<ZNetView>() : null;

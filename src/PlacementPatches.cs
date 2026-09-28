@@ -1925,6 +1925,50 @@ namespace TheHammerOfOden
         }
     }
 
+    /// <summary>
+    /// Takes up a model or a construction site the moment another player's update brings one to a
+    /// piece already standing here.
+    /// </summary>
+    /// <remarks>
+    /// Both are otherwise noticed only as a piece comes into the world - which, for a table
+    /// someone puts a model on while you watch, is not until you leave and come back. A copy's
+    /// first piece can likewise arrive a moment before the plan written onto it.
+    ///
+    /// Every update from other players is applied here, so this is kept to two lookups on the
+    /// record, and only a piece that has a model or a plan and no display for it yet goes further.
+    /// </remarks>
+    [HarmonyPatch(typeof(ZDO), nameof(ZDO.Deserialize))]
+    internal static class ZdoDeserializeAttachPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ZDO __instance)
+        {
+            bool model = ModelDisplay.HasModel(__instance);
+            bool site = ConstructionSite.HasPlan(__instance);
+            if ((!model && !site) || ZNetScene.instance == null)
+            {
+                return;
+            }
+
+            ZNetView view = ZNetScene.instance.FindInstance(__instance);
+            if (view == null)
+            {
+                // Not standing here yet: it will be taken up as it comes into the world.
+                return;
+            }
+
+            if (model && view.GetComponent<ModelDisplay>() == null)
+            {
+                ModelDisplay.Attach(view);
+            }
+
+            if (site && view.GetComponent<ConstructionSite>() == null)
+            {
+                ConstructionSite.Attach(view);
+            }
+        }
+    }
+
     /// <summary>Forgets the selection on leaving a world; its pieces belong to that world.</summary>
     [HarmonyPatch(typeof(Game), "OnDestroy")]
     internal static class GameOnDestroySelectionPatch

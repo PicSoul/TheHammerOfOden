@@ -15,7 +15,7 @@ namespace TheHammerOfOden
     {
         public const string PluginGuid = "com.pics0ul.valheim.thehammerofoden";
         public const string PluginName = "The Hammer of Oden";
-        public const string PluginVersion = "0.3.0";
+        public const string PluginVersion = "0.3.1";
 
         private static ManualLogSource _logger;
         private Harmony _harmony;

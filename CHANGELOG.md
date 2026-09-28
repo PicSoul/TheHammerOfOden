@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 0.3.1
+
+### Fixed
+
+- A model put on a table or floor, or a copy's construction site, only appeared for other players
+  once they left the area and came back. Both now appear for everyone nearby as they are placed.
+
 ## 0.3.0
 
 ### Added
