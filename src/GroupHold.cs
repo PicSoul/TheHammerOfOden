@@ -946,6 +946,22 @@ namespace TheHammerOfOden
             GroupBuilder.Start(orders, PlacementUndo.CurrentAction);
         }
 
+        /// <summary>
+        /// A copy has just gone down and is still held for the next one. The pin and the nudge
+        /// belonged to where that one went, so they are let go: left pinned, the next copy
+        /// would go up inside the first.
+        /// </summary>
+        internal static void CopyPlaced()
+        {
+            if (!IsCopying)
+            {
+                return;
+            }
+
+            PlacementFreeze.Reset();
+            PlacementOffset.Reset();
+        }
+
         private static CopyOrder Order(Member member)
         {
             return new CopyOrder
@@ -1683,9 +1699,10 @@ namespace TheHammerOfOden
             ModelDisplay.Saved saved = ModelDisplay.Take(host);
             PlacementUndo.RecordRevertible(() => ModelDisplay.TakeOff(player, saved), () => ModelDisplay.PutBack(player, saved), "model");
 
-            Cancel(player, null);
-            Notify.Show(player, $"Model of {pieces} pieces placed. Undo takes it off; so does middle-click or "
-                + $"{KeyNames.Of(ModConfig.SiteCancelKey)} on what it stands on.");
+            // Still held, like a full-size copy, for the next table.
+            CopyPlaced();
+            Notify.Show(player, $"Model of {pieces} pieces placed - still in hand for another table. Undo takes it off; "
+                + $"so does middle-click or {KeyNames.Of(ModConfig.SiteCancelKey)} on what it stands on.");
         }
     }
 }

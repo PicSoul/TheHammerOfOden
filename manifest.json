@@ -1,6 +1,6 @@
 ﻿{
   "name": "TheHammerOfOden",
-  "version_number": "0.3.1",
+  "version_number": "0.3.2",
   "website_url": "https://github.com/PicSoul/TheHammerOfOden",
   "description": "Pitch, roll, scale and bend building pieces. Move, copy and take down whole buildings, build copies as they're paid for, save PlanBuild-compatible blueprints, stand models on tables, fly a build camera.",
   "dependencies": [

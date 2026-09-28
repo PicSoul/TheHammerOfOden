@@ -110,7 +110,7 @@ namespace TheHammerOfOden
                 bool copy = GroupHold.IsCopying;
                 bool move = GroupHold.IsMoving;
                 _title = copy ? "Holding a copy" : move ? "Moving a group" : "Editing a piece";
-                Row("Left mouse", copy ? "Place the copy" : "Put it down here");
+                Row("Left mouse", copy ? "Place the copy (it stays in hand)" : "Put it down here");
                 if (copy)
                 {
                     Row(ModConfig.ModelKey, "Make it a model instead");

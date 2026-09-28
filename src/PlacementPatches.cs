@@ -397,7 +397,7 @@ namespace TheHammerOfOden
             // modifiers - so redo is asked first, and undo only if it was not redo.
             if (PressedWithModifiers(ModConfig.RedoKey.Value))
             {
-                if (GroupHold.IsHolding)
+                if (GroupHold.IsMoving)
                 {
                     Notify.Show(player, "Place or cancel the move first");
                     return;
@@ -408,7 +408,9 @@ namespace TheHammerOfOden
             else if (PressedWithModifiers(ModConfig.UndoKey.Value))
             {
                 // Undoing something else mid-move would change the world under a group in hand.
-                if (GroupHold.IsHolding)
+                // A held copy is only a plan - nothing in the world - so the copies it has
+                // already put down can be taken back while it is still held.
+                if (GroupHold.IsMoving)
                 {
                     Notify.Show(player, "Place or cancel the move first");
                     return;
@@ -1478,11 +1480,11 @@ namespace TheHammerOfOden
 
             Zooping.QueueRun(piece, rot, cheated);
 
-            // One copy per pick-up: it is going up now, and the preview standing where it is being
-            // built would only be in the way.
+            // The copy stays in hand, like any piece, so the same group can go down again and
+            // again until it is put away.
             if (GroupHold.IsCopying)
             {
-                GroupHold.Cancel(__instance, null);
+                GroupHold.CopyPlaced();
             }
         }
     }

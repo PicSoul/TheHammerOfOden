@@ -1,5 +1,23 @@
 ﻿# Changelog
 
+## 0.3.2
+
+### Changed
+
+- A placed copy stays in hand, like any other piece, so the same group can be put down again and
+  again until you put it away (Left Alt + E) or choose another piece. Before, the hammer let go of
+  the group after one placement and was left holding only the piece it was copied by. Blueprints
+  from the book and models behave the same way, so one model can go on several tables. The freeze
+  and nudge are cleared after each placement, so the next copy follows your aim rather than going
+  up inside the last.
+- Undo and redo work while a copy is still held, so several copies can be put down and taken back
+  one by one without letting go. They are still refused during a move, where the pieces in hand are
+  the real ones.
+
+### Fixed
+
+- The README listed the undo depth setting as defaulting to 10; it is 25.
+
 ## 0.3.1
 
 ### Fixed

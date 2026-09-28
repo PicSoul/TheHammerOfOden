@@ -144,7 +144,7 @@ None of the three needs a crafting station in range. Pieces that can't be moved 
 
 | Action | Control |
 |---|---|
-| Place a held copy | **Left-click** |
+| Place a held copy - it stays in hand, so click again for another | **Left-click** |
 | Stop a building still going up, where it stands | **Backspace**, looking at it |
 | Take a whole copy down, even after a restart | **Left Shift + Backspace**, looking at any piece of it |
 
@@ -417,7 +417,7 @@ A piece gives back what it cost and no more — the same as taking it down by ha
 
 *Where* it goes is a different question from how much. Materials are handed straight into your inventory, and only what won't fit is dropped, in one pile at your feet — "won't fit" meaning either out of slots **or** over your carry weight. Valheim only enforces the first; nothing stops a pickup taking you overweight, which is fine when you chose to pick it up and not fine for a refund that arrives unasked. Capacity is read at the moment of the undo, so a belt or a change of gear counts. Vanilla scatters them at each piece instead, which is fine for one piece and a long walk after undoing a run forty long. `RefundToInventory = false` restores the vanilla scatter; the amount is identical either way.
 
-Undoing a copy sends its materials back where they came from: what came out of chests goes back to chests nearby that already hold that material, what came from an AdventureBackpacks backpack goes back to it, and the rest into your inventory. A large undo comes down a little each frame, top first, with one combined refund at the end. Taking a piece down with the hammer's own remove also puts its materials straight into your inventory, then your backpack, rather than on the ground.
+Undoing a copy sends its materials back where they came from: what came out of chests goes back to chests nearby that already hold that material, what came from an AdventureBackpacks backpack goes back to it, and the rest into your inventory. Undo works while you are still holding the copy, so you can put down several and take them back newest first. A large undo comes down a little each frame, top first, with one combined refund at the end. Taking a piece down with the hammer's own remove also puts its materials straight into your inventory, then your backpack, rather than on the ground.
 
 Twenty-five actions are remembered by default. Undo history lasts until you close the game; for a copy from an earlier session, Left Shift + Backspace takes it down. The limit is about what you can still remember doing rather than memory — a few thousand pieces would cost nothing to keep — so raise `Depth` if you want, knowing that undoing something from twenty minutes ago tends to surprise more than it helps.
 
@@ -465,7 +465,7 @@ Around a hundred and fifty settings across `General`, `Rotation`, `Snap Points`,
 | `Zoop Limit` | `60` | most extra copies one run may place |
 | `Zoop PiecesPerFrame` | `8` | raise for instant runs, at the cost of a stutter |
 | `Zoop Spacing` | `1` | `2` leaves a piece-sized gap between copies |
-| `Undo Depth` | `10` | how many placements back you can go |
+| `Depth` (Undo) | `25` | how many placements back you can go |
 | `Restrictions` | `ProductionStations` | what is excluded from resizing |
 | `Mode` (Free Placement) | `Toggle` | `Vanilla` hands it back to Left Shift |
 | `Freedom` | `SurfacesAndSpacing` | which placement rules free placement sets aside |

@@ -416,7 +416,7 @@ namespace TheHammerOfOden
         private static void Copying()
         {
             Section("Copies & Construction Sites", "ᚺ");
-            Plain("Left mouse, holding a copy", "Place it: what you can pay for flies in, lowest first");
+            Plain("Left mouse, holding a copy", "Place it: what you can pay for flies in, lowest first. The copy stays in hand to place again");
             Row(ModConfig.SiteCancelKey, "On a building still going up: stop it where it stands");
             Row(ModConfig.SiteTakeDownKey, "On any piece of a copy: take the whole copy down, even after a restart");
             Note("A copy you cannot pay for in full waits as a ghost and carries on by itself as materials turn up - "
@@ -424,7 +424,8 @@ namespace TheHammerOfOden
                 + "you are within " + ModConfig.SiteRange.Value.ToString("0") + "m. It is saved with the world, and "
                 + "other players with the mod see its ghost. The building panel lists what it still needs.");
             Note("Undo takes a copy down and hands the materials back where they came from - chests that hold them, "
-                + "your backpack, your inventory - and anything that fits nowhere lands at your feet.");
+                + "your backpack, your inventory - and anything that fits nowhere lands at your feet. It works while "
+                + "you still hold the copy, so you can put down several and take them back one by one.");
         }
 
         private static void Models()
