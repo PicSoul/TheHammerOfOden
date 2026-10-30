@@ -70,10 +70,10 @@ namespace TheHammerOfOden
             Gap = Mathf.Clamp(Mathf.Round((Gap + delta) * 100f) / 100f, -5f, 20f);
 
             string text = Mathf.Approximately(Gap, 0f)
-                ? "Zoop gap: none, copies touch"
-                : Gap > 0f ? $"Zoop gap: {Gap:0.##} m apart" : $"Zoop gap: {-Gap:0.##} m overlap";
+                ? Words.T("$hoo_zoop_gap_none")
+                : Gap > 0f ? Words.T("$hoo_zoop_gap_apart", Gap.ToString("0.##")) : Words.T("$hoo_zoop_gap_overlap", (-Gap).ToString("0.##"));
 
-            Notify.Show(player, IsActive ? text : text + " - applies to your next run");
+            Notify.Show(player, IsActive ? text : text + " - " + Words.T("$hoo_zoop_next_run"));
         }
 
         internal static void ResetGap()
@@ -129,7 +129,7 @@ namespace TheHammerOfOden
 
             if (Legs.Count >= 3)
             {
-                Notify.Show(player, "Zoop: already using three directions");
+                Notify.Show(player, "$hoo_zoop_three_directions");
                 return;
             }
 
@@ -138,7 +138,7 @@ namespace TheHammerOfOden
             if (TotalCopies() > ModConfig.ZoopLimit.Value)
             {
                 Legs.RemoveAt(Legs.Count - 1);
-                Notify.Show(player, $"Zoop limit is {ModConfig.ZoopLimit.Value}");
+                Notify.Show(player, Words.T("$hoo_zoop_limit", ModConfig.ZoopLimit.Value.ToString()));
                 return;
             }
 
@@ -165,7 +165,7 @@ namespace TheHammerOfOden
             if (TotalCopies() > ModConfig.ZoopLimit.Value)
             {
                 Legs[index] = previous;
-                Notify.Show(player, $"Zoop limit is {ModConfig.ZoopLimit.Value}");
+                Notify.Show(player, Words.T("$hoo_zoop_limit", ModConfig.ZoopLimit.Value.ToString()));
                 return;
             }
 
@@ -176,7 +176,7 @@ namespace TheHammerOfOden
         {
             if (Legs.Count == 0)
             {
-                Notify.Show(player, "Zoop: off");
+                Notify.Show(player, "$hoo_zoop_off");
                 return;
             }
 
@@ -186,7 +186,7 @@ namespace TheHammerOfOden
                 shape += (shape.Length == 0 ? string.Empty : " x ") + (leg.Count + 1);
             }
 
-            Notify.Show(player, $"Zoop: {shape} ({TotalCopies() + 1} pieces)");
+            Notify.Show(player, Words.T("$hoo_zoop_shape", shape, (TotalCopies() + 1).ToString()));
         }
 
         /// <summary>Forget the run, and take down its preview.</summary>
@@ -405,7 +405,7 @@ namespace TheHammerOfOden
                 {
                     if (!free && !player.HaveRequirements(piece, Player.RequirementMode.CanBuild))
                     {
-                        Notify.Show(player, $"Zoop stopped: out of materials after {_built}");
+                        Notify.Show(player, Words.T("$hoo_zoop_out_of_materials", _built.ToString()));
                         Finish();
                         return;
                     }

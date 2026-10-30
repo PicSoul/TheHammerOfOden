@@ -38,8 +38,8 @@ namespace TheHammerOfOden
 
             HammerOfOdenPlugin.Debug($"Grid snapping {(_on ? "on" : "off")}.");
             Notify.Show(player, _on
-                ? $"Grid: {ModConfig.GridSize.Value}m"
-                : "Grid: off");
+                ? Words.T("$hoo_grid_on", ModConfig.GridSize.Value.ToString())
+                : "$hoo_grid_off");
         }
 
         internal static void Reset()

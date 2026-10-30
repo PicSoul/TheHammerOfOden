@@ -348,9 +348,8 @@ namespace TheHammerOfOden
                 }
             }
 
-            string report = $"{site.BuiltCount + 1} of {site.Plan.Count + 1} pieces up - waiting for "
-                + string.Join(", ", parts)
-                + $". It carries on by itself as they turn up. {KeyNames.Of(ModConfig.SiteCancelKey)} on it stops it where it stands.";
+            string report = Words.T("$hoo_site_waiting", (site.BuiltCount + 1).ToString(), (site.Plan.Count + 1).ToString(),
+                string.Join(", ", parts), KeyNames.Of(ModConfig.SiteCancelKey));
 
             if (report == _lastReport && Time.time < _nextReport)
             {
@@ -538,7 +537,7 @@ namespace TheHammerOfOden
             if (site.IsFinished)
             {
                 // One more than the plan: the site's first piece was built before it.
-                Notify.Show(player, $"Finished - {site.Plan.Count + 1} pieces");
+                Notify.Show(player, Words.T("$hoo_site_finished", (site.Plan.Count + 1).ToString()));
                 HammerOfOdenPlugin.Debug($"Construction site {site.Id} finished.");
                 Drop(site);
                 site.Finish();
@@ -688,7 +687,7 @@ namespace TheHammerOfOden
 
             if (plan.Count == 0)
             {
-                Notify.Show(player, "Nothing there can be put back - it is inside someone else's ward now");
+                Notify.Show(player, "$hoo_putback_ward");
                 return false;
             }
 
@@ -697,7 +696,7 @@ namespace TheHammerOfOden
             int first = plan.FindIndex(order => GroupHold.CanAfford(player, order.Prefab));
             if (first < 0)
             {
-                Notify.Show(player, $"Not enough materials to put back even one of the {plan.Count} pieces yet");
+                Notify.Show(player, Words.T("$hoo_putback_no_materials", plan.Count.ToString()));
                 return false;
             }
 
@@ -725,7 +724,7 @@ namespace TheHammerOfOden
                 }
             }
 
-            Notify.Show(player, $"{verb}: putting back {plan.Count + 1} pieces, paid for as they go up");
+            Notify.Show(player, Words.T("$hoo_" + verb + "_putting_back", (plan.Count + 1).ToString()));
             return true;
         }
 
@@ -899,7 +898,7 @@ namespace TheHammerOfOden
             long id = ConstructionSite.IdOf(hovered);
             if (hovered == null || id == 0L)
             {
-                Notify.Show(player, "Look at a piece of a copy to take the whole copy down");
+                Notify.Show(player, "$hoo_site_look_at_copy");
                 return;
             }
 
@@ -907,7 +906,7 @@ namespace TheHammerOfOden
             bool mine = site != null ? site.Owner == player.GetPlayerID() : hovered.GetCreator() == player.GetPlayerID();
             if (!mine)
             {
-                Notify.Show(player, "Only the player who placed this copy can take it down this way");
+                Notify.Show(player, "$hoo_site_not_yours_takedown");
                 return;
             }
 
@@ -921,9 +920,8 @@ namespace TheHammerOfOden
             {
                 _takeDownUntil = Time.time + 4f;
                 _takeDownId = id;
-                Notify.Show(player, $"{KeyNames.Of(ModConfig.SiteTakeDownKey)} again within 4 seconds to take down all "
-                    + $"{pieces.Count} pieces this copy put up" + (site != null ? ", and its ghost" : string.Empty)
-                    + ". Their materials come back to you; undo puts it back up.");
+                Notify.Show(player, Words.T(site != null ? "$hoo_site_takedown_confirm_ghost" : "$hoo_site_takedown_confirm",
+                    KeyNames.Of(ModConfig.SiteTakeDownKey), pieces.Count.ToString()));
                 return;
             }
 
@@ -962,15 +960,14 @@ namespace TheHammerOfOden
 
             if (site.Owner != player.GetPlayerID())
             {
-                Notify.Show(player, "Only the player who placed this copy can stop it");
+                Notify.Show(player, "$hoo_site_not_yours_stop");
                 return;
             }
 
             int built = site.BuiltCount + 1;
             Drop(site);
             site.Stop();
-            Notify.Show(player, $"Copy stopped with {built} pieces up. The ghost is gone, and anything "
-                + "left without support will now fall.");
+            Notify.Show(player, Words.T("$hoo_site_stopped", built.ToString()));
         }
 
         /// <summary>Takes a site's pieces out of the air.</summary>

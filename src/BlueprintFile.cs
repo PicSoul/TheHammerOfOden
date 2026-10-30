@@ -648,7 +648,7 @@ namespace TheHammerOfOden
 
             if (list.Count > most)
             {
-                parts.Add($"{list.Count - most} more kinds");
+                parts.Add(Words.T("$hoo_more_kinds", (list.Count - most).ToString()));
             }
 
             return string.Join(", ", parts);

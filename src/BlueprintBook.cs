@@ -163,13 +163,13 @@ namespace TheHammerOfOden
 
             if (!BuildTool.IsBuildingTool || !player.InPlaceMode())
             {
-                Notify.Show(player, "Take out your hammer to pick up a blueprint");
+                Notify.Show(player, "$hoo_book_need_hammer");
                 return;
             }
 
             if (_plan.Orders.Count == 0)
             {
-                Notify.Show(player, "Nothing in this blueprint can be built here");
+                Notify.Show(player, "$hoo_book_nothing_buildable");
                 return;
             }
 
@@ -215,8 +215,8 @@ namespace TheHammerOfOden
             Rect inner = new Rect(window.x + pad, window.y + pad, window.width - 2f * pad, window.height - 2f * pad);
 
             GUI.Label(new Rect(inner.x, inner.y, inner.width, 30f * ui),
-                "<b>Blueprint book</b>  <color=#94A3B8><size=" + Mathf.RoundToInt(13 * ui) + ">"
-                + $"{_files.Count} blueprints · {KeyNames.Of(ModConfig.BlueprintBookKey)} or Esc to close</size></color>", _title);
+                "<b>" + Words.T("$hoo_book_title") + "</b>  <color=#94A3B8><size=" + Mathf.RoundToInt(13 * ui) + ">"
+                + Words.T("$hoo_book_subtitle", _files.Count.ToString(), KeyNames.Of(ModConfig.BlueprintBookKey)) + "</size></color>", _title);
 
             float top = inner.y + 36f * ui;
             float listWidth = inner.width * 0.36f;
@@ -238,9 +238,7 @@ namespace TheHammerOfOden
             if (_files.Count == 0)
             {
                 GUI.Label(new Rect(area.x, area.y + line + 8f, area.width, area.height - line),
-                    "No blueprints yet. Put .blueprint or .vbuild files in\n" + BlueprintFile.SaveFolder
-                    + "\nor in BepInEx/config/PlanBuild in your mod profile. PlanBuild and Infinity Hammer "
-                    + "save theirs there too.", _dim);
+                    Words.T("$hoo_book_empty_1") + "\n" + BlueprintFile.SaveFolder + "\n" + Words.T("$hoo_book_empty_2"), _dim);
                 return;
             }
 
@@ -298,7 +296,7 @@ namespace TheHammerOfOden
         {
             if (_picked == null)
             {
-                GUI.Label(area, "Pick a blueprint to see it.", _dim);
+                GUI.Label(area, Words.T("$hoo_book_pick_one"), _dim);
                 return;
             }
 
@@ -312,12 +310,12 @@ namespace TheHammerOfOden
                 GUI.DrawTexture(square, BlueprintPreview.Texture, ScaleMode.ScaleToFit, false);
                 HandlePreviewInput(square);
                 GUI.Label(new Rect(square.x + 6f, square.yMax - 22f * ui, square.width, 20f * ui),
-                    "<color=#94A3B8>Drag to turn · scroll to zoom</color>", _dim);
+                    "<color=#94A3B8>" + Words.T("$hoo_book_drag_hint") + "</color>", _dim);
 
                 // Over the preview's top corner: keep this view as the blueprint's picture.
                 float pictureWidth = 190f * ui;
                 Rect pictureButton = new Rect(square.xMax - pictureWidth - 6f, square.y + 6f, pictureWidth, 26f * ui);
-                if (GUI.Button(pictureButton, "Use this view as picture", _small))
+                if (GUI.Button(pictureButton, Words.T("$hoo_book_use_view"), _small))
                 {
                     SaveView();
                 }
@@ -325,12 +323,12 @@ namespace TheHammerOfOden
                 if (Time.unscaledTime < _savedViewUntil)
                 {
                     GUI.Label(new Rect(pictureButton.x, pictureButton.yMax + 2f, pictureWidth, 20f * ui),
-                        "<color=#4ADE80>Picture saved</color>", _dim);
+                        "<color=#4ADE80>" + Words.T("$hoo_book_picture_saved") + "</color>", _dim);
                 }
             }
             else
             {
-                GUI.Label(preview, "Nothing in this blueprint can be shown.", _dim);
+                GUI.Label(preview, Words.T("$hoo_book_nothing_shown"), _dim);
             }
 
             float y = preview.yMax + 8f * ui;
@@ -340,7 +338,7 @@ namespace TheHammerOfOden
             Rect info = new Rect(area.x, y, area.width, optionsTop - y - 6f * ui);
 
             List<string> lines = new List<string>();
-            lines.Add($"<b>{_picked.Name}</b>" + (string.IsNullOrEmpty(_picked.Creator) ? string.Empty : $"  <color=#94A3B8>by {_picked.Creator}</color>"));
+            lines.Add($"<b>{_picked.Name}</b>" + (string.IsNullOrEmpty(_picked.Creator) ? string.Empty : "  <color=#94A3B8>" + Words.T("$hoo_book_by", _picked.Creator) + "</color>"));
             if (!string.IsNullOrEmpty(_picked.Description))
             {
                 lines.Add($"<color=#CBD5E1>{_picked.Description}</color>");
@@ -350,42 +348,40 @@ namespace TheHammerOfOden
 
             if (_plan != null)
             {
-                lines.Add($"{_plan.Orders.Count} pieces · made with {_picked.Source}");
+                lines.Add(Words.T("$hoo_book_pieces_made_with", _plan.Orders.Count.ToString(), _picked.Source));
                 string cost = Cost(_plan.Orders);
                 if (cost.Length > 0)
                 {
-                    lines.Add("Costs " + cost);
+                    lines.Add(Words.T("$hoo_book_costs", cost));
                 }
 
                 if (_plan.Unknown.Count > 0)
                 {
-                    lines.Add("<color=#F87171>Left out - from mods not installed here: " + BlueprintPlan.Describe(_plan.Unknown) + "</color>");
+                    lines.Add("<color=#F87171>" + Words.T("$hoo_book_left_out_mods", BlueprintPlan.Describe(_plan.Unknown)) + "</color>");
                 }
 
                 if (_plan.Unlearned.Count > 0)
                 {
-                    lines.Add("<color=#FBBF24>Left out - not learned yet: " + Localized(BlueprintPlan.Describe(_plan.Unlearned)) + "</color>");
+                    lines.Add("<color=#FBBF24>" + Words.T("$hoo_book_left_out_unlearned", Localized(BlueprintPlan.Describe(_plan.Unlearned))) + "</color>");
                 }
 
                 if (_plan.Plants > 0)
                 {
-                    lines.Add($"<color=#94A3B8>{_plan.Plants} plants left out</color>");
+                    lines.Add("<color=#94A3B8>" + Words.T("$hoo_book_plants_left_out", _plan.Plants.ToString()) + "</color>");
                 }
 
                 if (_plan.Ground > 0 && !ModConfig.BlueprintShapeGround.Value)
                 {
-                    lines.Add($"<color=#94A3B8>{_plan.Ground} ground-shaping steps left out (raising, levelling, paths) - "
-                        + "see the option below</color>");
+                    lines.Add("<color=#94A3B8>" + Words.T("$hoo_book_ground_left_out", _plan.Ground.ToString()) + "</color>");
                 }
                 else if (_plan.Ground > 0)
                 {
-                    lines.Add($"<color=#FBBF24>{_plan.Ground} ground-shaping steps included - the ground is reshaped first, "
-                        + "and that cannot be undone</color>");
+                    lines.Add("<color=#FBBF24>" + Words.T("$hoo_book_ground_included", _plan.Ground.ToString()) + "</color>");
                 }
 
                 if (_plan.Clamped > 0)
                 {
-                    lines.Add($"<color=#94A3B8>{_plan.Clamped} pieces resized to the server's size limits</color>");
+                    lines.Add("<color=#94A3B8>" + Words.T("$hoo_book_clamped", _plan.Clamped.ToString()) + "</color>");
                 }
             }
 
@@ -398,12 +394,12 @@ namespace TheHammerOfOden
             DrawOptions(new Rect(area.x, optionsTop, area.width, optionHeight));
 
             float buttonWidth = 150f * ui;
-            if (GUI.Button(new Rect(area.xMax - buttonWidth, area.yMax - buttonHeight, buttonWidth, buttonHeight), "Pick it up", _button))
+            if (GUI.Button(new Rect(area.xMax - buttonWidth, area.yMax - buttonHeight, buttonWidth, buttonHeight), Words.T("$hoo_book_pick_up"), _button))
             {
                 PickUp();
             }
 
-            if (GUI.Button(new Rect(area.xMax - 2f * buttonWidth - 8f * ui, area.yMax - buttonHeight, buttonWidth, buttonHeight), "Close", _button))
+            if (GUI.Button(new Rect(area.xMax - 2f * buttonWidth - 8f * ui, area.yMax - buttonHeight, buttonWidth, buttonHeight), Words.T("$hoo_book_close"), _button))
             {
                 Close();
             }
@@ -415,7 +411,7 @@ namespace TheHammerOfOden
         /// </summary>
         private static void DrawOptions(Rect area)
         {
-            if (Option(area, ModConfig.BlueprintShapeGround.Value, "Shape the ground too (raising, levelling, paths)"))
+            if (Option(area, ModConfig.BlueprintShapeGround.Value, Words.T("$hoo_book_shape_ground")))
             {
                 ModConfig.BlueprintShapeGround.Value = !ModConfig.BlueprintShapeGround.Value;
                 if (_picked != null)
@@ -437,7 +433,7 @@ namespace TheHammerOfOden
             GUI.DrawTexture(badge, on ? _onBackdrop : _offBackdrop);
             GUI.Label(badge, on ? "✓" : "✕", _badge);
             GUI.Label(new Rect(row.x + side + 8f, row.y, row.width - side - 8f, row.height),
-                label + (on ? "  <color=#4ADE80>on</color>" : "  <color=#F87171>off</color>"), _optionText);
+                label + (on ? "  <color=#4ADE80>" + Words.T("$hoo_on") + "</color>" : "  <color=#F87171>" + Words.T("$hoo_off") + "</color>"), _optionText);
 
             return GUI.Button(row, GUIContent.none, GUIStyle.none);
         }
@@ -463,7 +459,7 @@ namespace TheHammerOfOden
             }
             else
             {
-                Notify.Show(Player.m_localPlayer, "The picture could not be saved - see the log");
+                Notify.Show(Player.m_localPlayer, "$hoo_book_picture_failed");
             }
         }
 
@@ -495,13 +491,13 @@ namespace TheHammerOfOden
         {
             if (file.Created.HasValue)
             {
-                string text = "Created " + When(file.Created.Value);
-                return file.Updated.HasValue ? text + " · updated " + When(file.Updated.Value) : text;
+                string text = Words.T("$hoo_book_created", When(file.Created.Value));
+                return file.Updated.HasValue ? text + " · " + Words.T("$hoo_book_updated", When(file.Updated.Value)) : text;
             }
 
             try
             {
-                return "File saved " + When(System.IO.File.GetLastWriteTimeUtc(file.Path));
+                return Words.T("$hoo_book_file_saved", When(System.IO.File.GetLastWriteTimeUtc(file.Path)));
             }
             catch
             {

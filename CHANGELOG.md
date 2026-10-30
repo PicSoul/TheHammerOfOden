@@ -1,5 +1,22 @@
 ﻿# Changelog
 
+## 0.3.3
+
+### Added
+
+- Translations. The Hammer of Oden follows the language set in the game - messages, the key hint
+  strip, the F3 guide, the blueprint book, the save dialog and the building panel. This release
+  ships German, French, Spanish, Russian, Brazilian Portuguese, Polish and Simplified Chinese; the
+  game's other languages will follow. Missing languages fall back to English, and a translation
+  file of your own can be dropped into the BepInEx folder (see the README).
+
+### Fixed
+
+- The rotation patch finds Valheim's rotation call by what it is rather than by object identity,
+  so it holds up better alongside other mods that patch the same method. If it ever cannot find
+  it, the log now lists the calls it did see, which makes a clash with another mod easy to
+  identify.
+
 ## 0.3.2
 
 ### Changed

@@ -70,11 +70,11 @@ namespace TheHammerOfOden
             // building is when every other key is wanted too.
             if (BuildCamera.IsActive)
             {
-                _title = "Build camera - " + _title;
-                Row("W A S D", "Fly");
-                Row(KeyNames.Of(ModConfig.CameraUpKey) + " / " + KeyNames.Of(ModConfig.CameraDownKey) + " alone", "Up / down");
-                Row("Hold " + KeyNames.Of(ModConfig.CameraBoostKey), "Fly faster");
-                Row(ModConfig.BuildCameraKey, "Back to your eyes");
+                _title = Words.T("$hoo_hint_title_camera", _title);
+                Row("W A S D", "$hoo_hint_fly");
+                Row(Words.T("$hoo_key_alone", KeyNames.Of(ModConfig.CameraUpKey) + " / " + KeyNames.Of(ModConfig.CameraDownKey)), "$hoo_hint_up_down");
+                Row(Words.T("$hoo_key_hold", KeyNames.Of(ModConfig.CameraBoostKey)), "$hoo_hint_fly_faster");
+                Row(ModConfig.BuildCameraKey, "$hoo_hint_back_to_eyes");
             }
         }
 
@@ -85,23 +85,23 @@ namespace TheHammerOfOden
 
             if (Held(ModConfig.BendModifierKey))
             {
-                _title = "Bending";
-                Row("Scroll", "Bend the piece");
-                Row(ModConfig.BendAxisKey, "Bend the other way round");
-                Row(ModConfig.BendResetKey, "Straighten");
+                _title = Words.T("$hoo_hint_title_bending");
+                Row("$hoo_key_scroll", "$hoo_hint_bend");
+                Row(ModConfig.BendAxisKey, "$hoo_hint_bend_other_way");
+                Row(ModConfig.BendResetKey, "$hoo_hint_straighten");
                 return;
             }
 
             if (GroupHold.IsModel)
             {
-                _title = "Holding a model";
-                Row("Left mouse", "Place on a table or floor");
-                Row(With(ModConfig.ScaleModifierKey, ModConfig.ScaleUpKey) + " / " + ModConfig.ScaleDownKey.Value.MainKey.ToHint(), "Bigger / smaller");
-                Row(ModConfig.NudgeUpKey, ModConfig.NudgeDownKey, "Raise / lower");
-                Row("Arrows", "Shift it a little");
-                Row("Scroll", "Turn it");
-                Row(ModConfig.ModelKey, "Back to a full-size copy");
-                Row(ModConfig.EditKey, "Put it away");
+                _title = Words.T("$hoo_hint_title_model");
+                Row("$hoo_key_lmb", "$hoo_hint_place_on_table");
+                Row(With(ModConfig.ScaleModifierKey, ModConfig.ScaleUpKey) + " / " + ModConfig.ScaleDownKey.Value.MainKey.ToHint(), "$hoo_hint_bigger_smaller");
+                Row(ModConfig.NudgeUpKey, ModConfig.NudgeDownKey, "$hoo_hint_raise_lower");
+                Row("$hoo_key_arrows", "$hoo_hint_shift_little");
+                Row("$hoo_key_scroll", "$hoo_hint_turn_it");
+                Row(ModConfig.ModelKey, "$hoo_hint_back_to_copy");
+                Row(ModConfig.EditKey, "$hoo_hint_put_away");
                 return;
             }
 
@@ -109,93 +109,93 @@ namespace TheHammerOfOden
             {
                 bool copy = GroupHold.IsCopying;
                 bool move = GroupHold.IsMoving;
-                _title = copy ? "Holding a copy" : move ? "Moving a group" : "Editing a piece";
-                Row("Left mouse", copy ? "Place the copy (it stays in hand)" : "Put it down here");
+                _title = Words.T(copy ? "$hoo_hint_title_copy" : move ? "$hoo_hint_title_move" : "$hoo_hint_title_edit");
+                Row("$hoo_key_lmb", copy ? "$hoo_hint_place_copy" : "$hoo_hint_put_down");
                 if (copy)
                 {
-                    Row(ModConfig.ModelKey, "Make it a model instead");
+                    Row(ModConfig.ModelKey, "$hoo_hint_make_model");
                 }
 
-                Row(ModConfig.FreezeKey, "Freeze where it is / follow your aim");
-                Row(With(ModConfig.ScaleModifierKey, ModConfig.ScaleUpKey) + " / " + ModConfig.ScaleDownKey.Value.MainKey.ToHint(), "Bigger / smaller");
-                Row("Scroll", "Turn it");
-                Row("Arrows, " + KeyNames.Of(ModConfig.NudgeUpKey) + " / " + KeyNames.Of(ModConfig.NudgeDownKey), "Nudge");
-                Row(ModConfig.ResetOffsetKey, "Clear the nudge");
-                Row(ModConfig.EditKey, copy ? "Put it away" : "Cancel");
+                Row(ModConfig.FreezeKey, "$hoo_hint_freeze_follow");
+                Row(With(ModConfig.ScaleModifierKey, ModConfig.ScaleUpKey) + " / " + ModConfig.ScaleDownKey.Value.MainKey.ToHint(), "$hoo_hint_bigger_smaller");
+                Row("$hoo_key_scroll", "$hoo_hint_turn_it");
+                Row("$hoo_key_arrows, " + KeyNames.Of(ModConfig.NudgeUpKey) + " / " + KeyNames.Of(ModConfig.NudgeDownKey), "$hoo_hint_nudge");
+                Row(ModConfig.ResetOffsetKey, "$hoo_hint_clear_nudge");
+                Row(ModConfig.EditKey, copy ? "$hoo_hint_put_away" : "$hoo_hint_cancel");
                 return;
             }
 
             if (Held(ModConfig.ScaleModifierKey))
             {
-                _title = "Holding " + KeyNames.MainOf(ModConfig.ScaleModifierKey);
-                Row("Scroll", "Tilt forward and back");
-                Row(ModConfig.ScaleWiderKey, ModConfig.ScaleNarrowerKey, "Wider / narrower", true);
-                Row(ModConfig.ScaleTallerKey, ModConfig.ScaleShorterKey, "Taller / shorter", true);
-                Row(ModConfig.ScaleDeeperKey, ModConfig.ScaleShallowerKey, "Deeper / shallower", true);
-                Row(ModConfig.ScaleUpKey, ModConfig.ScaleDownKey, "Bigger / smaller all over", true);
-                Row(ModConfig.ScaleResetKey, "Normal size");
-                Row("Arrows", "Lay a run of copies (zoop)");
-                Row(ModConfig.ZoopGapWiderKey, ModConfig.ZoopGapNarrowerKey, "Gap in the run");
+                _title = Words.T("$hoo_hint_title_holding", KeyNames.MainOf(ModConfig.ScaleModifierKey));
+                Row("$hoo_key_scroll", "$hoo_hint_tilt_forward");
+                Row(ModConfig.ScaleWiderKey, ModConfig.ScaleNarrowerKey, "$hoo_hint_wider", true);
+                Row(ModConfig.ScaleTallerKey, ModConfig.ScaleShorterKey, "$hoo_hint_taller", true);
+                Row(ModConfig.ScaleDeeperKey, ModConfig.ScaleShallowerKey, "$hoo_hint_deeper", true);
+                Row(ModConfig.ScaleUpKey, ModConfig.ScaleDownKey, "$hoo_hint_bigger_all", true);
+                Row(ModConfig.ScaleResetKey, "$hoo_hint_normal_size");
+                Row("$hoo_key_arrows", "$hoo_hint_zoop");
+                Row(ModConfig.ZoopGapWiderKey, ModConfig.ZoopGapNarrowerKey, "$hoo_hint_gap");
                 return;
             }
 
             if (Held(ModConfig.ZAxisKey))
             {
-                _title = "Holding " + KeyNames.MainOf(ModConfig.ZAxisKey);
-                Row("Scroll", "Tilt sideways");
-                Row(ModConfig.SelectKey, "Select / deselect a piece");
-                Row(ModConfig.SelectTypeKey, "Select every connected one of its kind");
-                Row(ModConfig.SelectGrowKey, ModConfig.SelectShrinkKey, "Grow / shrink the selection");
-                Row(ModConfig.EditKey, Selection.Count > 0 ? "Move the selection (on a selected piece) or edit a piece" : "Edit the piece you look at");
+                _title = Words.T("$hoo_hint_title_holding", KeyNames.MainOf(ModConfig.ZAxisKey));
+                Row("$hoo_key_scroll", "$hoo_hint_tilt_sideways");
+                Row(ModConfig.SelectKey, "$hoo_hint_select");
+                Row(ModConfig.SelectTypeKey, "$hoo_hint_select_type");
+                Row(ModConfig.SelectGrowKey, ModConfig.SelectShrinkKey, "$hoo_hint_grow_shrink_selection");
+                Row(ModConfig.EditKey, Selection.Count > 0 ? "$hoo_hint_move_or_edit" : "$hoo_hint_edit_looked_at");
                 return;
             }
 
-            _title = "The Hammer of Oden";
+            _title = Words.T("$hoo_hint_title_mod");
 
             if (Selection.Count > 0)
             {
-                _title = $"Selection - {Selection.Count:N0} pieces";
-                Row(ModConfig.EditKey, "Move it (looking at a selected piece)");
-                Row("Shift + Middle mouse", "Copy it (on a selected piece)");
-                Row("Middle mouse", "Take it down (on a selected piece)");
-                Row(ModConfig.SelectGrowKey, ModConfig.SelectShrinkKey, "Grow / shrink");
-                Row(ModConfig.SelectBuildingKey, "Add a whole building");
-                Row(ModConfig.BlueprintSaveKey, "Save it as a blueprint");
-                Row(ModConfig.SelectClearKey, "Clear the selection");
+                _title = Words.T("$hoo_hint_title_selection", Selection.Count.ToString("N0"));
+                Row(ModConfig.EditKey, "$hoo_hint_move_selection");
+                Row("$hoo_key_shift_mmb", "$hoo_hint_copy_selection");
+                Row("$hoo_key_mmb", "$hoo_hint_takedown_selection");
+                Row(ModConfig.SelectGrowKey, ModConfig.SelectShrinkKey, "$hoo_hint_grow_shrink");
+                Row(ModConfig.SelectBuildingKey, "$hoo_hint_add_building");
+                Row(ModConfig.BlueprintSaveKey, "$hoo_hint_save_blueprint");
+                Row(ModConfig.SelectClearKey, "$hoo_hint_clear_selection");
             }
             else
             {
                 // The game's own build hints, carried over.
-                Row("Left mouse", "Place");
-                Row("Middle mouse", "Remove");
-                Row("Shift + Middle mouse", "Copy a piece");
-                Row("Scroll", "Turn");
-                Row("Right mouse", "Build menu");
-                Row(ModConfig.SelectKey, "Select pieces");
-                Row(ModConfig.SelectBuildingKey, "Select a whole building");
+                Row("$hoo_key_lmb", "$hoo_hint_place");
+                Row("$hoo_key_mmb", "$hoo_hint_remove");
+                Row("$hoo_key_shift_mmb", "$hoo_hint_copy_piece");
+                Row("$hoo_key_scroll", "$hoo_hint_turn");
+                Row("$hoo_key_rmb", "$hoo_hint_build_menu");
+                Row(ModConfig.SelectKey, "$hoo_hint_select_pieces");
+                Row(ModConfig.SelectBuildingKey, "$hoo_hint_select_building");
             }
 
-            Row("Hold " + KeyNames.MainOf(ModConfig.ScaleModifierKey), "Resize, tilt, zoop");
-            Row("Hold " + KeyNames.MainOf(ModConfig.ZAxisKey), "Tilt sideways, more selecting");
-            Row(ModConfig.FreezeKey, "Freeze the piece");
-            Row(ModConfig.EditKey, "Edit a placed piece");
-            Row(ModConfig.UndoKey, ModConfig.RedoKey, "Undo / redo");
-            Row(ModConfig.BlueprintBookKey, "Blueprint book");
+            Row(Words.T("$hoo_key_hold", KeyNames.MainOf(ModConfig.ScaleModifierKey)), "$hoo_hint_resize_tilt_zoop");
+            Row(Words.T("$hoo_key_hold", KeyNames.MainOf(ModConfig.ZAxisKey)), "$hoo_hint_tilt_more_selecting");
+            Row(ModConfig.FreezeKey, "$hoo_hint_freeze");
+            Row(ModConfig.EditKey, "$hoo_hint_edit_placed");
+            Row(ModConfig.UndoKey, ModConfig.RedoKey, "$hoo_hint_undo_redo");
+            Row(ModConfig.BlueprintBookKey, "$hoo_hint_blueprint_book");
             if (!BuildCamera.IsActive)
             {
-                Row(ModConfig.BuildCameraKey, "Build camera");
+                Row(ModConfig.BuildCameraKey, "$hoo_hint_build_camera");
             }
 
-            Row(ModConfig.HelpKey, "Every key, explained");
+            Row(ModConfig.HelpKey, "$hoo_hint_help");
 
             if (hovered != null && (ConstructionSite.Of(hovered) != null || ModelDisplay.Carries(hovered)))
             {
-                Row(ModConfig.SiteCancelKey, ModelDisplay.Carries(hovered) ? "Take the model off" : "Stop this building where it stands");
+                Row(ModConfig.SiteCancelKey, ModelDisplay.Carries(hovered) ? "$hoo_hint_model_off" : "$hoo_hint_stop_site");
             }
 
             if (hovered != null && ConstructionSite.IdOf(hovered) != 0L)
             {
-                Row(ModConfig.SiteTakeDownKey, "Take this whole copy down");
+                Row(ModConfig.SiteTakeDownKey, "$hoo_hint_takedown_copy");
             }
         }
 
@@ -203,7 +203,7 @@ namespace TheHammerOfOden
         {
             if (!string.IsNullOrEmpty(keys))
             {
-                Rows.Add((keys, action));
+                Rows.Add((L(keys), L(action)));
             }
         }
 
@@ -211,7 +211,7 @@ namespace TheHammerOfOden
         {
             if (KeyNames.IsBound(key))
             {
-                Rows.Add((KeyNames.Of(key), action));
+                Rows.Add((KeyNames.Of(key), L(action)));
             }
         }
 
@@ -226,7 +226,16 @@ namespace TheHammerOfOden
             string b = shortSecond ? KeyNames.MainOf(second) : KeyNames.Of(second);
             string keys = KeyNames.IsBound(first) && KeyNames.IsBound(second) ? KeyNames.Of(first) + " / " + b
                 : KeyNames.IsBound(first) ? KeyNames.Of(first) : KeyNames.Of(second);
-            Rows.Add((keys, action));
+            Rows.Add((keys, L(action)));
+        }
+
+        /// <summary>
+        /// A row's text in the player's language. Rows are given translation keys - whole, or
+        /// inside a longer label like "$hoo_key_arrows, Q / E" - and the translator swaps each.
+        /// </summary>
+        private static string L(string text)
+        {
+            return Localization.instance != null ? Localization.instance.Localize(text) : text;
         }
 
         /// <summary>A key with a modifier added in front: "Shift + Numpad +".</summary>

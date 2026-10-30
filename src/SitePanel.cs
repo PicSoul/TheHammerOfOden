@@ -334,11 +334,11 @@ namespace TheHammerOfOden
             {
                 float distance = Vector3.Distance(player.transform.position, entry.Position);
                 string state = distance > ModConfig.SiteRange.Value
-                    ? $"away - {distance:0} m off, carries on within {ModConfig.SiteRange.Value:0} m"
-                    : entry.Waiting ? "waiting for materials" : "building";
+                    ? Words.T("$hoo_site_away", distance.ToString("0"), ModConfig.SiteRange.Value.ToString("0"))
+                    : Words.T(entry.Waiting ? "$hoo_site_state_waiting" : "$hoo_site_state_building");
 
                 GUI.Label(new Rect(x + pad, cy, width - 2f * pad, _title.fontSize * 1.4f),
-                    $"<b>Building - {entry.Built:N0} of {entry.Total:N0} up</b>", _title);
+                    "<b>" + Words.T("$hoo_site_title", entry.Built.ToString("N0"), entry.Total.ToString("N0")) + "</b>", _title);
                 cy += _title.fontSize * 1.4f;
                 GUI.Label(new Rect(x + pad, cy, width - 2f * pad, _title.fontSize * 1.4f),
                     $"<color=#94A3B8>{state}</color>", _line);
@@ -368,7 +368,7 @@ namespace TheHammerOfOden
                 if (entry.Needs.Count > mostNeeds)
                 {
                     GUI.Label(new Rect(x + pad, cy, width - 2f * pad, rowHeight),
-                        $"<color=#94A3B8>and {entry.Needs.Count - mostNeeds} more</color>", _line);
+                        "<color=#94A3B8>" + Words.T("$hoo_site_and_more", (entry.Needs.Count - mostNeeds).ToString()) + "</color>", _line);
                     cy += rowHeight;
                 }
 

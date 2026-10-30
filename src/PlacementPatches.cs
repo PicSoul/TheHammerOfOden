@@ -181,7 +181,7 @@ namespace TheHammerOfOden
             }
 
             _nextMovingNotice = Time.time + 3f;
-            Notify.Show(player, "Stand still to adjust the piece");
+            Notify.Show(player, "$hoo_stand_still");
         }
 
         private static readonly AccessTools.FieldRef<Player, bool> BlockRemove =
@@ -305,7 +305,7 @@ namespace TheHammerOfOden
             Zooping.Clear();
             Zooping.ResetGap();
 
-            Notify.Show(player, hadZoop ? "Zoop, gap and offset cleared" : "Placement offset cleared");
+            Notify.Show(player, hadZoop ? "$hoo_zoop_offset_cleared" : "$hoo_offset_cleared");
         }
 
         private static void HandleNudge(Player player)
@@ -387,8 +387,8 @@ namespace TheHammerOfOden
                 $"Master toggle: the mod is now {(ModConfig.Enabled.Value ? "on" : "off")}.");
 
             Notify.Show(player, ModConfig.Enabled.Value
-                ? "The Hammer of Oden: on"
-                : "The Hammer of Oden: off");
+                ? "$hoo_mod_on"
+                : "$hoo_mod_off");
         }
 
         private static void HandleUndo(Player player)
@@ -399,7 +399,7 @@ namespace TheHammerOfOden
             {
                 if (GroupHold.IsMoving)
                 {
-                    Notify.Show(player, "Place or cancel the move first");
+                    Notify.Show(player, "$hoo_place_or_cancel_move");
                     return;
                 }
 
@@ -412,7 +412,7 @@ namespace TheHammerOfOden
                 // already put down can be taken back while it is still held.
                 if (GroupHold.IsMoving)
                 {
-                    Notify.Show(player, "Place or cancel the move first");
+                    Notify.Show(player, "$hoo_place_or_cancel_move");
                     return;
                 }
 
@@ -566,7 +566,7 @@ namespace TheHammerOfOden
 
             ModConfig.SnapDivisions.Value = updated;
 
-            Notify.Show(player, $"Snap: {updated} per turn ({ModConfig.StepDegrees:0.##} deg)");
+            Notify.Show(player, Words.T("$hoo_snap_steps", updated.ToString(), ModConfig.StepDegrees.ToString("0.##")));
         }
 
         /// <summary>Step through the derived anchor modes, wrapping back to Off.</summary>
@@ -590,7 +590,7 @@ namespace TheHammerOfOden
             DerivedSnapPoints.AttachTo(ghost);
             DerivedAnchorCache.Clear();
 
-            Notify.Show(player, "Anchors: " + Describe(next));
+            Notify.Show(player, Words.T("$hoo_anchors", Describe(next)));
         }
 
         private static string Describe(DerivedSnapMode mode)
@@ -598,15 +598,15 @@ namespace TheHammerOfOden
             switch (mode)
             {
                 case DerivedSnapMode.Centers:
-                    return "centres";
+                    return "$hoo_anchors_centres";
                 case DerivedSnapMode.CentersAndCorners:
-                    return "centres + corners";
+                    return "$hoo_anchors_corners";
                 case DerivedSnapMode.CentersCornersAndEdges:
-                    return "centres + corners + edges";
+                    return "$hoo_anchors_edges";
                 case DerivedSnapMode.Full:
-                    return "full";
+                    return "$hoo_anchors_full";
                 default:
-                    return "off (piece defaults only)";
+                    return "$hoo_anchors_off";
             }
         }
 
@@ -639,7 +639,7 @@ namespace TheHammerOfOden
                 // feature being broken.
                 if (AnyScaleKeyDown())
                 {
-                    Notify.Show(player, "This piece cannot be resized");
+                    Notify.Show(player, "$hoo_cannot_resize");
                 }
 
                 return;
@@ -655,8 +655,7 @@ namespace TheHammerOfOden
                     || IsDown(ModConfig.ScaleTallerKey) || IsDown(ModConfig.ScaleShorterKey)
                     || IsDown(ModConfig.ScaleDeeperKey) || IsDown(ModConfig.ScaleShallowerKey))
                 {
-                    Notify.Show(player, "A held group resizes evenly - use "
-                        + KeyNames.MainOf(ModConfig.ScaleUpKey) + " and " + KeyNames.MainOf(ModConfig.ScaleDownKey));
+                    Notify.Show(player, Words.T("$hoo_group_resizes_evenly", KeyNames.MainOf(ModConfig.ScaleUpKey), KeyNames.MainOf(ModConfig.ScaleDownKey)));
                 }
 
                 if (KeyRepeat.Fires(ModConfig.ScaleUpKey)) { ScaleState.Uniform(1); changed = true; }
@@ -678,7 +677,7 @@ namespace TheHammerOfOden
             }
 
             Vector3 s = ScaleState.Multiplier;
-            Notify.Show(player, $"Scale  {s.x:0.00} x  {s.y:0.00} y  {s.z:0.00} z");
+            Notify.Show(player, Words.T("$hoo_scale", s.x.ToString("0.00"), s.y.ToString("0.00"), s.z.ToString("0.00")));
         }
 
         private static bool AnyScaleKeyDown()
@@ -712,7 +711,7 @@ namespace TheHammerOfOden
 
             ClippingMode mode = Clipping.Cycle();
 
-            Notify.Show(player, "Clipping: " + Clipping.Describe(mode));
+            Notify.Show(player, Words.T("$hoo_clipping", Clipping.Describe(mode)));
         }
 
         /// <summary>
@@ -747,7 +746,7 @@ namespace TheHammerOfOden
             {
                 if (IsDown(ModConfig.BendModifierKey))
                 {
-                    Notify.Show(player, "Bending is off while holding a group - a bend belongs to one piece");
+                    Notify.Show(player, "$hoo_bend_off_group");
                 }
 
                 return true;
@@ -923,20 +922,60 @@ namespace TheHammerOfOden
 
         private static void PatchRotation(List<CodeInstruction> codes)
         {
+            // Matched by what the call is - Quaternion.Euler taking three floats - rather than by
+            // comparing method objects. Two reflection objects for the same method are not always
+            // the same object, and an identity check that fails that way reports a missing call
+            // that is plainly there.
             int index = codes.FindIndex(code =>
                 (code.opcode == OpCodes.Call || code.opcode == OpCodes.Callvirt)
                 && code.operand is MethodInfo called
-                && called == VanillaEuler);
+                && IsEulerFromFloats(called));
 
             if (index < 0)
             {
                 HammerOfOdenPlugin.Error(
                     "Could not find the vanilla rotation call in Player.UpdatePlacementGhost. "
-                    + "Valheim has probably changed. Rotation is left untouched so building still works.");
+                    + "Valheim has probably changed. Rotation is left untouched so building still works. "
+                    + "Quaternion calls seen: " + DescribeQuaternionCalls(codes));
                 return;
             }
 
             codes.Insert(index + 1, new CodeInstruction(OpCodes.Call, Substitute));
+        }
+
+        private static bool IsEulerFromFloats(MethodInfo method)
+        {
+            if (method == VanillaEuler)
+            {
+                return true;
+            }
+
+            if (method.DeclaringType != typeof(Quaternion) || method.Name != nameof(Quaternion.Euler))
+            {
+                return false;
+            }
+
+            ParameterInfo[] parameters = method.GetParameters();
+            return parameters.Length == 3
+                && parameters[0].ParameterType == typeof(float)
+                && parameters[1].ParameterType == typeof(float)
+                && parameters[2].ParameterType == typeof(float);
+        }
+
+        /// <summary>For the log, if the match ever fails again: what the method calls on Quaternion.</summary>
+        private static string DescribeQuaternionCalls(List<CodeInstruction> codes)
+        {
+            List<string> seen = new List<string>();
+            foreach (CodeInstruction code in codes)
+            {
+                if (code.operand is MethodInfo called && called.DeclaringType != null
+                    && called.DeclaringType.Name == nameof(Quaternion))
+                {
+                    seen.Add(called.DeclaringType.AssemblyQualifiedName + "::" + called);
+                }
+            }
+
+            return seen.Count == 0 ? "none" : string.Join("; ", seen);
         }
 
         /// <summary>
@@ -1649,7 +1688,7 @@ namespace TheHammerOfOden
 
             if (GroupHold.IsHolding)
             {
-                GroupHold.Cancel(__instance, GroupHold.Verb + " put away");
+                GroupHold.Cancel(__instance, GroupHold.IsCopying ? "$hoo_copy_put_away" : "$hoo_move_put_away");
                 if (hovering == null || !Selection.Contains(hovering))
                 {
                     // Just putting it away - not a copy of whatever the cursor is on.
@@ -2105,9 +2144,7 @@ namespace TheHammerOfOden
                 && HammerOfOdenPlugin.FailedPatches.Count > 0)
             {
                 _warnedAboutPatches = true;
-                Notify.Show(__instance,
-                    $"Hammer of Oden: {HammerOfOdenPlugin.FailedPatches.Count} feature(s) "
-                    + "disabled - see the log");
+                Notify.Show(__instance, Words.T("$hoo_features_disabled", HammerOfOdenPlugin.FailedPatches.Count.ToString()));
             }
 
             if (buildPieces == null)
@@ -2202,7 +2239,7 @@ namespace TheHammerOfOden
             if (GroupHold.IsHolding
                 && (___m_placementGhost == null || Utils.GetPrefabName(___m_placementGhost) != GroupHold.AnchorPrefab))
             {
-                GroupHold.Cancel(Player.m_localPlayer, GroupHold.Verb + " cancelled - a different piece was chosen");
+                GroupHold.Cancel(Player.m_localPlayer, GroupHold.IsCopying ? "$hoo_copy_cancelled_other_piece" : "$hoo_move_cancelled_other_piece");
             }
 
             // The ghost is rebuilt after every placement as well as on changing piece, so

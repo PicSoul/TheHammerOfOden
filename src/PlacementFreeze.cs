@@ -62,7 +62,7 @@ namespace TheHammerOfOden
             }
 
             HammerOfOdenPlugin.Debug($"Placement {(_frozen ? "frozen" : "unfrozen")}.");
-            Notify.Show(player, _frozen ? "Placement frozen" : "Placement unfrozen");
+            Notify.Show(player, _frozen ? "$hoo_frozen" : "$hoo_unfrozen");
         }
 
         /// <summary>

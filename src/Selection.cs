@@ -98,7 +98,7 @@ namespace TheHammerOfOden
             ZDOID id = IdOf(piece);
             if (id == ZDOID.None)
             {
-                Notify.Show(player, "Look at a piece to select it");
+                Notify.Show(player, "$hoo_select_look_at_piece");
                 return;
             }
 
@@ -111,20 +111,20 @@ namespace TheHammerOfOden
 
                 Fresh.Remove(id);
                 Unhighlight(piece.gameObject);
-                Notify.Show(player, $"Deselected - {Describe()}");
+                Notify.Show(player, Words.T("$hoo_deselected", Describe()));
                 return;
             }
 
             if (Set.Count >= Limit)
             {
-                Notify.Show(player, $"Selection is full ({Limit} pieces)");
+                Notify.Show(player, Words.T("$hoo_selection_full", Limit.ToString()));
                 return;
             }
 
             Set.Add(id);
             Fresh.Add(id);
             Highlight(piece.gameObject);
-            Notify.Show(player, $"Selected {Name(piece)} - {Describe()}");
+            Notify.Show(player, Words.T("$hoo_selected", Name(piece), Describe()));
         }
 
         /// <summary>
@@ -177,7 +177,7 @@ namespace TheHammerOfOden
 
             if (player != null)
             {
-                Notify.Show(player, "Selection cleared");
+                Notify.Show(player, "$hoo_selection_cleared");
             }
         }
 
@@ -188,7 +188,7 @@ namespace TheHammerOfOden
         {
             if (Set.Count == 0)
             {
-                Notify.Show(player, "Select a piece first");
+                Notify.Show(player, "$hoo_select_first");
                 return;
             }
 
@@ -271,12 +271,12 @@ namespace TheHammerOfOden
 
             if (added.Count == 0)
             {
-                Notify.Show(player, full ? $"Selection is full ({Limit} pieces)" : "Nothing more is touching the selection");
+                Notify.Show(player, full ? Words.T("$hoo_selection_full", Limit.ToString()) : "$hoo_nothing_touching");
                 yield break;
             }
 
             Rings.Add(added);
-            Notify.Show(player, $"Grew by {added.Count} - {Describe()}" + (full ? $" - stopped at the limit of {Limit}" : string.Empty));
+            Notify.Show(player, Words.T("$hoo_grew", added.Count.ToString(), Describe()) + (full ? " - " + Words.T("$hoo_stopped_at_limit", Limit.ToString()) : string.Empty));
         }
 
         /// <summary>Takes back the most recent grow.</summary>
@@ -284,7 +284,7 @@ namespace TheHammerOfOden
         {
             if (Rings.Count == 0)
             {
-                Notify.Show(player, Set.Count == 0 ? "Nothing is selected" : "Nothing left to shrink back");
+                Notify.Show(player, Set.Count == 0 ? "$hoo_nothing_selected" : "$hoo_nothing_to_shrink");
                 return;
             }
 
@@ -303,7 +303,7 @@ namespace TheHammerOfOden
                 }
             }
 
-            Notify.Show(player, $"Shrank by {ring.Count} - {Describe()}");
+            Notify.Show(player, Words.T("$hoo_shrank", ring.Count.ToString(), Describe()));
         }
 
         /// <summary>
@@ -323,7 +323,7 @@ namespace TheHammerOfOden
         {
             if (start == null)
             {
-                Notify.Show(player, "Look at a piece of the building first");
+                Notify.Show(player, "$hoo_look_at_building");
                 return;
             }
 
@@ -417,7 +417,7 @@ namespace TheHammerOfOden
                     if (Time.time >= nextProgress)
                     {
                         nextProgress = Time.time + 0.5f;
-                        Notify.Show(player, $"Selecting... {Set.Count} pieces");
+                        Notify.Show(player, Words.T("$hoo_selecting", Set.Count.ToString()));
                     }
 
                     yield return null;
@@ -445,9 +445,11 @@ namespace TheHammerOfOden
                 + $"{working:0} ms of work over {frames} frames, {total.ElapsedMilliseconds} ms end to end."
                 + (truncated ? $" Stopped walking at the search ceiling of {SearchCeiling}." : string.Empty));
 
-            string what = sameTypeOnly ? "connected " + startName + " pieces" : "connected pieces";
-            string note = full ? $" - stopped at the limit of {Limit}" : truncated ? " - the building is too large to search whole" : string.Empty;
-            Notify.Show(player, $"Added {added.Count} {what} - {Describe()}{note}");
+            string added_ = sameTypeOnly
+                ? Words.T("$hoo_added_connected_type", added.Count.ToString(), startName, Describe())
+                : Words.T("$hoo_added_connected", added.Count.ToString(), Describe());
+            string note = full ? " - " + Words.T("$hoo_stopped_at_limit", Limit.ToString()) : truncated ? " - " + Words.T("$hoo_building_too_large") : string.Empty;
+            Notify.Show(player, added_ + note);
         }
 
         /// <summary>One search at a time: two would race each other over the same selection.</summary>
@@ -455,7 +457,7 @@ namespace TheHammerOfOden
         {
             if (_searching)
             {
-                Notify.Show(player, "Still selecting - one moment");
+                Notify.Show(player, "$hoo_still_selecting");
                 return false;
             }
 
@@ -673,7 +675,7 @@ namespace TheHammerOfOden
 
         private static string Describe()
         {
-            return Set.Count == 1 ? "1 piece selected" : $"{Set.Count} pieces selected";
+            return Words.Count(Set.Count, "$hoo_selected_count_one", "$hoo_selected_count_many");
         }
 
         /// <summary>The piece's name token; the message display translates it.</summary>

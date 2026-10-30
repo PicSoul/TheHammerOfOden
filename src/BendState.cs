@@ -91,7 +91,7 @@ namespace TheHammerOfOden
                 return string.Empty;
             }
 
-            return $"{Mathf.Abs(_degrees):0}°, ends curve {EndsGo(piece, Mathf.Sign(_degrees))} - the highlighted ring";
+            return Words.T("$hoo_bend_describe", Mathf.Abs(_degrees).ToString("0"), EndsGo(piece, Mathf.Sign(_degrees)));
         }
 
         /// <summary>What the wheel will do before it is turned, said when the bend key goes down.</summary>
@@ -104,7 +104,7 @@ namespace TheHammerOfOden
 
             string up = EndsGo(piece, 1f);
             string down = EndsGo(piece, -1f);
-            return $"Bend: wheel up curves the ends {up}, wheel down {down}. {KeyNames.MainOf(ModConfig.BendAxisKey)} swaps the direction.";
+            return Words.T("$hoo_bend_preview", up, down, KeyNames.MainOf(ModConfig.BendAxisKey));
         }
 
         /// <summary>
@@ -118,13 +118,13 @@ namespace TheHammerOfOden
             local[RiseFor(piece)] = 1f;
             Vector3 ends = piece.transform.TransformDirection(local).normalized * sign;
 
-            if (ends.y > 0.7f) return "up";
-            if (ends.y < -0.7f) return "down";
+            if (ends.y > 0.7f) return "$hoo_dir_up";
+            if (ends.y < -0.7f) return "$hoo_dir_down";
 
             Camera camera = MainCamera.Get();
             if (camera == null)
             {
-                return "sideways";
+                return "$hoo_dir_sideways";
             }
 
             Vector3 right = camera.transform.right;
@@ -134,10 +134,10 @@ namespace TheHammerOfOden
 
             if (Mathf.Abs(across) >= Mathf.Abs(along))
             {
-                return across > 0f ? "to your right" : "to your left";
+                return across > 0f ? "$hoo_dir_right" : "$hoo_dir_left";
             }
 
-            return along > 0f ? "away from you" : "towards you";
+            return along > 0f ? "$hoo_dir_away" : "$hoo_dir_towards";
         }
 
         /// <summary>
@@ -184,7 +184,7 @@ namespace TheHammerOfOden
 
             if (!Bendable.Allows(ghost))
             {
-                Notify.Show(player, "Cannot bend this: " + Bendable.Reason(ghost));
+                Notify.Show(player, Words.T("$hoo_cannot_bend", Bendable.Reason(ghost)));
                 return true;
             }
 
@@ -204,7 +204,7 @@ namespace TheHammerOfOden
             {
                 if (Mathf.Abs(_degrees) >= limit - 0.01f)
                 {
-                    Notify.Show(player, $"Bend at its limit for this piece ({limit:0}°)");
+                    Notify.Show(player, Words.T("$hoo_bend_limit", limit.ToString("0")));
                 }
 
                 return true;
@@ -212,7 +212,7 @@ namespace TheHammerOfOden
 
             _degrees = wanted;
 
-            Notify.Show(player, IsBent ? "Bend " + Describe(ghost) : "Bend off");
+            Notify.Show(player, IsBent ? Words.T("$hoo_bend_state", Describe(ghost)) : "$hoo_bend_off");
             return true;
         }
 
@@ -228,7 +228,7 @@ namespace TheHammerOfOden
                 _degrees = Mathf.Clamp(_degrees, -safe, safe);
             }
 
-            Notify.Show(player, ghost != null ? "Bend " + Describe(ghost) : "Bend direction swapped");
+            Notify.Show(player, ghost != null ? Words.T("$hoo_bend_state", Describe(ghost)) : "$hoo_bend_swapped");
         }
 
         internal static void Reset(Player player, bool announce)
@@ -244,7 +244,7 @@ namespace TheHammerOfOden
 
             if (announce && player != null)
             {
-                Notify.Show(player, "Bend reset");
+                Notify.Show(player, "$hoo_bend_reset");
             }
         }
 

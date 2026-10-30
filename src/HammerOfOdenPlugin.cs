@@ -15,7 +15,7 @@ namespace TheHammerOfOden
     {
         public const string PluginGuid = "com.pics0ul.valheim.thehammerofoden";
         public const string PluginName = "The Hammer of Oden";
-        public const string PluginVersion = "0.3.2";
+        public const string PluginVersion = "0.3.3";
 
         private static ManualLogSource _logger;
         private Harmony _harmony;
@@ -69,6 +69,12 @@ namespace TheHammerOfOden
         private void Awake()
         {
             _logger = Logger;
+
+            // Every word a player reads comes from translations/<Language>.yml, or from a
+            // "The Hammer of Oden.<Language>.yml" a translator drops anywhere in BepInEx - and again
+            // whenever the language is changed in the settings.
+            LocalizationManager.Localizer.Load();
+            Localization.OnLanguageChange += LocalizationManager.Localizer.Load;
 
             ModConfig.Bind(Config, _configSync);
 

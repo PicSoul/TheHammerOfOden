@@ -193,13 +193,13 @@ namespace TheHammerOfOden
         /// <summary>Takes back the most recent thing done.</summary>
         internal static bool UndoLast(Player player)
         {
-            return Step(player, History, Future, "Undid", "Nothing to undo");
+            return Step(player, History, Future, "undid", "$hoo_nothing_to_undo");
         }
 
         /// <summary>Does again the most recent thing undone.</summary>
         internal static bool RedoLast(Player player)
         {
-            return Step(player, Future, History, "Redid", "Nothing to redo");
+            return Step(player, Future, History, "redid", "$hoo_nothing_to_redo");
         }
 
         /// <summary>
@@ -223,7 +223,7 @@ namespace TheHammerOfOden
 
             if (_undoing)
             {
-                Notify.Show(player, "Still taking the last lot down");
+                Notify.Show(player, "$hoo_still_taking_down");
                 return true;
             }
 
@@ -239,7 +239,8 @@ namespace TheHammerOfOden
                     {
                         to.Add(new Action { Revert = action.Reapply, Reapply = action.Revert, Noun = action.Noun });
                         Trim();
-                        Notify.Show(player, $"{verb}: {reverted} {action.Noun}{(reverted == 1 ? string.Empty : "s")}");
+                        // verb is "undid" or "redid", Noun "moved" or "model": one message each, singular and plural.
+                        Notify.Show(player, Words.T("$hoo_" + verb + "_" + action.Noun + (reverted == 1 ? "_one" : "_many"), reverted.ToString()));
                         return true;
                     }
 
@@ -359,7 +360,7 @@ namespace TheHammerOfOden
         /// <param name="action">The undo step being taken back, or null for a selection taken down.</param>
         /// <param name="refund">Hand the materials over, rather than let each piece drop its own.</param>
         /// <param name="chestRange">How far to look for chests to send chest materials back to.</param>
-        /// <param name="done">"Undid", or "Took down", for the message.</param>
+        /// <param name="done">"undid", "redid" or "tookdown", which picks the message.</param>
         private static IEnumerator TakeDown(Player player, Action action, List<GameObject> pieces,
             bool refund, float chestRange, string done)
         {
@@ -443,8 +444,8 @@ namespace TheHammerOfOden
 
             if (player != null && removed > 0)
             {
-                Notify.Show(player, $"{done} {removed} piece{(removed == 1 ? string.Empty : "s")}"
-                    + (dropped > 0 ? $" - {dropped} items would not fit anywhere and are at your feet" : string.Empty));
+                Notify.Show(player, Words.T("$hoo_" + done + (removed == 1 ? "_pieces_one" : "_pieces_many"), removed.ToString())
+                    + (dropped > 0 ? " - " + Words.T("$hoo_items_at_feet", dropped.ToString()) : string.Empty));
             }
         }
 
@@ -456,7 +457,7 @@ namespace TheHammerOfOden
         {
             if (_undoing)
             {
-                Notify.Show(player, "Still taking the last lot down");
+                Notify.Show(player, "$hoo_still_taking_down");
                 return false;
             }
 
@@ -472,7 +473,7 @@ namespace TheHammerOfOden
             Trim();
 
             ZNetScene.instance.StartCoroutine(TakeDown(player, null, pieces,
-                ModConfig.RemovalRefundsToInventory.Value, 0f, "Took down"));
+                ModConfig.RemovalRefundsToInventory.Value, 0f, "tookdown"));
             return true;
         }
 

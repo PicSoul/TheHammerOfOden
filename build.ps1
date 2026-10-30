@@ -139,7 +139,7 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
 Copy-Item $dll $stage
-foreach ($f in @("manifest.json", "icon.png", "README.md", "CHANGELOG.md", "LICENSE")) {
+foreach ($f in @("manifest.json", "icon.png", "README.md", "CHANGELOG.md", "LICENSE", "THIRD-PARTY-NOTICES.md")) {
     if (Test-Path "$root\$f") { Copy-Item "$root\$f" $stage }
 }
 
@@ -190,7 +190,31 @@ Ok "README.md is UTF-8"
 # ---------------------------------------------------------------------- zip
 $zip = "$root\$($manifest.name)-$($manifest.version_number).zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path "$stage\*" -DestinationPath $zip
+# Written entry by entry rather than with Compress-Archive: Windows PowerShell 5.1's Compress-Archive
+# writes paths in subfolders with backslashes, which the zip format does not allow and Hexium
+# rejects as "an unsafe ZIP entry path".
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open($zip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    Get-ChildItem $stage -Recurse -File | ForEach-Object {
+        $entryName = $_.FullName.Substring($stage.Length + 1).Replace([char]92, [char]47)
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $archive, $_.FullName, $entryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+}
+finally {
+    $archive.Dispose()
+}
+
+$check = [System.IO.Compression.ZipFile]::OpenRead($zip)
+try {
+    $badEntries = @($check.Entries | Where-Object { $_.FullName.Contains([string][char]92) -or $_.FullName.StartsWith('/') -or $_.FullName.Contains('..') })
+}
+finally {
+    $check.Dispose()
+}
+if ($badEntries.Count -gt 0) { Fail "zip has unsafe entry paths: $($badEntries[0].FullName)" }
+Ok "zip entry paths use forward slashes"
 Ok "packaged $(Split-Path $zip -Leaf) ($([math]::Round((Get-Item $zip).Length / 1KB, 1)) KB)"
 
 if (-not $Install) { Write-Host "`ndone.`n" -ForegroundColor Cyan; exit 0 }

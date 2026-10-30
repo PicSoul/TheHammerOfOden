@@ -81,7 +81,7 @@ namespace TheHammerOfOden
             if (piece == null)
             {
                 _cached = false;
-                _cachedReason = "nothing selected";
+                _cachedReason = "$hoo_bend_why_nothing";
                 return;
             }
 
@@ -114,13 +114,13 @@ namespace TheHammerOfOden
             // a good guess rather than a promise.
             if (Never.Contains(prefab))
             {
-                reason = "listed as never bendable";
+                reason = "$hoo_bend_why_never";
                 return false;
             }
 
             if (Always.Contains(prefab))
             {
-                reason = "listed as always bendable";
+                reason = "$hoo_bend_why_always";
                 return true;
             }
 
@@ -184,13 +184,13 @@ namespace TheHammerOfOden
 
             if (solid == 0)
             {
-                reason = "has no collision to rebuild";
+                reason = "$hoo_bend_why_no_collision";
                 return false;
             }
 
             if (solid > 1 && !TileOneSolid(volumes))
             {
-                reason = "is built from " + solid + " separate parts, so it has moving or working bits";
+                reason = Words.T("$hoo_bend_why_parts", solid.ToString());
 
                 foreach (Bounds seen in volumes)
                 {
@@ -206,7 +206,7 @@ namespace TheHammerOfOden
             // rule, which was wrong in a way that would only have shown up as a bent chest.
             if (piece.GetComponentInChildren<Interactable>(true) != null)
             {
-                reason = "is something you interact with";
+                reason = "$hoo_bend_why_interactive";
                 return false;
             }
 
@@ -244,7 +244,7 @@ namespace TheHammerOfOden
 
             if (meshes == 0)
             {
-                reason = "has no mesh to bend";
+                reason = "$hoo_bend_why_no_mesh";
                 return false;
             }
 
@@ -256,7 +256,7 @@ namespace TheHammerOfOden
             // what you are looking at while you bend it.
             if (readable == 0)
             {
-                reason = "has no mesh that can be read at runtime";
+                reason = "$hoo_bend_why_unreadable";
                 return false;
             }
 
@@ -267,7 +267,7 @@ namespace TheHammerOfOden
             // hid the roof and left the snow, which is how this was found.
             if (body != null && !body.isReadable)
             {
-                reason = "its main mesh cannot be read at runtime, so bending would hide the piece";
+                reason = "$hoo_bend_why_main_unreadable";
                 return false;
             }
 

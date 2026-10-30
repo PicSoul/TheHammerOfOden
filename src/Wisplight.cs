@@ -106,7 +106,7 @@ namespace TheHammerOfOden
                 // but announcing it in the Meadows would be reporting on nothing.
                 if (player.GetCurrentBiome() == Heightmap.Biome.Mistlands)
                 {
-                    Notify.Show(player, "Demister: on");
+                    Notify.Show(player, "$hoo_demister_on");
                 }
             }
 

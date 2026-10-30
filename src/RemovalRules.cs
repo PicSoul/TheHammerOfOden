@@ -70,38 +70,39 @@ namespace TheHammerOfOden
         /// <summary>
         /// Why not, in a few words that read after a count - "12 x Chest (in use)" - or null if
         /// the piece may be taken down. For reporting on a group, where one sentence per piece
-        /// would be unreadable.
+        /// would be unreadable. A translation key: the message it ends up in is translated as it
+        /// is shown, keys inside it included.
         /// </summary>
         internal static string Refusal(Player player, Piece piece, bool flash, bool needStation)
         {
             if (player == null || piece == null)
             {
-                return "gone";
+                return "$hoo_why_gone";
             }
 
             if (!piece.m_canBeRemoved)
             {
-                return "can never be taken down";
+                return "$hoo_why_permanent";
             }
 
             if (Location.IsInsideNoBuildLocation(piece.transform.position))
             {
-                return "in a place that cannot be built in";
+                return "$hoo_why_nobuild";
             }
 
             if (!PrivateArea.CheckAccess(piece.transform.position, 0f, flash, false))
             {
-                return "inside someone else's ward";
+                return "$hoo_why_ward";
             }
 
             if (needStation && StationCheck != null && !StationCheck(player, piece))
             {
-                return "its crafting station is not in range";
+                return "$hoo_why_station";
             }
 
             if (!piece.CanBeRemoved())
             {
-                return "in use";
+                return "$hoo_why_in_use";
             }
 
             return null;
@@ -113,17 +114,17 @@ namespace TheHammerOfOden
             {
                 case null:
                     return null;
-                case "can never be taken down":
-                    return "That piece cannot be taken down, so it cannot be edited";
-                case "in a place that cannot be built in":
-                    return "Nothing can be changed here";
-                case "inside someone else's ward":
-                    return "That is inside someone else's ward";
-                case "its crafting station is not in range":
+                case "$hoo_why_permanent":
+                    return "$hoo_why_permanent_sentence";
+                case "$hoo_why_nobuild":
+                    return "$hoo_why_nobuild_sentence";
+                case "$hoo_why_ward":
+                    return "$hoo_why_ward_sentence";
+                case "$hoo_why_station":
                     // Vanilla has already put up its own message, unless asked quietly.
-                    return flash ? null : "Its crafting station is not in range";
-                case "in use":
-                    return "That cannot be taken down right now";
+                    return flash ? null : "$hoo_why_station_sentence";
+                case "$hoo_why_in_use":
+                    return "$hoo_why_in_use_sentence";
                 default:
                     return null;
             }

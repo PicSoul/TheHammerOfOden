@@ -159,8 +159,7 @@ namespace TheHammerOfOden
             {
                 // Pieces in an unloaded area have no object to move or show. Moving their records
                 // blind is possible, but not something to do to a build you cannot see.
-                Notify.Show(player, $"{Selection.Count - pieces.Count} of the {Selection.Count} selected pieces are "
-                    + "in an area the game has not loaded - move closer to the middle of them to move them");
+                Notify.Show(player, Words.T("$hoo_unloaded_move", (Selection.Count - pieces.Count).ToString(), Selection.Count.ToString()));
                 return;
             }
 
@@ -179,7 +178,7 @@ namespace TheHammerOfOden
 
             if (refused.Count > 0)
             {
-                Refuse(player, refused, "moved");
+                Refuse(player, refused, "$hoo_refused_move");
                 return;
             }
 
@@ -187,7 +186,7 @@ namespace TheHammerOfOden
 
             if (!PlacementEdit.TakeInHand(player, grabbed))
             {
-                Notify.Show(player, "You cannot build the piece you grabbed it by");
+                Notify.Show(player, "$hoo_cannot_build_grabbed");
                 return;
             }
 
@@ -235,8 +234,7 @@ namespace TheHammerOfOden
                 $"Took up {Count} pieces to move in {watch.ElapsedMilliseconds} ms; preview built in "
                 + $"{_preview.BuildMilliseconds} ms as {_preview.Merged} merged meshes and {_preview.Loose} sealed ones.");
 
-            Notify.Show(player, $"Moving {Count} pieces - held in place. Adjust, then place. "
-                + $"{KeyNames.Of(ModConfig.EditKey)} cancels.");
+            Notify.Show(player, Words.T("$hoo_moving", Count.ToString(), KeyNames.Of(ModConfig.EditKey)));
         }
 
         /// <summary>
@@ -265,7 +263,8 @@ namespace TheHammerOfOden
             };
         }
 
-        private static void Refuse(Player player, List<Refused> refused, string done)
+        /// <param name="sentenceKey">The message's key: one for moving, one for taking down.</param>
+        private static void Refuse(Player player, List<Refused> refused, string sentenceKey)
         {
             Dictionary<(string name, string why), int> counts = new Dictionary<(string, string), int>();
             foreach (Refused entry in refused)
@@ -275,7 +274,7 @@ namespace TheHammerOfOden
                 counts[key] = n + 1;
 
                 HammerOfOdenPlugin.Info(
-                    $"Cannot be {done}: {entry.Prefab} at "
+                    $"Refused ({sentenceKey}): {entry.Prefab} at "
                     + $"({entry.At.x:0.0}, {entry.At.y:0.0}, {entry.At.z:0.0}) - {entry.Why}");
             }
 
@@ -291,13 +290,12 @@ namespace TheHammerOfOden
 
             if (sorted.Count > 3)
             {
-                parts.Add("more in the log");
+                parts.Add("$hoo_more_in_log");
             }
 
             Selection.Deselect(refused.ConvertAll(entry => entry.Id));
 
-            Notify.Show(player, $"{refused.Count} pieces cannot be {done} and were deselected: "
-                + string.Join(", ", parts) + $". Press again for the other {Selection.Count}.");
+            Notify.Show(player, Words.T(sentenceKey, refused.Count.ToString(), string.Join(", ", parts), Selection.Count.ToString()));
         }
 
         /// <summary>
@@ -419,7 +417,7 @@ namespace TheHammerOfOden
 
             if (anchor == null)
             {
-                Notify.Show(player, $"Nothing in '{name}' is a piece you can take in hand with this tool");
+                Notify.Show(player, Words.T("$hoo_blueprint_nothing_usable", name));
                 return false;
             }
 
@@ -473,9 +471,8 @@ namespace TheHammerOfOden
             HammerOfOdenPlugin.Debug($"Took up the blueprint '{name}': {Count} pieces, held by {_anchorPrefab}; "
                 + $"preview built in {_preview.BuildMilliseconds} ms. Bill: {DescribeBill()}.");
 
-            Notify.Show(player, $"Holding '{name}' - {Count} pieces, costs {DescribeBill()}, paid as each piece goes up; "
-                + $"what you cannot pay for yet waits as a ghost. {KeyNames.Of(ModConfig.ModelKey)} makes it a model instead; "
-                + $"{KeyNames.Of(ModConfig.EditKey)} puts it away.");
+            Notify.Show(player, Words.T("$hoo_holding_blueprint", name, Count.ToString(), DescribeBill(),
+                KeyNames.Of(ModConfig.ModelKey), KeyNames.Of(ModConfig.EditKey)));
             return true;
         }
 
@@ -516,13 +513,13 @@ namespace TheHammerOfOden
             // the game keeps loaded around you. Everything a copy takes is in the record.
             if (IsPlanted(grabbed.gameObject, grabbed))
             {
-                Notify.Show(player, "Plants are left out of a copy - pick it up by a building piece");
+                Notify.Show(player, "$hoo_copy_by_plant");
                 return;
             }
 
             if (!Knows(player, grabbed, false))
             {
-                Notify.Show(player, $"You have not learned to build {grabbed.m_name} - pick the copy up by a piece you know");
+                Notify.Show(player, Words.T("$hoo_copy_by_unlearned", grabbed.m_name));
                 return;
             }
 
@@ -584,7 +581,7 @@ namespace TheHammerOfOden
 
             if (!PlacementEdit.TakeInHand(player, grabbed))
             {
-                Notify.Show(player, "You cannot build the piece you grabbed it by");
+                Notify.Show(player, "$hoo_cannot_build_grabbed");
                 return;
             }
 
@@ -668,19 +665,17 @@ namespace TheHammerOfOden
 
                 if (kinds.Count > names.Count)
                 {
-                    names.Add($"{kinds.Count - names.Count} more kinds, listed in the log");
+                    names.Add(Words.T("$hoo_more_kinds_in_log", (kinds.Count - names.Count).ToString()));
                 }
 
-                Notify.Show(player, $"Left out {count} pieces you have not learned to build yet: "
-                    + string.Join(", ", names) + ".");
+                Notify.Show(player, Words.T("$hoo_copy_left_out_unlearned", count.ToString(), string.Join(", ", names)));
             }
 
-            Notify.Show(player, $"Copying {Count} pieces - costs {DescribeBill()}, paid as each piece goes up; "
-                + "what you cannot pay for yet waits as a ghost. "
-                + (unseen > 0 ? $"{unseen} are too far off to show but will be built. " : string.Empty)
-                + (planted > 0 ? $"{planted} plants left out. " : string.Empty)
-                + "Contents stay behind; sign text comes along. "
-                + $"{KeyNames.Of(ModConfig.EditKey)} puts it away.");
+            Notify.Show(player, Words.T("$hoo_copying", Count.ToString(), DescribeBill()) + " "
+                + (unseen > 0 ? Words.T("$hoo_copy_unseen", unseen.ToString()) + " " : string.Empty)
+                + (planted > 0 ? Words.T("$hoo_copy_planted", planted.ToString()) + " " : string.Empty)
+                + Words.T("$hoo_copy_contents") + " "
+                + Words.T("$hoo_put_away_with", KeyNames.Of(ModConfig.EditKey)));
         }
 
         /// <summary>
@@ -821,7 +816,7 @@ namespace TheHammerOfOden
         {
             if (Bill.Count == 0)
             {
-                return "nothing";
+                return "$hoo_nothing";
             }
 
             List<Cost> costs = new List<Cost>(Bill.Values);
@@ -852,8 +847,7 @@ namespace TheHammerOfOden
 
             if (!CanAfford(player, _anchorData.Prefab))
             {
-                Notify.Show(player, $"You need the materials for the {_anchorData.Prefab.m_name} you are holding "
-                    + "the copy by - it goes up first, and the rest follows as materials allow");
+                Notify.Show(player, Words.T("$hoo_copy_anchor_materials", _anchorData.Prefab.m_name));
                 return false;
             }
 
@@ -862,13 +856,13 @@ namespace TheHammerOfOden
                 Target(ghost, member, out Vector3 position, out _, out _);
                 if (Location.IsInsideNoBuildLocation(position))
                 {
-                    Notify.Show(player, "Part of the copy would land where nothing can be built");
+                    Notify.Show(player, "$hoo_copy_lands_nobuild");
                     return false;
                 }
 
                 if (!PrivateArea.CheckAccess(position, 0f, false, false))
                 {
-                    Notify.Show(player, "Part of the copy would land inside someone else's ward");
+                    Notify.Show(player, "$hoo_copy_lands_ward");
                     return false;
                 }
             }
@@ -1053,15 +1047,14 @@ namespace TheHammerOfOden
 
             if (IsHolding)
             {
-                Notify.Show(player, "Put the group down first");
+                Notify.Show(player, "$hoo_put_group_down_first");
                 return true;
             }
 
             List<Piece> pieces = Selection.LoadedPieces();
             if (pieces.Count < Selection.Count)
             {
-                Notify.Show(player, $"{Selection.Count - pieces.Count} of the {Selection.Count} selected pieces are "
-                    + "in an area the game has not loaded - move closer to the middle of them to take them down");
+                Notify.Show(player, Words.T("$hoo_unloaded_takedown", (Selection.Count - pieces.Count).ToString(), Selection.Count.ToString()));
                 return true;
             }
 
@@ -1077,7 +1070,7 @@ namespace TheHammerOfOden
 
             if (refused.Count > 0)
             {
-                Refuse(player, refused, "taken down");
+                Refuse(player, refused, "$hoo_refused_takedown");
                 return true;
             }
 
@@ -1085,8 +1078,7 @@ namespace TheHammerOfOden
             {
                 _confirmUntil = Time.time + 4f;
                 _confirmCount = pieces.Count;
-                Notify.Show(player, $"Middle-click again within 4 seconds to take down all {pieces.Count} selected pieces. "
-                    + "Their materials come back to you; undo puts it all back up, paid for again.");
+                Notify.Show(player, Words.T("$hoo_takedown_confirm", pieces.Count.ToString()));
                 return true;
             }
 
@@ -1173,7 +1165,7 @@ namespace TheHammerOfOden
             {
                 if (!PrivateArea.CheckAccess(target.position, 0f, false, false))
                 {
-                    Notify.Show(player, "Part of the group would land inside someone else's ward");
+                    Notify.Show(player, "$hoo_group_lands_ward");
                     return false;
                 }
             }
@@ -1200,10 +1192,10 @@ namespace TheHammerOfOden
                 moved++;
             }
 
-            PlacementUndo.RecordRevertible(() => PutBack(before), () => PutBack(after), "moved piece");
+            PlacementUndo.RecordRevertible(() => PutBack(before), () => PutBack(after), "moved");
 
             HammerOfOdenPlugin.Debug($"Moved {moved} pieces in place in {watch.ElapsedMilliseconds} ms.");
-            Notify.Show(player, moved == 1 ? "Moved 1 piece" : $"Moved {moved} pieces");
+            Notify.Show(player, Words.Count(moved, "$hoo_moved_one", "$hoo_moved_many"));
 
             End();
             return true;
@@ -1398,15 +1390,14 @@ namespace TheHammerOfOden
         {
             if (!IsCopying)
             {
-                Notify.Show(player, "Pick up a copy first - Shift + middle-click on a selected piece - then press "
-                    + $"{KeyNames.Of(ModConfig.ModelKey)} to turn it into a model");
+                Notify.Show(player, Words.T("$hoo_model_needs_copy", KeyNames.Of(ModConfig.ModelKey)));
                 return;
             }
 
             if (_model)
             {
                 LeaveModel();
-                Notify.Show(player, "Back to a full-size copy");
+                Notify.Show(player, "$hoo_model_back_to_copy");
                 return;
             }
 
@@ -1430,16 +1421,14 @@ namespace TheHammerOfOden
             _modelScale = Mathf.Clamp(ModConfig.ModelStartScale.Value, 0.005f, 0.5f);
             BuildModelPreview();
 
-            Notify.Show(player, $"Model of {_modelPlan.Count} pieces at {Ratio()} - aim at the top of a table or a floor "
-                + $"and place it. It costs {DescribeModelCost()}. The scale keys resize it; {KeyNames.Of(ModConfig.ModelKey)} "
-                + "turns it back into a copy.");
+            Notify.Show(player, Words.T("$hoo_model_holding", _modelPlan.Count.ToString(), Ratio(), DescribeModelCost(), KeyNames.Of(ModConfig.ModelKey)));
         }
 
         internal static void ScaleModel(Player player, int sign)
         {
             _modelScale = Mathf.Clamp(_modelScale * (1f + ModConfig.ScaleStep.Value * sign), 0.005f, 0.5f);
             BuildModelPreview();
-            Notify.Show(player, $"Model at {Ratio()}");
+            Notify.Show(player, Words.T("$hoo_model_at", Ratio()));
         }
 
         private static string Ratio()
@@ -1620,7 +1609,7 @@ namespace TheHammerOfOden
         private static string DescribeModelCost()
         {
             List<Cost> cost = CostOf(ModelCostBits);
-            return cost.Count == 0 ? "nothing" : string.Join(" and ", cost.ConvertAll(c => $"1 {c.Token}"));
+            return cost.Count == 0 ? "$hoo_nothing" : string.Join(" $hoo_and ", cost.ConvertAll(c => $"1 {c.Token}"));
         }
 
         /// <summary>Charges for a model. False, with a message, if it cannot be paid for.</summary>
@@ -1634,7 +1623,7 @@ namespace TheHammerOfOden
 
             if (!CanPay(player, cost))
             {
-                Notify.Show(player, "A model costs " + string.Join(" and ", cost.ConvertAll(c => $"1 {c.Token}")));
+                Notify.Show(player, Words.T("$hoo_model_costs", string.Join(" $hoo_and ", cost.ConvertAll(c => $"1 {c.Token}"))));
                 return false;
             }
 
@@ -1669,13 +1658,13 @@ namespace TheHammerOfOden
 
             if (_modelHost != null && ModelDisplay.Carries(_modelHost))
             {
-                Notify.Show(player, $"That already has a model on it - {KeyNames.Of(ModConfig.SiteCancelKey)} while looking at it takes it off");
+                Notify.Show(player, Words.T("$hoo_model_already_there", KeyNames.Of(ModConfig.SiteCancelKey)));
                 return;
             }
 
             if (!_modelFits)
             {
-                Notify.Show(player, "A model goes on the top of a table or a floor");
+                Notify.Show(player, "$hoo_model_needs_surface");
                 return;
             }
 
@@ -1701,8 +1690,7 @@ namespace TheHammerOfOden
 
             // Still held, like a full-size copy, for the next table.
             CopyPlaced();
-            Notify.Show(player, $"Model of {pieces} pieces placed - still in hand for another table. Undo takes it off; "
-                + $"so does middle-click or {KeyNames.Of(ModConfig.SiteCancelKey)} on what it stands on.");
+            Notify.Show(player, Words.T("$hoo_model_placed", pieces.ToString(), KeyNames.Of(ModConfig.SiteCancelKey)));
         }
     }
 }

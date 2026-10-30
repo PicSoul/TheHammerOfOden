@@ -69,11 +69,11 @@ namespace TheHammerOfOden
             switch (mode)
             {
                 case ClippingMode.Always:
-                    return "always";
+                    return "$hoo_clip_always";
                 case ClippingMode.WithFreePlacement:
-                    return "with free placement";
+                    return "$hoo_clip_free";
                 default:
-                    return "never";
+                    return "$hoo_clip_never";
             }
         }
     }

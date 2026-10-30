@@ -108,8 +108,8 @@ namespace TheHammerOfOden
             if (GroupHold.IsHolding)
             {
                 GroupHold.Cancel(player, GroupHold.IsMoving
-                    ? "Move cancelled - nothing was moved"
-                    : "Copy put away");
+                    ? "$hoo_move_cancelled_nothing_moved"
+                    : "$hoo_copy_put_away");
                 return;
             }
 
@@ -135,7 +135,7 @@ namespace TheHammerOfOden
                     return;
                 }
 
-                Cancel(player, "Edit cancelled - the piece is untouched");
+                Cancel(player, "$hoo_edit_cancelled");
                 return;
             }
 
@@ -152,14 +152,14 @@ namespace TheHammerOfOden
             Piece piece = player.GetHoveringPiece();
             if (piece == null)
             {
-                Notify.Show(player, "Look at a piece to edit it");
+                Notify.Show(player, "$hoo_edit_look_at_piece");
                 return;
             }
 
             ZNetView view = piece.GetComponent<ZNetView>();
             if (view == null || !view.IsValid())
             {
-                Notify.Show(player, "That cannot be edited");
+                Notify.Show(player, "$hoo_edit_cannot");
                 return;
             }
 
@@ -180,7 +180,7 @@ namespace TheHammerOfOden
                 // Editing rebuilds the piece from its prefab, and a prefab has no idea what was
                 // inside the thing it is replacing. Emptying a chest to move it is the player's
                 // decision to make, not ours to make quietly on their behalf.
-                Notify.Show(player, "Empty the " + holding + " first");
+                Notify.Show(player, holding);
                 return;
             }
 
@@ -195,7 +195,7 @@ namespace TheHammerOfOden
             {
                 // Vanilla's own answer when the recipe is not known or the station is missing.
                 Clear();
-                Notify.Show(player, "You cannot build that piece");
+                Notify.Show(player, "$hoo_edit_cannot_build");
                 return;
             }
 
@@ -207,8 +207,7 @@ namespace TheHammerOfOden
 
             HammerOfOdenPlugin.Debug(
                 $"Editing '{_originalPrefab}' ({_original}); rotation and scale copied.");
-            Notify.Show(player, "Editing " + piece.m_name + " - held in place. Adjust it, or unfreeze ("
-                + KeyNames.MainOf(ModConfig.FreezeKey) + ") to move it freely. Place to apply");
+            Notify.Show(player, Words.T("$hoo_editing", piece.m_name, KeyNames.MainOf(ModConfig.FreezeKey)));
         }
 
         /// <summary>
@@ -299,21 +298,21 @@ namespace TheHammerOfOden
             if (container != null && container.GetInventory() != null
                 && container.GetInventory().NrOfItems() > 0)
             {
-                what = "container";
+                what = "$hoo_edit_empty_container";
                 return true;
             }
 
             ItemStand stand = piece.GetComponent<ItemStand>();
             if (stand != null && stand.HaveAttachment())
             {
-                what = "item stand";
+                what = "$hoo_edit_empty_stand";
                 return true;
             }
 
             Sign sign = piece.GetComponent<Sign>();
             if (sign != null && !string.IsNullOrEmpty(sign.GetText()))
             {
-                what = "sign";
+                what = "$hoo_edit_empty_sign";
                 return true;
             }
 
@@ -388,7 +387,7 @@ namespace TheHammerOfOden
             }
 
             HammerOfOdenPlugin.Debug($"Edit replaced '{prefab}' and removed the original.");
-            Notify.Show(player, "Edited");
+            Notify.Show(player, "$hoo_edited");
         }
 
         /// <summary>Ends an edit without touching the original.</summary>

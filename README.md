@@ -536,6 +536,22 @@ Patches are applied one at a time, so a Valheim update that moves something brea
 
 **Debug settings.** `DebugLogging` reports placement decisions. `DebugParticles` reports what a scaled piece's effects are doing — visibility, particle counts, renderer bounds — which is how the particle scaling was diagnosed rather than guessed at.
 
+## Translations
+
+The Hammer of Oden follows the language set in the game, and changes the moment you change it. It
+ships with English, German, French, Spanish, Russian, Brazilian Portuguese, Polish and Simplified
+Chinese; the game's other languages will follow in later releases, and until then show English.
+The translations other than English are machine-made, so corrections from native speakers are very
+welcome.
+
+To add or correct a language, copy `translations/English.yml`, name it
+`The Hammer of Oden.<Language>.yml` (for example `The Hammer of Oden.Italian.yml`), translate the text
+on the right of each line - keeping `$1`, `$2` and so on - and put it anywhere inside the `BepInEx`
+folder.
+
+Translations are handled by [LocalizationManager](https://github.com/blaxxun-boop/LocalizationManager)
+by blaxxun (MIT licence). See `THIRD-PARTY-NOTICES.md`.
+
 ## Building from source
 
 See `BUILDING.md`. Copy `Local.props.example` to `Local.props`, point it at your Valheim install, and run `.\build.ps1`.

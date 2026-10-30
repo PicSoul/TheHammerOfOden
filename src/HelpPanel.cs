@@ -151,8 +151,8 @@ namespace TheHammerOfOden
             GUILayout.BeginHorizontal();
             GUILayout.Space(10f);
             GUILayout.BeginVertical();
-            GUILayout.Label("<b><color=#F5D278>ᚦ   THE HAMMER OF ODEN   ᚦ</color></b>", _heading);
-            GUILayout.Label("<color=#94A3B8>Viking Precision Architecture & Building Reference</color>", _subHeading);
+            GUILayout.Label("<b><color=#F5D278>ᚦ   " + Words.T("$hoo_help_title") + "   ᚦ</color></b>", _heading);
+            GUILayout.Label("<color=#94A3B8>" + Words.T("$hoo_help_subtitle") + "</color>", _subHeading);
             GUILayout.EndVertical();
 
             // Close button top right
@@ -168,11 +168,11 @@ namespace TheHammerOfOden
             // 2. Toolbar (Search + Drag hint)
             GUILayout.BeginHorizontal(_toolbarBox);
             GUILayout.Space(6f);
-            GUILayout.Label("<color=#FCD34D><b>Search:</b></color>", _searchLabel, GUILayout.Width(54f));
+            GUILayout.Label("<color=#FCD34D><b>" + Words.T("$hoo_help_search") + "</b></color>", _searchLabel, GUILayout.ExpandWidth(false));
             _searchFilter = GUILayout.TextField(_searchFilter, _searchField, GUILayout.Width(220f));
             if (!string.IsNullOrEmpty(_searchFilter))
             {
-                if (GUILayout.Button("Clear", _tabNormal, GUILayout.Width(50f), GUILayout.Height(22f)))
+                if (GUILayout.Button(Words.T("$hoo_help_clear"), _tabNormal, GUILayout.ExpandWidth(false), GUILayout.Height(22f)))
                 {
                     _searchFilter = "";
                 }
@@ -182,11 +182,11 @@ namespace TheHammerOfOden
 
             if (ServerEnforced)
             {
-                GUILayout.Label("<color=#60A5FA><b>ℹ Server Enforced</b></color>", _footerText);
+                GUILayout.Label("<color=#60A5FA><b>ℹ " + Words.T("$hoo_help_server_enforced") + "</b></color>", _footerText);
                 GUILayout.Space(12f);
             }
 
-            GUILayout.Label("<color=#64748B>Drag header to reposition</color>", _footerText);
+            GUILayout.Label("<color=#64748B>" + Words.T("$hoo_help_drag_hint") + "</color>", _footerText);
             GUILayout.Space(8f);
             GUILayout.EndHorizontal();
 
@@ -222,9 +222,9 @@ namespace TheHammerOfOden
             // 5. Footer Info Bar
             GUILayout.BeginHorizontal(_footerBox);
             GUILayout.Space(8f);
-            GUILayout.Label("Press <color=#FCD34D><b>" + Key(ModConfig.HelpKey) + "</b></color> or <color=#FCD34D><b>Esc</b></color> to close", _footerText);
+            GUILayout.Label(Words.T("$hoo_help_footer_close", "<color=#FCD34D><b>" + Key(ModConfig.HelpKey) + "</b></color>", "<color=#FCD34D><b>Esc</b></color>"), _footerText);
             GUILayout.FlexibleSpace();
-            GUILayout.Label("<color=#64748B>Controls dynamically reflect your active config</color>", _footerText);
+            GUILayout.Label("<color=#64748B>" + Words.T("$hoo_help_footer_config") + "</color>", _footerText);
             GUILayout.Space(8f);
             GUILayout.EndHorizontal();
 
@@ -237,32 +237,33 @@ namespace TheHammerOfOden
             // Two rows: one piece at a time, then whole buildings and the rest.
             GUILayout.BeginHorizontal();
             GUILayout.Space(8f);
-            TabBtn(CategoryTab.All, "All");
-            TabBtn(CategoryTab.Rotating, "Rotate");
-            TabBtn(CategoryTab.Scaling, "Scale");
-            TabBtn(CategoryTab.Bending, "Bend");
-            TabBtn(CategoryTab.Placing, "Place");
-            TabBtn(CategoryTab.Snapping, "Snap/Edit");
-            TabBtn(CategoryTab.Runs, "Runs/Undo");
-            TabBtn(CategoryTab.Master, "Master");
+            TabBtn(CategoryTab.All, "$hoo_help_tab_all");
+            TabBtn(CategoryTab.Rotating, "$hoo_help_tab_rotate");
+            TabBtn(CategoryTab.Scaling, "$hoo_help_tab_scale");
+            TabBtn(CategoryTab.Bending, "$hoo_help_tab_bend");
+            TabBtn(CategoryTab.Placing, "$hoo_help_tab_place");
+            TabBtn(CategoryTab.Snapping, "$hoo_help_tab_snap");
+            TabBtn(CategoryTab.Runs, "$hoo_help_tab_runs");
+            TabBtn(CategoryTab.Master, "$hoo_help_tab_master");
             GUILayout.Space(8f);
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             GUILayout.Space(8f);
-            TabBtn(CategoryTab.Selecting, "Select");
-            TabBtn(CategoryTab.Copying, "Copy");
-            TabBtn(CategoryTab.Models, "Models");
-            TabBtn(CategoryTab.Blueprints, "Blueprints");
-            TabBtn(CategoryTab.Camera, "Camera");
-            TabBtn(CategoryTab.Doors, "Doors");
-            TabBtn(CategoryTab.Stations, "Stations");
+            TabBtn(CategoryTab.Selecting, "$hoo_help_tab_select");
+            TabBtn(CategoryTab.Copying, "$hoo_help_tab_copy");
+            TabBtn(CategoryTab.Models, "$hoo_help_tab_models");
+            TabBtn(CategoryTab.Blueprints, "$hoo_help_tab_blueprints");
+            TabBtn(CategoryTab.Camera, "$hoo_help_tab_camera");
+            TabBtn(CategoryTab.Doors, "$hoo_help_tab_doors");
+            TabBtn(CategoryTab.Stations, "$hoo_help_tab_stations");
             GUILayout.Space(8f);
             GUILayout.EndHorizontal();
         }
 
         private static void TabBtn(CategoryTab tab, string label)
         {
+            label = L(label);
             bool isActive = (_currentTab == tab);
             GUIStyle style = isActive ? _tabActive : _tabNormal;
             string text = isActive ? $"<b><color=#FDE047>{label}</color></b>" : $"<color=#CBD5E1>{label}</color>";
@@ -276,237 +277,192 @@ namespace TheHammerOfOden
 
         private static void Master()
         {
-            Section("The Master Switch", "ᛗ");
-            Row(ModConfig.MasterToggleKey, "Turn the whole mod on or off");
-            Note("The hammer glows and emits subtle embers while active. Everything except the build "
-                + "camera is limited to tools that build, so the hoe, the cultivator and modded terrain "
-                + "tools get the camera and nothing else. Turning the mod off hands back its keys and "
-                + "leaves the game alone - pieces you have already bent or scaled keep their shape."
-                + (ModConfig.LockWhileMoving.Value
-                    ? " Rotating, scaling, bending, nudging and zooping only work while you stand still."
-                    : string.Empty));
-            Note("The strip in the corner shows the keys that do something right now, and changes as you hold "
-                + "a modifier, a copy or a selection. Messages appear in the mod's own panel and stay long "
-                + "enough to read. While a building of yours is going up, a panel lists what it still needs. "
-                + "All three move and resize in the config: Key Hints, Messages, Building Panel.");
+            Section("$hoo_help_master", "ᛗ");
+            Row(ModConfig.MasterToggleKey, "$hoo_help_master_toggle");
+            Note(Words.T("$hoo_help_master_note1")
+                + (ModConfig.LockWhileMoving.Value ? " " + Words.T("$hoo_help_master_note1_still") : string.Empty));
+            Note(Words.T("$hoo_help_master_note2"));
         }
 
         private static void Rotating()
         {
-            Section("Rotating Pieces", "ᚱ");
-            Plain("Scroll wheel", "Turn the piece on the flat horizon");
-            Plain("Hold " + Key(ModConfig.XAxisKey) + " + scroll", "Pitch: tip it forward and backward");
-            Plain("Hold " + Key(ModConfig.ZAxisKey) + " + scroll", "Roll: tilt it left and right");
-            Plain("Hold both + scroll", "Yaw along aim: push along placement line");
-            Row(ModConfig.ResetAxisKey, "Reset only the axis you are currently holding");
-            Row(ModConfig.ResetAllKey, "Reset every rotation axis at once");
-            Row(ModConfig.SnapIncreaseKey, "Finer rotation steps (more divisions)");
-            Row(ModConfig.SnapDecreaseKey, "Coarser rotation steps (fewer divisions)");
-            Note("Currently configured to " + ModConfig.SnapDivisions.Value + " steps per full turn ("
-                + (360f / Mathf.Max(1, ModConfig.SnapDivisions.Value)).ToString("0.#") + "° per click).");
+            Section("$hoo_help_rotating", "ᚱ");
+            Plain("$hoo_help_key_scroll_wheel", "$hoo_help_rot_turn");
+            Plain(Words.T("$hoo_help_key_hold_scroll", Key(ModConfig.XAxisKey)), "$hoo_help_rot_pitch");
+            Plain(Words.T("$hoo_help_key_hold_scroll", Key(ModConfig.ZAxisKey)), "$hoo_help_rot_roll");
+            Plain("$hoo_help_key_hold_both_scroll", "$hoo_help_rot_yaw_aim");
+            Row(ModConfig.ResetAxisKey, "$hoo_help_rot_reset_axis");
+            Row(ModConfig.ResetAllKey, "$hoo_help_rot_reset_all");
+            Row(ModConfig.SnapIncreaseKey, "$hoo_help_rot_finer");
+            Row(ModConfig.SnapDecreaseKey, "$hoo_help_rot_coarser");
+            Note(Words.T("$hoo_help_rot_note", ModConfig.SnapDivisions.Value.ToString(),
+                (360f / Mathf.Max(1, ModConfig.SnapDivisions.Value)).ToString("0.#")));
         }
 
         private static void Scaling()
         {
-            Section("Precision Scaling", "ᛊ");
-            Plain("Hold " + Key(ModConfig.ScaleModifierKey), "Hold this modifier while using scaling keys below");
-            Row(ModConfig.ScaleWiderKey, "Wider", ModConfig.ScaleNarrowerKey, "Narrower");
-            Row(ModConfig.ScaleTallerKey, "Taller", ModConfig.ScaleShorterKey, "Shorter");
-            Row(ModConfig.ScaleDeeperKey, "Deeper", ModConfig.ScaleShallowerKey, "Shallower");
-            Row(ModConfig.ScaleUpKey, "Bigger (uniform)", ModConfig.ScaleDownKey, "Smaller (uniform)");
-            Row(ModConfig.ScaleResetKey, "Reset piece back to default 1.0x size");
-            Note((ModConfig.ScaleRestrictions.Value == ScaleRestriction.Nothing
-                    ? "Every piece can be resized, stations and ships included. "
+            Section("$hoo_help_scaling", "ᛊ");
+            Plain(Words.T("$hoo_help_key_hold", Key(ModConfig.ScaleModifierKey)), "$hoo_help_scale_hold");
+            Row(ModConfig.ScaleWiderKey, "$hoo_help_scale_wider", ModConfig.ScaleNarrowerKey, "$hoo_help_scale_narrower");
+            Row(ModConfig.ScaleTallerKey, "$hoo_help_scale_taller", ModConfig.ScaleShorterKey, "$hoo_help_scale_shorter");
+            Row(ModConfig.ScaleDeeperKey, "$hoo_help_scale_deeper", ModConfig.ScaleShallowerKey, "$hoo_help_scale_shallower");
+            Row(ModConfig.ScaleUpKey, "$hoo_help_scale_bigger", ModConfig.ScaleDownKey, "$hoo_help_scale_smaller");
+            Row(ModConfig.ScaleResetKey, "$hoo_help_scale_reset");
+            Note(Words.T(ModConfig.ScaleRestrictions.Value == ScaleRestriction.Nothing
+                    ? "$hoo_help_scale_note_all"
                     : ModConfig.ScaleRestrictions.Value == ScaleRestriction.ProductionStations
-                        ? "Crafting and production stations keep their normal size. "
-                        : "Anything you can use keeps its normal size. ")
-                + "Scaling range: " + ModConfig.ScaleMin.Value.ToString("0.##") + "x to "
-                + ModConfig.ScaleMax.Value.ToString("0.##") + "x in steps of "
-                + ModConfig.ScaleStep.Value.ToString("0.##") + ". Scaled pieces persist through world reloads and sync to all players.");
+                        ? "$hoo_help_scale_note_stations"
+                        : "$hoo_help_scale_note_usable")
+                + " " + Words.T("$hoo_help_scale_note_range", ModConfig.ScaleMin.Value.ToString("0.##"),
+                    ModConfig.ScaleMax.Value.ToString("0.##"), ModConfig.ScaleStep.Value.ToString("0.##")));
         }
 
         private static void Bending()
         {
-            Section("Bending & Curving Beams", "ᛒ");
-            Plain("Hold " + Key(ModConfig.BendModifierKey) + " + scroll", "Curve the piece continuously in both directions");
-            Row(ModConfig.BendAxisKey, "Swap curve orientation axis");
-            Row(ModConfig.BendResetKey, "Straighten piece back to flat");
-            Note("While " + Key(ModConfig.BendModifierKey) + " is held the gizmo lights up the ring the bend turns "
-                + "around, and a message says which way the ends will curve - up, down, left, right, towards or "
-                + "away from you. Pieces bend along their longest side, up to " + ModConfig.BendMaximum.Value.ToString("0")
-                + "° (180° turns a straight beam into a semicircular arch). Only solid structural pieces bend; "
-                + "the build menu marks them with a small arch.");
+            Section("$hoo_help_bending", "ᛒ");
+            Plain(Words.T("$hoo_help_key_hold_scroll", Key(ModConfig.BendModifierKey)), "$hoo_help_bend_curve");
+            Row(ModConfig.BendAxisKey, "$hoo_help_bend_swap");
+            Row(ModConfig.BendResetKey, "$hoo_help_bend_straighten");
+            Note(Words.T("$hoo_help_bend_note", Key(ModConfig.BendModifierKey), ModConfig.BendMaximum.Value.ToString("0")));
         }
 
         private static void Placing()
         {
-            Section("Free Placement & Nudging", "ᛈ");
-            Row(ModConfig.FreePlacementKey, "Free placement: disable collision / surface lock");
-            Row(ModConfig.SurfacePlacementKey, "Surface placement: align flush against whatever surface you target");
-            Row(ModConfig.FreezeKey, "Freeze placement ghost: pin in mid-air to inspect from all angles");
-            Row(ModConfig.GridKey, "Toggle world grid snapping (" + ModConfig.GridSize.Value.ToString("0.##") + "m)");
-            Row(ModConfig.ClippingToggleKey, "Allow overlapping pieces inside each other");
-            Plain(Key(ModConfig.NudgeForwardKey) + " / " + Key(ModConfig.NudgeBackwardKey), "Nudge depth: forward and backward");
-            Plain(Key(ModConfig.NudgeLeftKey) + " / " + Key(ModConfig.NudgeRightKey), "Nudge horizontal: left and right");
-            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "Nudge vertical: upward and downward");
-            Plain("Hold " + Key(ModConfig.NudgeLargeModifierKey), "Hold for larger nudge increments");
-            Row(ModConfig.ResetOffsetKey, "Reset all nudging offsets back to zero");
-            Note("Nudge step size: " + ModConfig.NudgeStep.Value.ToString("0.###") + "m (fine), or "
-                + ModConfig.NudgeStepLarge.Value.ToString("0.###") + "m (large held). A tap moves one step; "
-                + "hold a nudge, scale or zoop-gap key and it repeats after a moment.");
-            Note("Free placement sets aside: " + DescribeFreedom(ModConfig.Freedom.Value)
-                + (ModConfig.BuildWithoutWorkbench.Value ? " No workbench is needed while it is on." : string.Empty)
-                + " Someone else's ward is always respected.");
+            Section("$hoo_help_placing", "ᛈ");
+            Row(ModConfig.FreePlacementKey, "$hoo_help_place_free");
+            Row(ModConfig.SurfacePlacementKey, "$hoo_help_place_surface");
+            Row(ModConfig.FreezeKey, "$hoo_help_place_freeze");
+            Row(ModConfig.GridKey, Words.T("$hoo_help_place_grid", ModConfig.GridSize.Value.ToString("0.##")));
+            Row(ModConfig.ClippingToggleKey, "$hoo_help_place_clipping");
+            Plain(Key(ModConfig.NudgeForwardKey) + " / " + Key(ModConfig.NudgeBackwardKey), "$hoo_help_nudge_depth");
+            Plain(Key(ModConfig.NudgeLeftKey) + " / " + Key(ModConfig.NudgeRightKey), "$hoo_help_nudge_horizontal");
+            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "$hoo_help_nudge_vertical");
+            Plain(Words.T("$hoo_help_key_hold", Key(ModConfig.NudgeLargeModifierKey)), "$hoo_help_nudge_large");
+            Row(ModConfig.ResetOffsetKey, "$hoo_help_nudge_reset");
+            Note(Words.T("$hoo_help_nudge_note", ModConfig.NudgeStep.Value.ToString("0.###"), ModConfig.NudgeStepLarge.Value.ToString("0.###")));
+            Note(Words.T("$hoo_help_free_note", DescribeFreedom(ModConfig.Freedom.Value))
+                + (ModConfig.BuildWithoutWorkbench.Value ? " " + Words.T("$hoo_help_free_note_workbench") : string.Empty)
+                + " " + Words.T("$hoo_help_free_note_ward"));
         }
 
         private static string DescribeFreedom(PlacementFreedom freedom)
         {
             switch (freedom)
             {
-                case PlacementFreedom.Vanilla: return "no rules - it only changes snapping.";
-                case PlacementFreedom.Surfaces: return "what a piece may rest on.";
-                case PlacementFreedom.SurfacesAndSpacing: return "what a piece may rest on, and the room it needs.";
-                case PlacementFreedom.Everything: return "surface, spacing, biome, dungeon and weather rules.";
-                default: return "every rule, no-build zones and characters in the way included.";
+                case PlacementFreedom.Vanilla: return Words.T("$hoo_help_freedom_vanilla");
+                case PlacementFreedom.Surfaces: return Words.T("$hoo_help_freedom_surfaces");
+                case PlacementFreedom.SurfacesAndSpacing: return Words.T("$hoo_help_freedom_spacing");
+                case PlacementFreedom.Everything: return Words.T("$hoo_help_freedom_everything");
+                default: return Words.T("$hoo_help_freedom_unrestricted");
             }
         }
 
         private static void Snapping()
         {
-            Section("Snap Points & In-Place Editing", "ᛋ");
-            Row(ModConfig.CycleDerivedSnapPointsKey, "Cycle derived center, face, and edge snap anchors");
-            Row(ModConfig.EditKey, "In-place edit: pick up already-built piece to resize/rotate/reposition");
-            Note("An edited piece starts frozen exactly where it stands, so small adjustments stay small; press "
-                + Key(ModConfig.FreezeKey) + " to let it follow your aim for a bigger move. Placing or cancelling "
-                + "releases it. Editing keeps the piece's health and materials at no extra cost. Containers, signs "
-                + "and item stands with something in them cannot be edited on their own - select them and move "
-                + "the selection instead, which keeps what they hold.");
+            Section("$hoo_help_snapping", "ᛋ");
+            Row(ModConfig.CycleDerivedSnapPointsKey, "$hoo_help_snap_cycle");
+            Row(ModConfig.EditKey, "$hoo_help_snap_edit");
+            Note(Words.T("$hoo_help_snap_note", Key(ModConfig.FreezeKey)));
         }
 
         private static void Selecting()
         {
-            Section("Selecting Several Pieces", "ᛗ");
-            Row(ModConfig.SelectKey, "Add the piece you are looking at, or take it out");
-            Row(ModConfig.SelectGrowKey, "Grow: add everything touching", ModConfig.SelectShrinkKey, "Shrink back one grow");
-            Row(ModConfig.SelectBuildingKey, "Add the whole connected building");
-            Row(ModConfig.SelectTypeKey, "Add only connected pieces of the kind you are looking at");
-            Row(ModConfig.SelectClearKey, "Clear the selection");
-            Note("Selected pieces glow while a building tool is in hand. Selecting never removes a piece, "
-                + "even though middle-click is the hammer's remove. A selection holds up to "
-                + ModConfig.SelectionLimit.Value + " pieces and is kept until you clear it or leave the world. "
-                + (Selection.Count > 0 ? Selection.Count + " selected right now." : "Nothing selected right now."));
+            Section("$hoo_help_selecting", "ᛗ");
+            Row(ModConfig.SelectKey, "$hoo_help_sel_toggle");
+            Row(ModConfig.SelectGrowKey, "$hoo_help_sel_grow", ModConfig.SelectShrinkKey, "$hoo_help_sel_shrink");
+            Row(ModConfig.SelectBuildingKey, "$hoo_help_sel_building");
+            Row(ModConfig.SelectTypeKey, "$hoo_help_sel_type");
+            Row(ModConfig.SelectClearKey, "$hoo_help_sel_clear");
+            Note(Words.T("$hoo_help_sel_note", ModConfig.SelectionLimit.Value.ToString()) + " "
+                + (Selection.Count > 0 ? Words.T("$hoo_help_sel_note_count", Selection.Count.ToString()) : Words.T("$hoo_help_sel_note_none")));
         }
 
         private static void Groups()
         {
-            Section("Moving, Copying & Taking Down a Selection", "ᛟ");
-            Plain(Key(ModConfig.EditKey) + " on a selected piece", "Move the whole selection in place - chests keep what is in them");
-            Plain("Shift + Middle mouse on a selected piece", "Copy the selection, to build somewhere else");
-            Plain("Middle mouse twice on a selected piece", "Take the selection down - materials back, undo puts it back up");
-            Row(ModConfig.BlueprintSaveKey, "With nothing held: save the selection as a blueprint");
-            Note("A held group resizes evenly with the uniform scale keys, turns and nudges like one piece. "
-                + "Copies are new pieces: chests come empty and item stands bare, sign text comes along. "
-                + "Plants are left out" + (ModConfig.CopyAllowUnlearned.Value
-                    ? ", and pieces you have not learned are included (set by the server)."
-                    : ", and so are pieces you have not learned - they are listed.")
-                + " No crafting station is needed to move, copy or take down a selection. Pieces that cannot be "
-                + "moved or taken down - someone else's ward, in use - are named and deselected.");
+            Section("$hoo_help_groups", "ᛟ");
+            Plain(Words.T("$hoo_help_key_on_selected", Key(ModConfig.EditKey)), "$hoo_help_groups_move");
+            Plain("$hoo_help_key_shift_mmb_selected", "$hoo_help_groups_copy");
+            Plain("$hoo_help_key_mmb_twice_selected", "$hoo_help_groups_takedown");
+            Row(ModConfig.BlueprintSaveKey, "$hoo_help_groups_save");
+            Note(Words.T("$hoo_help_groups_note1") + " "
+                + Words.T(ModConfig.CopyAllowUnlearned.Value ? "$hoo_help_groups_note_unlearned_in" : "$hoo_help_groups_note_unlearned_out")
+                + " " + Words.T("$hoo_help_groups_note2"));
         }
 
         private static void Copying()
         {
-            Section("Copies & Construction Sites", "ᚺ");
-            Plain("Left mouse, holding a copy", "Place it: what you can pay for flies in, lowest first. The copy stays in hand to place again");
-            Row(ModConfig.SiteCancelKey, "On a building still going up: stop it where it stands");
-            Row(ModConfig.SiteTakeDownKey, "On any piece of a copy: take the whole copy down, even after a restart");
-            Note("A copy you cannot pay for in full waits as a ghost and carries on by itself as materials turn up - "
-                + "on you, in an AdventureBackpacks backpack, or in chests within reach with AzuCraftyBoxes - while "
-                + "you are within " + ModConfig.SiteRange.Value.ToString("0") + "m. It is saved with the world, and "
-                + "other players with the mod see its ghost. The building panel lists what it still needs.");
-            Note("Undo takes a copy down and hands the materials back where they came from - chests that hold them, "
-                + "your backpack, your inventory - and anything that fits nowhere lands at your feet. It works while "
-                + "you still hold the copy, so you can put down several and take them back one by one.");
+            Section("$hoo_help_copying", "ᚺ");
+            Plain("$hoo_help_key_lmb_holding_copy", "$hoo_help_copy_place");
+            Row(ModConfig.SiteCancelKey, "$hoo_help_copy_stop");
+            Row(ModConfig.SiteTakeDownKey, "$hoo_help_copy_takedown");
+            Note(Words.T("$hoo_help_copy_note1", ModConfig.SiteRange.Value.ToString("0")));
+            Note(Words.T("$hoo_help_copy_note2"));
         }
 
         private static void Models()
         {
-            Section("Models", "ᛗ");
-            Row(ModConfig.ModelKey, "Holding a copy or a blueprint: turn it into a miniature");
-            Plain("Hold " + Key(ModConfig.ScaleModifierKey) + " + " + Key(ModConfig.ScaleUpKey) + " / " + Key(ModConfig.ScaleDownKey),
-                "Bigger / smaller model");
-            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "Raise / lower it finely, a centimetre a press");
-            Plain("Left mouse", "Stand it on the top of a table or a floor");
-            Plain("Middle mouse twice, or " + Key(ModConfig.SiteCancelKey), "On its table: take the model off");
-            Note("A model is drawn, not built: one saved object however large the building, costing one resin, "
-                + "plus one wood and one stone if the building uses them. Undo takes it off again. Models further "
-                + "than " + ModConfig.ModelDrawDistance.Value.ToString("0") + "m away are not drawn.");
+            Section("$hoo_help_models", "ᛗ");
+            Row(ModConfig.ModelKey, "$hoo_help_model_toggle");
+            Plain(Words.T("$hoo_help_key_hold", Key(ModConfig.ScaleModifierKey)) + " + " + Key(ModConfig.ScaleUpKey) + " / " + Key(ModConfig.ScaleDownKey),
+                "$hoo_help_model_size");
+            Plain(Key(ModConfig.NudgeUpKey) + " / " + Key(ModConfig.NudgeDownKey), "$hoo_help_model_raise");
+            Plain("$hoo_help_key_lmb", "$hoo_help_model_place");
+            Plain(Words.T("$hoo_help_key_mmb_twice_or", Key(ModConfig.SiteCancelKey)), "$hoo_help_model_off");
+            Note(Words.T("$hoo_help_model_note", ModConfig.ModelDrawDistance.Value.ToString("0")));
         }
 
         private static void Blueprints()
         {
-            Section("Blueprints", "ᛒ");
-            Row(ModConfig.BlueprintBookKey, "With the hammer out: open the blueprint book");
-            Row(ModConfig.BlueprintSaveKey, "With a selection and nothing held: save it as a blueprint");
-            Plain("Drag / scroll on the preview", "Turn / zoom the model preview; the button above keeps that view as its picture");
-            Note("Blueprints are PlanBuild files, kept in BepInEx/config/PlanBuild - PlanBuild, Infinity Hammer and "
-                + "BuildShare blueprints all open here, and PlanBuild and Infinity Hammer can open yours. Scaled pieces "
-                + "keep their size in all three; bends show in Infinity Hammer too, where this mod is installed. "
-                + "Picked up, a blueprint is held and placed exactly like a copy.");
-            Note("Saving over a blueprint asks first and keeps the old one as a .bak file. A selection remembers the "
-                + "blueprint it was saved as or built from. Pieces from mods not installed here, sizes beyond the "
-                + "server's limits and ground shaping (an option in the book) are shown before you place.");
+            Section("$hoo_help_blueprints", "ᛒ");
+            Row(ModConfig.BlueprintBookKey, "$hoo_help_bp_book");
+            Row(ModConfig.BlueprintSaveKey, "$hoo_help_bp_save");
+            Plain("$hoo_help_key_drag_scroll_preview", "$hoo_help_bp_preview");
+            Note(Words.T("$hoo_help_bp_note1"));
+            Note(Words.T("$hoo_help_bp_note2"));
         }
 
         private static void Runs()
         {
-            Section("Zooping Runs & Instant Undo", "ᛉ");
-            Plain("Hold " + Key(ModConfig.ZoopModifierKey) + " + arrows / " + Key(ModConfig.NudgeUpKey) + " / "
-                + Key(ModConfig.NudgeDownKey), "Extend a line or grid of copies (zooping) before placing");
-            Row(ModConfig.ZoopGapWiderKey, "Wider gap", ModConfig.ZoopGapNarrowerKey, "Narrower gap / overlap");
-            Row(ModConfig.UndoKey, "Undo: take back the last thing you did - a run, a copy, a move, a take-down");
-            Row(ModConfig.RedoKey, "Redo: do again what you last undid (rebuilt pieces are paid for again)");
-            Note("Gap between copies: " + (Mathf.Approximately(Zooping.Gap, 0f)
-                    ? "none, they touch"
-                    : Zooping.Gap > 0f ? Zooping.Gap.ToString("0.##") + "m" : (-Zooping.Gap).ToString("0.##") + "m overlap")
-                + ", in " + ModConfig.ZoopGapStep.Value.ToString("0.##") + "m steps. "
-                + Key(ModConfig.ResetOffsetKey) + " clears it with the zoop. "
-                + "Builds up to " + ModConfig.ZoopLimit.Value + " continuous copies in a single click. Undo remembers the last "
-                + ModConfig.UndoDepth.Value + " placement actions"
-                + (ModConfig.UndoRefundsToInventory.Value
-                    ? ", refunding resources directly into your inventory."
-                    : ", dropping materials at piece locations."));
+            Section("$hoo_help_runs", "ᛉ");
+            Plain(Words.T("$hoo_help_key_hold_arrows", Key(ModConfig.ZoopModifierKey)) + " / " + Key(ModConfig.NudgeUpKey) + " / "
+                + Key(ModConfig.NudgeDownKey), "$hoo_help_runs_zoop");
+            Row(ModConfig.ZoopGapWiderKey, "$hoo_help_runs_gap_wider", ModConfig.ZoopGapNarrowerKey, "$hoo_help_runs_gap_narrower");
+            Row(ModConfig.UndoKey, "$hoo_help_runs_undo");
+            Row(ModConfig.RedoKey, "$hoo_help_runs_redo");
+            string gap = Mathf.Approximately(Zooping.Gap, 0f)
+                ? Words.T("$hoo_help_runs_gap_none")
+                : Zooping.Gap > 0f ? Words.T("$hoo_help_runs_gap_metres", Zooping.Gap.ToString("0.##"))
+                : Words.T("$hoo_help_runs_gap_overlap", (-Zooping.Gap).ToString("0.##"));
+            Note(Words.T("$hoo_help_runs_note", gap, ModConfig.ZoopGapStep.Value.ToString("0.##"), Key(ModConfig.ResetOffsetKey),
+                    ModConfig.ZoopLimit.Value.ToString(), ModConfig.UndoDepth.Value.ToString())
+                + " " + Words.T(ModConfig.UndoRefundsToInventory.Value ? "$hoo_help_runs_note_refund" : "$hoo_help_runs_note_drop"));
         }
 
         private static void Camera()
         {
-            Section("Detached Build Camera", "ᚲ");
-            Row(ModConfig.BuildCameraKey, "Toggle detached free-flight build camera");
-            Plain("Movement keys", "Fly around build site (W / A / S / D)");
-            Plain(Key(ModConfig.CameraUpKey) + " / " + Key(ModConfig.CameraDownKey), "Fly vertically up and down");
-            Plain("Hold " + Key(ModConfig.CameraBoostKey), "High-speed camera boost flight");
-            Note("Character remains anchored while placement aims from the flying camera. Tether range: "
-                + ModConfig.CameraRange.Value.ToString("0") + "m from character"
-                + (ModConfig.CameraPickup.Value ? " (camera picks up loose items as it flies)." : "."));
+            Section("$hoo_help_camera", "ᚲ");
+            Row(ModConfig.BuildCameraKey, "$hoo_help_cam_toggle");
+            Plain("$hoo_help_key_movement", "$hoo_help_cam_fly");
+            Plain(Key(ModConfig.CameraUpKey) + " / " + Key(ModConfig.CameraDownKey), "$hoo_help_cam_vertical");
+            Plain(Words.T("$hoo_help_key_hold", Key(ModConfig.CameraBoostKey)), "$hoo_help_cam_boost");
+            Note(Words.T("$hoo_help_cam_note", ModConfig.CameraRange.Value.ToString("0"))
+                + (ModConfig.CameraPickup.Value ? " " + Words.T("$hoo_help_cam_note_pickup") : string.Empty));
         }
 
         private static void Doors()
         {
-            Section("Doors", "ᛞ");
-            Plain("Your use key", "Open targeted door while holding building tool");
-            Note("Reach: " + ModConfig.DoorReach.Value.ToString("0.#")
-                + "m. Doors only - chests, stations and everything else stay shut off while a "
-                + "build tool is in hand, so nothing opens by accident as you line up a piece.");
+            Section("$hoo_help_doors", "ᛞ");
+            Plain("$hoo_help_key_use", "$hoo_help_doors_open");
+            Note(Words.T("$hoo_help_doors_note", ModConfig.DoorReach.Value.ToString("0.#")));
         }
 
         private static void Stations()
         {
-            Section("Workbench Range & Extended Reach", "ᚹ");
-            Plain("Hold " + Key(ModConfig.StationRangeKey) + " + scroll", "Expand or contract active workbench radius");
-            Note("Configurable range: " + ModConfig.StationRangeMin.Value.ToString("0.#") + "m to "
-                + ModConfig.StationRangeMax.Value.ToString("0.#") + "m. Radius persists per station."
+            Section("$hoo_help_stations", "ᚹ");
+            Plain(Words.T("$hoo_help_key_hold_scroll", Key(ModConfig.StationRangeKey)), "$hoo_help_stations_radius");
+            Note(Words.T("$hoo_help_stations_note", ModConfig.StationRangeMin.Value.ToString("0.#"), ModConfig.StationRangeMax.Value.ToString("0.#"))
                 + (ModConfig.ExtendReachToStation.Value
-                    ? " Build reach extends anywhere inside the workbench aura (up to "
-                      + ModConfig.ReachLimit.Value.ToString("0") + "m)."
+                    ? " " + Words.T("$hoo_help_stations_note_reach", ModConfig.ReachLimit.Value.ToString("0"))
                     : string.Empty));
         }
 
@@ -514,6 +470,8 @@ namespace TheHammerOfOden
 
         private static void Section(string title, string rune)
         {
+            title = L(title);
+
             // If filtering by search, skip header if no rows match
             GUILayout.Space(10f);
             GUILayout.BeginHorizontal();
@@ -541,6 +499,10 @@ namespace TheHammerOfOden
 
         private static void Plain(string keys, string what)
         {
+            // In the player's language before the search looks at it, so a search finds what is shown.
+            keys = L(keys);
+            what = L(what);
+
             // Search filter check
             if (!string.IsNullOrEmpty(_searchFilter))
             {
@@ -570,6 +532,7 @@ namespace TheHammerOfOden
 
         private static void Note(string text)
         {
+            text = L(text);
             if (!string.IsNullOrEmpty(_searchFilter))
             {
                 if (text.IndexOf(_searchFilter, StringComparison.OrdinalIgnoreCase) < 0)
@@ -581,7 +544,7 @@ namespace TheHammerOfOden
             GUILayout.Space(3f);
             GUILayout.BeginHorizontal(_noteBox);
             GUILayout.Space(8f);
-            GUILayout.Label($"<color=#F59E0B><b>✦ Tip:</b></color>  <color=#CBD5E1>{text}</color>", _note);
+            GUILayout.Label($"<color=#F59E0B><b>✦ {Words.T("$hoo_help_tip")}</b></color>  <color=#CBD5E1>{text}</color>", _note);
             GUILayout.Space(8f);
             GUILayout.EndHorizontal();
             GUILayout.Space(5f);
@@ -604,6 +567,12 @@ namespace TheHammerOfOden
             return s;
         }
 
+        /// <summary>Text in the player's language: a key, or text with keys inside it.</summary>
+        private static string L(string text)
+        {
+            return Localization.instance != null ? Localization.instance.Localize(text) : text;
+        }
+
         private static string StripTags(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
@@ -615,13 +584,13 @@ namespace TheHammerOfOden
         {
             if (entry == null)
             {
-                return "<color=#64748B><i>[ unbound ]</i></color>";
+                return "<color=#64748B><i>[ " + Words.T("$hoo_help_unbound") + " ]</i></color>";
             }
 
             KeyboardShortcut shortcut = entry.Value;
             if (shortcut.MainKey == KeyCode.None)
             {
-                return "<color=#64748B><i>[ unbound ]</i></color>";
+                return "<color=#64748B><i>[ " + Words.T("$hoo_help_unbound") + " ]</i></color>";
             }
 
             List<string> parts = new List<string>();

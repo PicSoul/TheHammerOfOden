@@ -201,7 +201,7 @@ namespace TheHammerOfOden
             _toggledOn = !_toggledOn;
             HammerOfOdenPlugin.Debug($"Surface placement toggled {(_toggledOn ? "on" : "off")}.");
 
-            Notify.Show(player, "Surface placement: " + (_toggledOn ? "on" : "off"));
+            Notify.Show(player, _toggledOn ? "$hoo_surface_on" : "$hoo_surface_off");
         }
 
         /// <summary>Drop the toggle when leaving build mode, so it never surprises you later.</summary>

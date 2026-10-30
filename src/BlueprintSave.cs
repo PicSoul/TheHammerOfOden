@@ -79,14 +79,14 @@ namespace TheHammerOfOden
 
             if (Selection.Count == 0)
             {
-                Notify.Show(player, "Select what to save first");
+                Notify.Show(player, "$hoo_save_select_first");
                 return;
             }
 
             _orders = GroupHold.SelectionForSaving(out _plants, out _ghosts, out string source);
             if (_orders.Count == 0)
             {
-                Notify.Show(player, "Nothing in the selection can be saved as a blueprint");
+                Notify.Show(player, "$hoo_save_nothing");
                 return;
             }
 
@@ -162,7 +162,7 @@ namespace TheHammerOfOden
 
             if (_name.Trim().Length == 0)
             {
-                _problem = "Give it a name first.";
+                _problem = Words.T("$hoo_save_name_first");
                 return;
             }
 
@@ -197,7 +197,7 @@ namespace TheHammerOfOden
             if (!BlueprintWriter.Save(path, _name.Trim(), _creator, _description, _category,
                 _created ?? now, replacing ? now : (System.DateTime?)null, _orders, out string error))
             {
-                _problem = "Could not save it: " + error;
+                _problem = Words.T("$hoo_save_failed", error);
                 _step = Step.Naming;
                 return;
             }
@@ -213,10 +213,10 @@ namespace TheHammerOfOden
             int plants = _plants;
             Close();
 
-            Notify.Show(player, $"Saved the blueprint '{_savedAs}' - {count} pieces"
-                + (ghosts > 0 ? $", {ghosts} of them still unbuilt ghosts" : string.Empty)
-                + (plants > 0 ? $"; {plants} plants left out" : string.Empty)
-                + ". PlanBuild and Infinity Hammer can load it too.");
+            Notify.Show(player, Words.T("$hoo_save_saved", _savedAs, count.ToString())
+                + (ghosts > 0 ? ", " + Words.T("$hoo_save_saved_ghosts", ghosts.ToString()) : string.Empty)
+                + (plants > 0 ? "; " + Words.T("$hoo_save_saved_plants", plants.ToString()) : string.Empty)
+                + ". " + Words.T("$hoo_save_saved_compatible"));
             HammerOfOdenPlugin.Info($"Saved blueprint '{_savedAs}' ({count} pieces) to {path}");
         }
 
@@ -274,26 +274,26 @@ namespace TheHammerOfOden
             float inner = width - 2f * pad;
             float line = _field.fontSize * 1.9f;
 
-            GUI.Label(new Rect(x, y, inner, line), "<b>Save as a blueprint</b>", _title);
+            GUI.Label(new Rect(x, y, inner, line), "<b>" + Words.T("$hoo_save_title") + "</b>", _title);
             y += line + 4f * ui;
 
-            string counts = $"{_orders.Count} pieces"
-                + (_ghosts > 0 ? $" ({_ghosts} unbuilt ghosts included)" : string.Empty)
-                + (_plants > 0 ? $" - {_plants} plants left out" : string.Empty);
+            string counts = Words.T("$hoo_save_count", _orders.Count.ToString())
+                + (_ghosts > 0 ? " (" + Words.T("$hoo_save_count_ghosts", _ghosts.ToString()) + ")" : string.Empty)
+                + (_plants > 0 ? " - " + Words.T("$hoo_save_saved_plants", _plants.ToString()) : string.Empty);
 
             if (_step == Step.Replacing)
             {
                 GUI.Label(new Rect(x, y, inner, line * 3f),
-                    $"Replace '{_name.Trim()}' ({_replacingCount} pieces) with this selection ({_orders.Count} pieces)?\n"
-                    + "The old one is kept beside it as a .bak file.", _text);
+                    Words.T("$hoo_save_replace_question", _name.Trim(), _replacingCount.ToString(), _orders.Count.ToString()) + "\n"
+                    + Words.T("$hoo_save_replace_backup"), _text);
 
                 float bw = 150f * ui;
-                if (GUI.Button(new Rect(window.xMax - pad - bw, window.yMax - pad - line, bw, line), "Replace", _button))
+                if (GUI.Button(new Rect(window.xMax - pad - bw, window.yMax - pad - line, bw, line), Words.T("$hoo_save_replace"), _button))
                 {
                     TrySave();
                 }
 
-                if (GUI.Button(new Rect(window.xMax - pad - 2f * bw - 8f * ui, window.yMax - pad - line, bw, line), "Back", _button))
+                if (GUI.Button(new Rect(window.xMax - pad - 2f * bw - 8f * ui, window.yMax - pad - line, bw, line), Words.T("$hoo_save_back"), _button))
                 {
                     _step = Step.Naming;
                 }
@@ -305,7 +305,7 @@ namespace TheHammerOfOden
             y += line;
 
             float labelWidth = 110f * ui;
-            GUI.Label(new Rect(x, y, labelWidth, line), "Name", _label);
+            GUI.Label(new Rect(x, y, labelWidth, line), Words.T("$hoo_save_name"), _label);
             GUI.SetNextControlName("HoO_BlueprintName");
             string name = GUI.TextField(new Rect(x + labelWidth, y, inner - labelWidth, line), _name, 80, _field);
             if (name != _name)
@@ -316,11 +316,11 @@ namespace TheHammerOfOden
 
             y += line + 6f * ui;
 
-            GUI.Label(new Rect(x, y, labelWidth, line), "Description", _label);
+            GUI.Label(new Rect(x, y, labelWidth, line), Words.T("$hoo_save_description"), _label);
             _description = GUI.TextField(new Rect(x + labelWidth, y, inner - labelWidth, line), _description, 300, _field);
             y += line + 6f * ui;
 
-            GUI.Label(new Rect(x, y, labelWidth, line), "Category", _label);
+            GUI.Label(new Rect(x, y, labelWidth, line), Words.T("$hoo_save_category"), _label);
             float pick = Categories.Count > 0 ? line : 0f;
             _category = GUI.TextField(new Rect(x + labelWidth, y, inner - labelWidth - pick, line), _category, 60, _field);
             Rect categoryRow = new Rect(x + labelWidth, y, inner - labelWidth, line);
@@ -337,7 +337,7 @@ namespace TheHammerOfOden
             }
             else if (_name.Trim().Length > 0 && File.Exists(BlueprintWriter.PathFor(_name)))
             {
-                GUI.Label(new Rect(x, y, inner, line), "A blueprint of this name exists - saving asks before replacing it.", _warn);
+                GUI.Label(new Rect(x, y, inner, line), Words.T("$hoo_save_name_exists"), _warn);
             }
 
             // Not while the category list is open over them: the window's controls take a click in
@@ -346,12 +346,12 @@ namespace TheHammerOfOden
             float buttonWidth = 150f * ui;
             if (!_categoriesShown)
             {
-                if (GUI.Button(new Rect(window.xMax - pad - buttonWidth, window.yMax - pad - line, buttonWidth, line), "Save", _button))
+                if (GUI.Button(new Rect(window.xMax - pad - buttonWidth, window.yMax - pad - line, buttonWidth, line), Words.T("$hoo_save_save"), _button))
                 {
                     TrySave();
                 }
 
-                if (GUI.Button(new Rect(window.xMax - pad - 2f * buttonWidth - 8f * ui, window.yMax - pad - line, buttonWidth, line), "Cancel", _button))
+                if (GUI.Button(new Rect(window.xMax - pad - 2f * buttonWidth - 8f * ui, window.yMax - pad - line, buttonWidth, line), Words.T("$hoo_save_cancel"), _button))
                 {
                     Close();
                 }

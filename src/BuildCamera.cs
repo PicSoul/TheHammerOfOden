@@ -63,12 +63,12 @@ namespace TheHammerOfOden
             if (_active)
             {
                 Deactivate(player);
-                Notify.Show(player, "Build camera: off");
+                Notify.Show(player, "$hoo_build_camera_off");
                 return;
             }
 
             Activate(player);
-            Notify.Show(player, "Build camera: on");
+            Notify.Show(player, "$hoo_build_camera_on");
         }
 
         private static void Activate(Player player)

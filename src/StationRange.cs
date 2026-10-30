@@ -87,7 +87,7 @@ namespace TheHammerOfOden
 
             if (station == null)
             {
-                Notify.Show(player, "No crafting station in reach");
+                Notify.Show(player, "$hoo_no_station");
                 return false;
             }
 

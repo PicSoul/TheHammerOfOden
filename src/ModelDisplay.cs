@@ -241,7 +241,7 @@ namespace TheHammerOfOden
             }
 
             PlacementUndo.RecordRevertible(() => PutBack(player, saved), () => TakeOff(player, saved), "model");
-            Notify.Show(player, "Model taken off - undo puts it back");
+            Notify.Show(player, "$hoo_model_taken_off");
             return true;
         }
 
@@ -262,8 +262,7 @@ namespace TheHammerOfOden
             {
                 _confirmUntil = Time.time + 4f;
                 _confirmHost = id;
-                Notify.Show(player, $"Middle-click again within 4 seconds to take the model off. The {host.m_name} "
-                    + "under it stays; undo puts the model back.");
+                Notify.Show(player, Words.T("$hoo_model_takeoff_confirm", host.m_name));
                 return true;
             }
 
